@@ -79,8 +79,9 @@ vient te chercher quand Claude attend ta permission et part en vrille quand la t
 
 ![Elle s'endort jusqu'à son masque, se réveille, et rangée en bas à gauche](docs/sleep.png)
 
-Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, pas leurs titres ni leur contenu).
-Sur macOS et Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
+Le suivi des fenêtres marche sous Windows (un petit script PowerShell lit la position des fenêtres, pas leurs titres ni leur contenu)
+et sous GNOME (sa petite extension GNOME Shell fait pareil, voir [GNOME](#gnome-wayland-ou-x11)).
+Sur macOS et les autres bureaux Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
 
 ### Elle te fait visiter
 
@@ -158,10 +159,32 @@ npm install
 npm start
 ```
 
-Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS ni Linux : elle devrait démarrer, mais les tours
+Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS : elle devrait démarrer, mais les tours
 avec les fenêtres (s'asseoir dessus, les posséder, t'afficher la réponse de Claude quand tu es ailleurs) ne marchent que
-sous Windows, et sous Linux le calque transparent marche mieux sous X11 (Wayland a du mal avec les fenêtres qui laissent
-passer les clics).
+sous Windows et GNOME.
+
+### GNOME (Wayland ou X11)
+
+Sous Linux elle tourne toujours sous X11, via XWayland dans une session Wayland : Wayland ne laisse aucune fenêtre
+rester devant, se placer ou laisser passer les clics. Elle relance une copie d'elle-même avec `--ozone-platform=x11` pour ça.
+
+D'office, tu peux cliquer sur elle, la déplacer et faire un clic droit pour son menu. Pour le reste (s'asseoir sur tes
+fenêtres, les posséder, voir ta souris approcher, Ctrl+Alt+C quand une appli Wayland a le focus), installe son
+extension GNOME Shell, puis ferme ta session et reviens :
+
+```bash
+npm run gnome:install     # ou, depuis son menu : Installer l'assistant GNOME
+```
+
+Elle ne lui envoie que la position des fenêtres et de la souris, par un socket dans `$XDG_RUNTIME_DIR`. Ni titres, ni
+contenu, et elle ne fait rien tant que Capri ne tourne pas. `npm run gnome:uninstall` la retire.
+
+- GNOME n'affiche pas d'icônes de zone de notification sans l'extension
+  [AppIndicator](https://extensions.gnome.org/extension/615/appindicator-support/). Clic droit sur elle : même menu.
+- *Lancer au démarrage* écrit `~/.config/autostart/capri.desktop`.
+- Lancée depuis le terminal de VS Code ? Il définit `ELECTRON_RUN_AS_NODE=1` : `env -u ELECTRON_RUN_AS_NODE npm start`.
+- Sous NixOS, l'Electron téléchargé par npm ne se lance pas : `nix-shell -p electron --run 'electron .'`.
+- `npm run dist:linux` construit une AppImage dans `dist/`.
 
 ### La brancher sur Claude Code à la main
 
@@ -222,7 +245,7 @@ avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 
 ## FAQ
 
-- **Mac, Linux ?** Pas encore d'installeur, mais tu peux la lancer depuis le code (voir plus haut).
+- **Mac, Linux ?** Pas encore d'installeur, mais tu peux la lancer depuis le code (voir plus haut). Sous GNOME, voir [GNOME](#gnome-wayland-ou-x11).
 - **Téléphone, Android ?** Non, il lui faut un ordinateur.
 - **D'autres assistants (Codex, Cursor, Windsurf, Gemini…) ?** Seulement Claude Code pour l'instant.
 - **Je peux l'éteindre ?** Ctrl+Alt+C la range, **Quitter** dans son menu la ferme. Claude Code marche exactement pareil
@@ -300,7 +323,9 @@ scripts/install-hooks.js ajoute / retire le hook dans ~/.claude/settings.json
 tools/build-sprite.py    reconstruit le sprite depuis la découpe d'origine (Python + Pillow, seulement si tu la changes)
 tools/build-cutins.py    découpe les cut-ins, ses expressions et son intro dans des images de la série
 src/main/                Electron : fenêtre transparente plein écran, clic à travers, tray, bridge HTTP local
-  windows.js / .ps1      où sont les autres fenêtres (Windows), pour qu'elle s'assoie dessus
+  windows.js / .ps1      où sont les autres fenêtres (Windows, et GNOME via son extension), pour qu'elle s'assoie dessus
+gnome/                   son extension GNOME Shell : position des fenêtres et de la souris, envoyées par un socket
+scripts/gnome-extension.js l'installe / la retire
 src/renderer/js/
   sprite.js              shader WebGL : tête, crinière, position assise, smears, images rémanentes, couleurs, glitch
   acting.js              les feuilles d'exposition : chaque mouvement, dessin par dessin

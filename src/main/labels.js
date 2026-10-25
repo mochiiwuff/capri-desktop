@@ -14,6 +14,8 @@ const TRAY = {
     possess: 'Posséder mes fenêtres', lang: 'Langue', auto: 'Automatique (système)', startup: 'Lancer au démarrage',
     hooksOn: 'Hooks Claude Code : installés', hooksOff: 'Installer les hooks Claude Code',
     hooksRemove: 'Retirer les hooks Claude Code', quit: 'Quitter',
+    login: 'Lancer au démarrage', gnomeOn: 'Assistant GNOME : actif',
+    gnomeOff: 'Installer l’assistant GNOME (pour voir mes fenêtres)', gnomeRelog: 'Assistant GNOME : ferme ta session et reviens',
   },
   en: {
     name: 'English',
@@ -25,6 +27,8 @@ const TRAY = {
     possess: 'Possess my windows', lang: 'Language', auto: 'Automatic (system)', startup: 'Start with Windows',
     hooksOn: 'Claude Code hooks: installed', hooksOff: 'Install Claude Code hooks',
     hooksRemove: 'Remove Claude Code hooks', quit: 'Quit',
+    login: 'Start at login', gnomeOn: 'GNOME helper: on',
+    gnomeOff: 'Install the GNOME helper (to see my windows)', gnomeRelog: 'GNOME helper: log out and back in',
   },
   es: {
     name: 'Español',
@@ -36,6 +40,8 @@ const TRAY = {
     possess: 'Poseer mis ventanas', lang: 'Idioma', auto: 'Automático (sistema)', startup: 'Iniciar con Windows',
     hooksOn: 'Hooks de Claude Code: instalados', hooksOff: 'Instalar los hooks de Claude Code',
     hooksRemove: 'Quitar los hooks de Claude Code', quit: 'Salir',
+    login: 'Iniciar al iniciar sesión', gnomeOn: 'Ayudante de GNOME: activo',
+    gnomeOff: 'Instalar el ayudante de GNOME (para ver mis ventanas)', gnomeRelog: 'Ayudante de GNOME: cierra sesión y vuelve',
   },
   pt: {
     name: 'Português (Brasil)',
@@ -47,6 +53,8 @@ const TRAY = {
     possess: 'Possuir minhas janelas', lang: 'Idioma', auto: 'Automático (sistema)', startup: 'Iniciar com o Windows',
     hooksOn: 'Hooks do Claude Code: instalados', hooksOff: 'Instalar os hooks do Claude Code',
     hooksRemove: 'Remover os hooks do Claude Code', quit: 'Sair',
+    login: 'Iniciar ao entrar na sessão', gnomeOn: 'Ajudante do GNOME: ativo',
+    gnomeOff: 'Instalar o ajudante do GNOME (para ver minhas janelas)', gnomeRelog: 'Ajudante do GNOME: saia da sessão e volte',
   },
   ru: {
     name: 'Русский',
@@ -58,6 +66,8 @@ const TRAY = {
     possess: 'Вселяться в мои окна', lang: 'Язык', auto: 'Автоматически (системный)', startup: 'Запускать вместе с Windows',
     hooksOn: 'Хуки Claude Code: установлены', hooksOff: 'Установить хуки Claude Code',
     hooksRemove: 'Удалить хуки Claude Code', quit: 'Выйти',
+    login: 'Запускать при входе', gnomeOn: 'Помощник GNOME: работает',
+    gnomeOff: 'Установить помощника GNOME (чтобы видеть мои окна)', gnomeRelog: 'Помощник GNOME: выйди из сеанса и зайди снова',
   },
 };
 

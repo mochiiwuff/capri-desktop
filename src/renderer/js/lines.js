@@ -77,6 +77,8 @@ export const LINES = {
         line: 'Mon icône, c’est là, près de l’horloge.',
         quote: 'Clic dessus : mon menu. Clic droit sur moi, c’est le même.',
         hidden: 'Windows la cache souvent derrière le ^ à côté de l’horloge : clique dessus, je suis dedans. Sinon, clic droit sur moi : c’est le même menu.',
+        top: 'Mon icône, c’est là-haut, dans la barre du haut.',
+        topHow: 'Si GNOME l’affiche : il lui faut l’extension AppIndicator. Sinon, clic droit sur moi : c’est le même menu.',
       },
       claude: {
         there: 'Claude, c’est cette fenêtre-là.',
@@ -188,6 +190,8 @@ export const LINES = {
         line: 'My icon is right there, by the clock.',
         quote: 'Click it: my menu. Right-clicking me does the same.',
         hidden: 'Windows often hides it behind the ^ next to the clock: click that, I’m in there. Or right-click me: same menu.',
+        top: 'My icon goes up there, in the top bar.',
+        topHow: 'If GNOME shows it: that takes the AppIndicator extension. Or right-click me: same menu.',
       },
       claude: {
         there: 'Claude is that window right there.',
@@ -295,6 +299,8 @@ export const LINES = {
         line: 'Mi icono está ahí, junto al reloj.',
         quote: 'Haz clic: mi menú. Clic derecho sobre mí, el mismo.',
         hidden: 'Windows suele esconderlo detrás del ^ junto al reloj: haz clic ahí, estoy dentro. Si no, clic derecho sobre mí: es el mismo menú.',
+        top: 'Mi icono va ahí arriba, en la barra superior.',
+        topHow: 'Si GNOME lo muestra: necesita la extensión AppIndicator. Si no, clic derecho sobre mí: es el mismo menú.',
       },
       claude: {
         there: 'Claude es esa ventana de ahí.',
@@ -404,6 +410,8 @@ export const LINES = {
         line: 'Meu ícone está ali, perto do relógio.',
         quote: 'Clica nele: meu menu. Clique direito em mim dá no mesmo.',
         hidden: 'O Windows costuma escondê-lo atrás do ^ perto do relógio: clica ali, eu estou dentro. Ou clique direito em mim: é o mesmo menu.',
+        top: 'Meu ícone fica lá em cima, na barra superior.',
+        topHow: 'Se o GNOME mostrar: precisa da extensão AppIndicator. Ou clique direito em mim: é o mesmo menu.',
       },
       claude: {
         there: 'O Claude é aquela janela ali.',
@@ -513,6 +521,8 @@ export const LINES = {
         line: 'Моя иконка вон там, у часов.',
         quote: 'Нажми на неё — моё меню. Правый клик по мне — то же самое.',
         hidden: 'Windows часто прячет её за ^ рядом с часами: нажми туда, я там. Или правый клик по мне — то же меню.',
+        top: 'Моя иконка там, наверху, в верхней панели.',
+        topHow: 'Если GNOME её показывает: для этого нужно расширение AppIndicator. Или правый клик по мне — то же меню.',
       },
       claude: {
         there: 'Claude — вот это окно.',

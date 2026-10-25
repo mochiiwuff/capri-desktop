@@ -12,7 +12,10 @@
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
-    "dist": "electron-builder --win"
+    "gnome:install": "node scripts/gnome-extension.js",
+    "gnome:uninstall": "node scripts/gnome-extension.js --uninstall",
+    "dist": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "keywords": [
     "claude-code",
@@ -41,6 +44,7 @@
       "assets/**",
       "hooks/**",
       "scripts/**",
+      "gnome/**",
       "package.json",
       "LICENSE"
     ],
@@ -51,6 +55,12 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icons/capri.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/capri.png",
+      "category": "Utility",
+      "artifactName": "Capri-${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,

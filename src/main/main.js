@@ -3,6 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
+const { spawn } = require('node:child_process');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
 } = require('electron');
@@ -12,6 +13,7 @@ const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const hooks = require('../../scripts/install-hooks');
+const gnome = require('../../scripts/gnome-extension');
 const demoSteps = require('../../scripts/demo-sequence');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -31,6 +33,11 @@ let demoTimer = null;
 let windowWatch = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
+let catcher = null;
+let zones = [];
+let clickThrough = true;
+let helperLive = false;
+let shellPointer = null; // where GNOME says the pointer is (XWayland only knows it over X11 windows)
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
 
@@ -57,6 +64,7 @@ function fitOverlay() {
   if (!overlay) return;
   const { workArea } = targetDisplay();
   overlay.setBounds(workArea);
+  catcher?.setBounds(workArea);
   overlay.webContents.send('overlay:resize', { width: workArea.width, height: workArea.height });
 }
 
@@ -105,6 +113,69 @@ function createOverlay() {
   }
 }
 
+// A Wayland session without her GNOME helper: XWayland only knows where the pointer is while it's
+// over an X11 window, and her overlay lets it through. So an invisible window shaped like where she
+// takes clicks (her, her panel, her chip) catches it there, and shrinks to a pixel once she takes them.
+const WAYLAND = process.platform === 'linux' && (process.env.XDG_SESSION_TYPE === 'wayland' || Boolean(process.env.WAYLAND_DISPLAY));
+
+function createCatcher() {
+  catcher = new BrowserWindow({
+    ...overlay.getBounds(),
+    transparent: true,
+    backgroundColor: '#00000000',
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false,
+    hasShadow: false,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: { sandbox: true, contextIsolation: true },
+  });
+  catcher.setAlwaysOnTop(true, 'screen-saver');
+  catcher.loadURL('data:text/html,<body style="background:transparent"></body>');
+  catcher.once('ready-to-show', () => {
+    shapeCatcher();
+    catcher.showInactive();
+  });
+}
+
+function shapeCatcher() {
+  if (!catcher || catcher.isDestroyed()) return;
+  const on = clickThrough && !windowWatch?.live && zones.length > 0;
+  // an empty shape means no shape at all (the whole window): a pixel instead
+  catcher.setShape(on ? zones : [{ x: 0, y: 0, width: 1, height: 1 }]);
+}
+
+// Where the pointer is, in screen coordinates.
+function pointer() {
+  return (windowWatch?.live && shellPointer) || screen.getCursorScreenPoint();
+}
+
+// Linux doesn't forward the pointer moving over a click-through window (`forward` is Windows and
+// macOS only), and she needs it to know when it's on her: we replay it. Once she takes the clicks,
+// the real events come in.
+let lastForward = null;
+function forwardPointer() {
+  if (!overlay || overlay.isDestroyed() || !clickThrough) return;
+  const p = pointer();
+  const b = overlay.getBounds();
+  const at = { x: p.x - b.x, y: p.y - b.y };
+  const inside = at.x >= 0 && at.y >= 0 && at.x < b.width && at.y < b.height;
+  if (!inside) {
+    if (lastForward) overlay.webContents.sendInputEvent({ type: 'mouseLeave', ...lastForward });
+    lastForward = null;
+    return;
+  }
+  if (lastForward && lastForward.x === at.x && lastForward.y === at.y) return;
+  lastForward = at;
+  overlay.webContents.sendInputEvent({ type: 'mouseMove', ...at });
+}
+
 function sendCommand(name, payload = {}) {
   overlay?.webContents.send('capri:command', { name, ...payload });
 }
@@ -131,8 +202,8 @@ function playDemo() {
   next();
 }
 
-// During the demo, a little fake terminal for her to sit on and take over (window tracking is
-// Windows only, so only there). Opened without stealing focus; closing it drops her off it.
+// During the demo, a little fake terminal for her to sit on and take over (only where she can see
+// windows: Windows, GNOME with her helper). Opened without stealing focus; closing it drops her off it.
 let demoWin = null;
 const DEMO_TERMINAL = `<body style="margin:0;background:#14101c;color:#8f8aa3;font:13px/1.7 Consolas,monospace;padding:14px 18px">
 <div style="color:#36ff7a">PS C:\\night-city-api&gt; npm test -- gigs</div>
@@ -143,7 +214,7 @@ const DEMO_TERMINAL = `<body style="margin:0;background:#14101c;color:#8f8aa3;fo
 function demoWindow(open) {
   demoWin?.destroy();
   demoWin = null;
-  if (!open || process.platform !== 'win32') return false;
+  if (!open || !windowWatch?.live) return false;
   const b = overlay.getBounds();
   demoWin = new BrowserWindow({
     x: Math.round(b.x + b.width * 0.5 - 310), y: Math.round(b.y + b.height * 0.42), width: 620, height: 300,
@@ -169,7 +240,7 @@ function resolveLang(setting) {
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
   const cfg = config.load();
-  return { ...cfg, lang: resolveLang(cfg.lang), langSetting: cfg.lang };
+  return { ...cfg, lang: resolveLang(cfg.lang), langSetting: cfg.lang, catchPointer: WAYLAND };
 }
 
 function updateConfig(patch) {
@@ -237,12 +308,13 @@ function rebuildTray() {
       })),
     },
     {
-      label: t.startup,
+      label: process.platform === 'win32' ? t.startup : t.login,
       type: 'checkbox',
-      checked: app.getLoginItemSettings(loginItemOptions()).openAtLogin,
-      click: (item) => app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: item.checked }),
+      checked: startsAtLogin(),
+      click: (item) => setStartAtLogin(item.checked),
     },
     { type: 'separator' },
+    ...gnomeItems(t),
     hookState.installed
       ? { label: t.hooksOn, enabled: false }
       : { label: t.hooksOff, click: () => runHooks('install') },
@@ -258,6 +330,53 @@ function rebuildTray() {
 // it needs the project folder as argument.
 function loginItemOptions() {
   return app.isPackaged ? {} : { path: process.execPath, args: [ROOT] };
+}
+
+// Electron has no login items on Linux: an XDG autostart entry instead. An AppImage runs from a
+// temporary mount, so it's the AppImage itself that starts.
+const autostartFile = () => path.join(app.getPath('appData'), 'autostart', 'capri.desktop');
+
+function startsAtLogin() {
+  if (process.platform !== 'linux') return app.getLoginItemSettings(loginItemOptions()).openAtLogin;
+  return fs.existsSync(autostartFile());
+}
+
+function setStartAtLogin(on) {
+  if (process.platform !== 'linux') {
+    app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: on });
+    return;
+  }
+  const file = autostartFile();
+  if (!on) {
+    fs.rmSync(file, { force: true });
+    return;
+  }
+  const quote = (arg) => `"${String(arg).replace(/(["`$\\])/g, '\\$1')}"`;
+  const exec = app.isPackaged ? [process.env.APPIMAGE || process.execPath] : [process.execPath, ROOT];
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, [
+    '[Desktop Entry]', 'Type=Application', 'Name=Capri', `Exec=${exec.map(quote).join(' ')}`,
+    'X-GNOME-Autostart-enabled=true', 'NoDisplay=true', '',
+  ].join('\n'));
+}
+
+// On GNOME: her helper extension, the only way she sees windows there.
+function gnomeItems(t) {
+  const helper = gnome.status();
+  if (!helper.gnome) return [];
+  if (helperLive) return [{ label: t.gnomeOn, enabled: false }];
+  if (helper.installed) return [{ label: t.gnomeRelog, enabled: false }];
+  return [{
+    label: t.gnomeOff,
+    click: () => {
+      try {
+        gnome.install();
+      } catch (err) {
+        console.error('[capri] GNOME helper:', err.message);
+      }
+      rebuildTray();
+    },
+  }];
 }
 
 // From the tray, she says how it went; from her welcome panel (quiet), the panel does.
@@ -284,10 +403,17 @@ function createTray() {
 
 function registerIpc() {
   ipcMain.on('overlay:interactive', (_e, on) => {
+    clickThrough = !on;
+    lastForward = null;
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
+    shapeCatcher();
+  });
+  ipcMain.on('overlay:zones', (_e, list) => {
+    zones = Array.isArray(list) ? list.filter((z) => z.width > 0 && z.height > 0) : [];
+    shapeCatcher();
   });
   ipcMain.handle('overlay:cursor', () => {
-    const p = screen.getCursorScreenPoint();
+    const p = pointer();
     const b = overlay.getBounds();
     return { x: p.x - b.x, y: p.y - b.y, inside: p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height };
   });
@@ -309,6 +435,11 @@ function registerIpc() {
     const d = targetDisplay().bounds;
     const b = tray?.getBounds();
     const icon = b && b.width > 0 ? { x: b.x - o.x, y: b.y - o.y, w: b.width, h: b.height } : null;
+    // GNOME: its tray icons (with the AppIndicator extension) go in the top bar, on the right
+    if (process.platform === 'linux') {
+      const bar = Math.max(24, targetDisplay().workArea.y - d.y);
+      return { icon, corner: { x: d.x + d.width - 150 - o.x, y: d.y - o.y, w: 140, h: bar }, top: true };
+    }
     const corner = { x: d.x + d.width - 150 - o.x, y: d.y + d.height - 44 - o.y, w: 140, h: 40 };
     return { icon, corner };
   });
@@ -396,6 +527,16 @@ async function debugHandler(route, body) {
   throw new Error('unknown debug route');
 }
 
+// Wayland lets no window place itself, stay on top or let clicks through: on Linux she lives on X11
+// (XWayland under a Wayland session), where all three work. Chromium only takes that from its real
+// command line (added from here, its GPU process crashes), so she starts again with it and this
+// first process waits for her: an AppImage stays mounted as long as it runs.
+function relaunchOnX11() {
+  const child = spawn(process.execPath, [...process.argv.slice(1), '--ozone-platform=x11'], { stdio: 'inherit' });
+  child.on('exit', (code) => app.exit(code ?? 0));
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => child.kill(signal));
+}
+
 function main() {
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -408,14 +549,27 @@ function main() {
     serveProtocol();
     registerIpc();
     createOverlay();
+    if (WAYLAND) createCatcher();
     createTray();
     windowWatch = startWindowWatch({
       overlay,
       onUpdate: (data) => {
         lastWindows = data;
         overlay?.webContents.send('windows:update', data);
+        const live = Boolean(windowWatch?.live); // the GNOME helper came or went
+        if (live !== helperLive) {
+          helperLive = live;
+          shapeCatcher(); // the helper tells her where the pointer is: no need to catch it
+          rebuildTray();
+        }
       },
+      onPointer: (p) => {
+        shellPointer = p;
+        forwardPointer();
+      },
+      onKey: (key) => key === 'toggle' && toggleVisible(),
     });
+    if (process.platform === 'linux') setInterval(() => !windowWatch.live && forwardPointer(), 33);
     createBridge({
       port: PORT,
       onEvent: (evt) => overlay?.webContents.send('claude:event', evt),
@@ -434,4 +588,6 @@ function main() {
   app.on('window-all-closed', (e) => e.preventDefault());
 }
 
-main();
+// (Electron fills in the switch itself when it picks a platform: only the real argv says it was asked for)
+if (process.platform === 'linux' && !process.argv.some((arg) => arg.startsWith('--ozone-platform='))) relaunchOnX11();
+else main();

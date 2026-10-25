@@ -159,7 +159,8 @@ export class Guide {
     const scene = this.sceneId;
     await this.capri.pointAt(place.icon || place.corner, { label: this.t.labels.icon });
     if (scene !== this.sceneId) return; // another scene took over meanwhile
-    await this.ask({ face: 'look', line: t.line, quote: place.icon ? t.quote : t.hidden, actions: this.ok() });
+    if (place.top) await this.ask({ face: 'look', line: t.top, quote: t.topHow, actions: this.ok() });
+    else await this.ask({ face: 'look', line: t.line, quote: place.icon ? t.quote : t.hidden, actions: this.ok() });
   }
 
   // Where Claude is: the window you typed your last prompt in.

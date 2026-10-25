@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('host', {
   onResize: on('overlay:resize'),
   onWindows: on('windows:update'),
   setInteractive: (on) => ipcRenderer.send('overlay:interactive', Boolean(on)),
+  setZones: (zones) => ipcRenderer.send('overlay:zones', zones),
   cursor: () => ipcRenderer.invoke('overlay:cursor'),
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (patch) => ipcRenderer.invoke('config:set', patch),

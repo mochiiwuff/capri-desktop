@@ -197,6 +197,29 @@ export class Capri {
     return false;
   }
 
+  // Where hit() says yes, as a few rectangles: her silhouette sampled every `step` px, one box per
+  // band of `band` rows. For Wayland, where the pointer has to be caught over her (see main.js).
+  hitRects(step = 10, band = 3) {
+    if (this.hidden || this.p.alpha < 0.5) return [];
+    const s = this.scale;
+    const fy = this.pos.y + this.bob;
+    const x0 = this.pos.x - SPRITE.width * s, x1 = this.pos.x + SPRITE.width * s;
+    const y0 = this.upside ? fy : fy - SPRITE.height * s, y1 = this.upside ? fy + SPRITE.height * s : fy;
+    const rects = [];
+    for (let top = y0; top < y1; top += step * band) {
+      let left = Infinity, right = -Infinity;
+      for (let y = top; y < Math.min(top + step * band, y1); y += step) {
+        for (let x = x0; x <= x1; x += step) {
+          if (!this.hit(x, y)) continue;
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+        }
+      }
+      if (left <= right) rects.push({ x: left - step, y: top - step, width: right - left + step * 2, height: step * (band + 1) });
+    }
+    return rects;
+  }
+
   faceCenter() {
     this.facing = this.pos.x > this.view.w / 2 ? 1 : -1;
   }

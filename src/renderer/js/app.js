@@ -122,6 +122,23 @@ async function boot() {
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) comeOut();
   });
 
+  // Wayland: the main process shapes a window after where she takes clicks, to catch the pointer there
+  if (config.catchPointer) {
+    let last = '';
+    const box = (x, y, width, height) => ({ x: Math.floor(x), y: Math.floor(y), width: Math.ceil(width), height: Math.ceil(height) });
+    setInterval(() => {
+      const zones = capri.hitRects().map((r) => box(r.x, r.y, r.width, r.height));
+      const r = panel.rect();
+      if (r) zones.push(box(r.left, r.top, r.width, r.height));
+      if (chip.visible) zones.push(box(chip.x, chip.y, chip.w, chip.h));
+      if (mask.visible) zones.push(box(mask.x - 30, mask.y - 30, mask.w + 60, mask.h + 60));
+      const key = JSON.stringify(zones);
+      if (key === last) return;
+      last = key;
+      host.setZones(zones);
+    }, 100);
+  }
+
   // wiring
   capri.onMove = (head) => {
     // pointing at something: the panel goes on her other side, so it doesn't cover it

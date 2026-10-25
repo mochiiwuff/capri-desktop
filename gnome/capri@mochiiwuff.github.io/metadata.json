@@ -1,0 +1,8 @@
+{
+  "uuid": "capri@mochiiwuff.github.io",
+  "name": "Capri",
+  "description": "Tells Capri (capri-desktop) where your windows and your pointer are, so she can sit on them. Positions only: no titles, no contents. Does nothing while Capri isn't running.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/mochiiwuff/capri-desktop",
+  "settings-schema": "org.gnome.shell.extensions.capri"
+}
