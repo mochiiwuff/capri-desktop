@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.capri" path="/org/gnome/shell/extensions/capri/">
+    <key name="toggle" type="as">
+      <default><![CDATA[['<Control><Alt>c']]]></default>
+      <summary>Put Capri away or bring her back</summary>
+    </key>
+  </schema>
+</schemalist>

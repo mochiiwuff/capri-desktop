@@ -76,8 +76,9 @@ comes to find you when Claude needs your permission, and loses it when the job i
 
 ![Asleep down to her mask, waking up, and put away bottom left](docs/sleep.png)
 
-Window tracking is Windows-only for now (a tiny PowerShell helper reads window positions, no titles, no contents).
-On macOS and Linux she still floats, peeks, falls and wanders.
+Window tracking works on Windows (a tiny PowerShell helper reads window positions, no titles, no contents) and on
+GNOME (her little GNOME Shell extension does the same, see [GNOME](#gnome-wayland-or-x11)).
+On macOS and other Linux desktops she still floats, peeks, falls and wanders.
 
 ### She shows you around
 
@@ -152,9 +153,31 @@ npm install
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+Keep that terminal open while she runs. Not tested on macOS yet: she should start, but the window tricks
+(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows and GNOME only.
+
+### GNOME (Wayland or X11)
+
+On Linux she always runs on X11, through XWayland in a Wayland session: Wayland lets no window stay on top, place
+itself or let clicks through. She starts a second copy of herself with `--ozone-platform=x11` for that.
+
+Out of the box you can click her, drag her and right-click her for her menu. For the rest (sitting on your windows,
+possessing them, noticing your pointer coming close, Ctrl+Alt+C while a Wayland app has the focus), install her
+GNOME Shell extension, then log out and back in:
+
+```bash
+npm run gnome:install     # or, from her menu: Install the GNOME helper
+```
+
+It only sends her the windows' positions and the pointer's, over a socket in `$XDG_RUNTIME_DIR`. No titles, no
+contents, and it does nothing while she isn't running. `npm run gnome:uninstall` removes it.
+
+- GNOME shows no tray icons without the [AppIndicator](https://extensions.gnome.org/extension/615/appindicator-support/)
+  extension. Right-click her instead: same menu.
+- *Start at login* writes `~/.config/autostart/capri.desktop`.
+- Running from VS Code's terminal? It sets `ELECTRON_RUN_AS_NODE=1`: `env -u ELECTRON_RUN_AS_NODE npm start`.
+- On NixOS, the Electron that npm downloads won't run: `nix-shell -p electron --run 'electron .'`.
+- `npm run dist:linux` builds an AppImage in `dist/`.
 
 ### Hook her up to Claude Code by hand
 
@@ -215,7 +238,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 ## FAQ
 
-- **Mac, Linux?** No installer yet, but you can run her from the source (see above).
+- **Mac, Linux?** No installer yet, but you can run her from the source (see above). On GNOME, see [GNOME](#gnome-wayland-or-x11).
 - **Phone, Android?** No, she needs a desktop.
 - **Other assistants (Codex, Cursor, Windsurf, Gemini…)?** Claude Code only for now.
 - **Can I turn her off?** Ctrl+Alt+C puts her away, **Quit** in her menu closes her. Claude Code works exactly the same
@@ -290,7 +313,9 @@ scripts/install-hooks.js adds / removes the hook in ~/.claude/settings.json
 tools/build-sprite.py    rebuilds the sprite from the original cut-out (Python + Pillow, only if you change it)
 tools/build-cutins.py    cuts the cut-ins, her faces and her intro out of frames of the show
 src/main/                Electron: full-screen transparent click-through window, tray, local HTTP bridge
-  windows.js / .ps1      where the other windows are (Windows only), so she can sit on them
+  windows.js / .ps1      where the other windows are (Windows, and GNOME through its extension), so she can sit on them
+gnome/                   her GNOME Shell extension: window positions and the pointer, sent to her over a socket
+scripts/gnome-extension.js installs / removes it
 src/renderer/js/
   sprite.js              WebGL shader: head tilt, mane flare, sitting, smears, afterimages, colors, glitch
   acting.js              the exposure sheets: every move, drawing by drawing
