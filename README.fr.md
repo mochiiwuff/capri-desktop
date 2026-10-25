@@ -3,8 +3,8 @@
 # Capri
 
 Capri, le construct du *Project Capricorn* (Cyberpunk: Edgerunners, saison 2), vit sur ton bureau
-et te raconte ce que fait **Claude Code** : elle se téléporte, glitche, commente chaque action,
-vient te chercher quand Claude attend ta permission et part en vrille quand la tâche est finie.
+et te raconte ce que fait **Claude Code ou Codex** : elle se téléporte, glitche, commente chaque action,
+vient te chercher quand ton agent attend ta permission et part en vrille quand la tâche est finie.
 
 ![Capri annonce que Claude a terminé](docs/done.png)
 
@@ -117,6 +117,49 @@ npm run hooks:install
 Relance tes sessions Claude Code ensuite. Pour retirer : `npm run hooks:uninstall`.
 
 Les hooks sont lancés en `async` : ils ne ralentissent jamais Claude, et si Capri n'est pas lancée ils ne font rien.
+
+### La brancher sur Codex
+
+Capri peut aussi suivre les **sessions locales de Codex**, en parallèle de Claude
+Code. Il faut une version de Codex avec les
+[hooks de cycle de vie](https://learn.chatgpt.com/docs/hooks) activés. Menu de
+l'icône › **Installer les hooks Codex**, ou :
+
+```bash
+npm run hooks:codex:install
+```
+
+Les hooks sont ajoutés à `~/.codex/hooks.json` (`%USERPROFILE%\.codex\hooks.json`
+sous Windows), ou `$CODEX_HOME/hooks.json` si cette variable est définie. Les hooks
+existants sont conservés et le fichier existant est sauvegardé avant modification.
+Ouvre une nouvelle session locale Codex, puis **vérifie et approuve les hooks**
+avec `/hooks` dans le CLI Codex. L'installation ne contourne aucune autorisation.
+
+Capri réagit aux prompts, outils, demandes d'autorisation, commandes en échec,
+sous-agents, compactages, fins de tour et interruptions. Elle affiche la réponse
+finale si Codex la fournit. Pour `apply_patch`, seuls les noms des fichiers sont
+transmis, jamais le contenu du patch (128 chemins au maximum par action). Les
+outils hébergés, comme la recherche web intégrée, n'émettent pas de hooks locaux.
+Les sessions cloud ne sont pas prises en charge. Aucune clé API n'est nécessaire.
+
+Les hooks d'outils et de progression tournent en arrière-plan. Les débuts/fins de
+session, prompts, fins de tour et interruptions sont synchrones, avec un délai
+maximal de deux secondes pour ne pas perdre la notification d'un tour très court.
+L'adaptateur reste silencieux, termine sans erreur si Capri est fermée et ne prend
+jamais de décision d'autorisation. Réinstalle les hooks si tu déplaces le clone,
+l'application ou Node. La version installée utilise son propre runtime Electron.
+
+```bash
+npm run hooks:codex:status
+npm run hooks:codex:uninstall
+```
+
+Pour vérifier une contribution : `npm test` (tests Node sans dépendance ajoutée).
+Pour le test réel, lance Capri et une nouvelle session locale avec les hooks
+approuvés : prompt, commande, patch sur deux fichiers, commande en échec, demande
+d'autorisation et fin de tour. Vérifie les actions, le compteur, les alertes et la
+réponse finale. Interromps un autre tour : aucune célébration. Ferme Capri et
+vérifie que Codex fonctionne toujours. Les hooks Claude restent indépendants.
 
 ### Tester sans Claude
 

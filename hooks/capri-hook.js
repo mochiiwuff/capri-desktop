@@ -15,6 +15,7 @@ const KEEP = [
   'tool_name', 'tool_input', 'tool_use_id', 'duration_ms', 'error', 'is_interrupt',
   'prompt', 'message', 'title', 'notification_type', 'last_assistant_message',
   'agent_id', 'agent_type', 'source', 'reason', 'trigger',
+  'provider', 'turn_id',
 ];
 
 function trim(value, depth = 0) {
@@ -47,36 +48,41 @@ function slim(evt) {
   return out;
 }
 
-const bail = () => process.exit(0);
-setTimeout(bail, 2000).unref();
-
-let raw = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
-  raw += chunk;
-  if (raw.length > 8 * 1024 * 1024) bail();
-});
-process.stdin.on('error', bail);
-process.stdin.on('end', () => {
-  let evt;
-  try {
-    evt = JSON.parse(raw);
-  } catch {
-    return bail();
-  }
-  const body = JSON.stringify(slim(evt));
-  const req = http.request({
-    host: '127.0.0.1',
-    port: PORT,
-    path: '/event',
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
-    timeout: 800,
-  }, (res) => {
-    res.resume();
-    res.on('end', bail);
+function run(normalize = slim) {
+  const bail = () => process.exit(0);
+  setTimeout(bail, 2000).unref();
+  let raw = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => {
+    raw += chunk;
+    if (raw.length > 8 * 1024 * 1024) bail();
   });
-  req.on('timeout', () => { req.destroy(); bail(); });
-  req.on('error', bail);
-  req.end(body);
-});
+  process.stdin.on('error', bail);
+  process.stdin.on('end', () => {
+    let evt;
+    try {
+      evt = normalize(JSON.parse(raw));
+      if (!evt || typeof evt !== 'object' || Array.isArray(evt)) return bail();
+    } catch {
+      return bail();
+    }
+    const body = JSON.stringify(evt);
+    const req = http.request({
+      host: '127.0.0.1',
+      port: PORT,
+      path: '/event',
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      timeout: 800,
+    }, (res) => {
+      res.resume();
+      res.on('end', bail);
+    });
+    req.on('timeout', () => { req.destroy(); bail(); });
+    req.on('error', bail);
+    req.end(body);
+  });
+}
+
+module.exports = { slim, run };
+if (require.main === module) run();

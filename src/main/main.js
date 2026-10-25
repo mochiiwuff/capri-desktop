@@ -11,6 +11,7 @@ const config = require('./config');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const hooks = require('../../scripts/install-hooks');
+const codexHooks = require('../../scripts/install-codex-hooks');
 const demoSteps = require('../../scripts/demo-sequence');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -181,6 +182,7 @@ function rebuildTray() {
   if (!tray) return;
   const cfg = config.load();
   const hookState = hooks.status();
+  const codexHookState = codexHooks.status();
   const t = resolveLang(cfg.lang) === 'en'
     ? {
       online: `Capri — listening on ${PORT}`, teleport: 'Teleport', satellite: 'Look at the satellite', demo: 'Play demo', show: 'Bring her back', hide: 'Put her away',
@@ -188,6 +190,7 @@ function rebuildTray() {
       soundsDir: 'Open custom sounds folder', screen: 'Screen', wander: 'Wander around when idle', possess: 'Possess my windows',
       lang: 'Language', auto: 'Automatic (system)', startup: 'Start with Windows', hooksOn: 'Claude Code hooks: installed',
       hooksOff: 'Install Claude Code hooks', hooksRemove: 'Remove Claude Code hooks', quit: 'Quit',
+      codexOn: 'Codex hooks: installed', codexOff: 'Install Codex hooks', codexRemove: 'Remove Codex hooks',
     }
     : {
       online: `Capri — à l'écoute sur ${PORT}`, teleport: 'Téléporter', satellite: 'Regarder le satellite', demo: 'Lancer la démo', show: 'La faire revenir', hide: 'La ranger',
@@ -195,6 +198,7 @@ function rebuildTray() {
       soundsDir: 'Ouvrir le dossier des sons perso', screen: 'Écran', wander: 'Se balader quand rien ne se passe', possess: 'Posséder mes fenêtres',
       lang: 'Langue', auto: 'Automatique (système)', startup: 'Lancer au démarrage', hooksOn: 'Hooks Claude Code : installés',
       hooksOff: 'Installer les hooks Claude Code', hooksRemove: 'Retirer les hooks Claude Code', quit: 'Quitter',
+      codexOn: 'Hooks Codex : installés', codexOff: 'Installer les hooks Codex', codexRemove: 'Retirer les hooks Codex',
     };
 
   const displays = screen.getAllDisplays();
@@ -257,6 +261,10 @@ function rebuildTray() {
       ? { label: t.hooksOn, enabled: false }
       : { label: t.hooksOff, click: () => runHooks('install') },
     ...(hookState.installed ? [{ label: t.hooksRemove, click: () => runHooks('uninstall') }] : []),
+    codexHookState.installed
+      ? { label: t.codexOn, enabled: false }
+      : { label: t.codexOff, click: () => runHooks('install', 'codex') },
+    ...(codexHookState.events.length ? [{ label: t.codexRemove, click: () => runHooks('uninstall', 'codex') }] : []),
     { type: 'separator' },
     { label: t.quit, click: () => app.quit() },
   ]);
@@ -269,10 +277,11 @@ function loginItemOptions() {
   return app.isPackaged ? {} : { path: process.execPath, args: [ROOT] };
 }
 
-function runHooks(action) {
+function runHooks(action, provider = 'claude') {
   try {
-    const result = action === 'install' ? hooks.install() : hooks.uninstall();
-    sendCommand('hooks', { action, ok: true, file: result.file });
+    const installer = provider === 'codex' ? codexHooks : hooks;
+    const result = action === 'install' ? installer.install() : installer.uninstall();
+    sendCommand('hooks', { action, provider, ok: true, file: result.file });
   } catch (err) {
     sendCommand('hooks', { action, ok: false, error: err.message });
   }
@@ -297,7 +306,11 @@ function registerIpc() {
     return { x: p.x - b.x, y: p.y - b.y, inside: p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height };
   });
   ipcMain.handle('config:get', () => rendererConfig());
-  ipcMain.handle('hooks:status', () => hooks.status());
+  ipcMain.handle('hooks:status', () => {
+    const claude = hooks.status();
+    const codex = codexHooks.status();
+    return { installed: claude.installed || codex.installed, claude, codex };
+  });
   ipcMain.handle('config:set', (_e, patch) => updateConfig(patch));
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
   ipcMain.handle('sounds:list', () => {

@@ -1,7 +1,7 @@
 {
   "name": "capri-desktop",
   "version": "0.1.1",
-  "description": "Capri, the Project Capricorn construct, living on your desktop and narrating what Claude Code is doing.",
+  "description": "Capri, the Project Capricorn construct, living on your desktop and narrating what Claude Code or Codex is doing.",
   "author": "mochiiwuff",
   "repository": "github:mochiiwuff/capri-desktop",
   "main": "src/main/main.js",
@@ -9,13 +9,18 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
+    "test": "node --test",
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
+    "hooks:codex:install": "node scripts/install-codex-hooks.js",
+    "hooks:codex:uninstall": "node scripts/install-codex-hooks.js --uninstall",
+    "hooks:codex:status": "node scripts/install-codex-hooks.js --status",
     "dist": "electron-builder --win"
   },
   "keywords": [
     "claude-code",
+    "codex",
     "desktop-pet",
     "electron",
     "cyberpunk",

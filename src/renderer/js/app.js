@@ -278,7 +278,7 @@ async function boot() {
         if (!capri.gaze({ big: true })) setTimeout(() => capri.gaze({ big: true }), 1500);
         break;
       case 'hooks':
-        if (cmd.ok) panel.say({ kind: 'info', line: cmd.action === 'install' ? t.hooksOk : t.hooksRemoved, hold: 6000 });
+        if (cmd.ok) panel.say({ kind: 'info', line: fmt(cmd.action === 'install' ? (cmd.provider === 'codex' ? t.codexHooksOk : t.hooksOk) : t.hooksRemoved, { assistant: cmd.provider === 'codex' ? 'Codex' : 'Claude Code' }), hold: 9000 });
         else panel.say({ kind: 'error', line: fmt(t.hooksFail, { error: cmd.error }), hold: 9000 });
         break;
       // --dev helpers
@@ -335,11 +335,11 @@ function t0(lang) {
   return lang === 'en'
     ? {
       online: ['Capri online.', 'Back on your desktop, choom.'],
-      noHooks: 'I can’t see Claude yet. Tray icon › “Install Claude Code hooks”.',
+      noHooks: 'No agent connected yet. Tray icon › Install Claude Code hooks / Install Codex hooks.',
     }
     : {
       online: ['Capri en ligne.', 'De retour sur ton bureau, choom.'],
-      noHooks: 'Je ne vois pas encore Claude. Clique sur mon icône près de l’horloge, puis « Installer les hooks ».',
+      noHooks: 'Aucun agent connecté. Icône près de l’horloge › Installer les hooks Claude Code / Codex.',
     };
 }
 
