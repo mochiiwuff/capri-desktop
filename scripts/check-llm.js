@@ -13,7 +13,7 @@ http.createServer((req, res) => {
 (async () => {
   const cfg = { apiKeys: {}, claudeMode: 'default', claudeCwd: process.cwd() };
   // which note her chat shows: "local AI" only when the answers stay on this PC
-  assert(llm.isLocal('lmstudio', cfg) && !llm.isLocal('claude', cfg) && !llm.isLocal('g4f', cfg), 'local providers');
+  assert(llm.isLocal('lmstudio', cfg) && !llm.isLocal('claude', cfg) && !llm.isLocal('pollinations', cfg), 'local providers');
   assert(llm.isLocal('custom', { customUrl: 'http://localhost:5000/v1' }), 'local custom url');
   assert(!llm.isLocal('custom', { customUrl: 'http://localhost.evil.com/v1' }), 'cloud custom url');
   const models = await llm.models('pollinations', cfg);

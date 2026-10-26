@@ -18,7 +18,6 @@ const PROVIDERS = {
   pollinations: {
     label: 'Pollinations (no key)', url: 'https://text.pollinations.ai/openai', modelsUrl: 'https://text.pollinations.ai/models',
   },
-  g4f: { label: 'gpt4free gateway (local :1337, no key)', url: 'http://127.0.0.1:1337/v1' },
   openrouter: { label: 'OpenRouter', url: 'https://openrouter.ai/api/v1', env: 'OPENROUTER_API_KEY' },
   openai: { label: 'OpenAI', url: 'https://api.openai.com/v1', env: 'OPENAI_API_KEY' },
   groq: { label: 'Groq', url: 'https://api.groq.com/openai/v1', env: 'GROQ_API_KEY' },
@@ -29,7 +28,8 @@ const PROVIDERS = {
   claude: { label: 'Claude Code (sends to the terminal agent)', kind: 'claude' },
 };
 
-const CLAUDE_MODES = ['default', 'acceptEdits', 'bypassPermissions'];
+// no bypassPermissions: a chat bubble on the desktop shouldn't run anything without asking
+const CLAUDE_MODES = ['default', 'acceptEdits'];
 
 function endpoint(id, cfg) {
   const p = PROVIDERS[id];
@@ -122,7 +122,7 @@ function claudeChat(cfg, text, persona, onDelta, signal) {
   const personaFile = path.join(os.tmpdir(), 'capri-persona.txt');
   fs.writeFileSync(personaFile, persona);
   const args = ['-p', '--output-format', 'stream-json', '--verbose',
-    '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'acceptEdits',
+    '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'default',
     '--append-system-prompt-file', quote(personaFile)];
   if (!claudeSession) claudeSession = randomUUID();
   args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);
@@ -196,7 +196,7 @@ async function chat(id, cfg, { model, messages }, onDelta, signal) {
   return openaiChat(p, { model, messages }, onDelta, signal);
 }
 
-// Whether her answers stay on this PC: a local server (a gateway like gpt4free passes them on to the web).
+// Whether her answers stay on this PC: a server on this machine.
 function isLocal(id, cfg) {
   if (id === 'ollama') return /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/.test(process.env.OLLAMA_HOST || '127.0.0.1');
   if (id === 'custom') return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(cfg.customUrl || '');

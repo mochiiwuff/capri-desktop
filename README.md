@@ -373,9 +373,9 @@ Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fon
 Tray menu → **AI model** picks who answers her chat:
 
 - **Local:** Ollama, LM Studio (`:1234`), llama.cpp / vLLM (`:8080`)
-- **No key:** Pollinations (cloud), gpt4free gateway (local `:1337`)
+- **No key:** Pollinations (cloud)
 - **Cloud:** OpenRouter, OpenAI, Groq, Gemini, DeepSeek, Mistral: set the env variable (`OPENAI_API_KEY`...) or `apiKeys` in `config.json` (menu → *API keys / custom URL*)
 - **Custom:** any OpenAI-compatible server, `customUrl` in `config.json`
-- **Claude Code:** your messages go to `claude -p` in the folder you pick, continuing one conversation; her hooks narrate what it does. Permission mode is in the same submenu (`acceptEdits` by default).
+- **Claude Code:** your messages go to `claude -p` in the folder you pick, continuing one conversation; her hooks narrate what it does. Permission mode is in the same submenu (`default`: it reads but doesn't change anything, since nobody is there to say yes; `acceptEdits`: it edits files without asking).
 
 `npm run check:llm` checks the keyless gateway and Claude Code from the command line.
