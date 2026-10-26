@@ -133,6 +133,15 @@ async function boot() {
     refreshHit();
     hoverChip();
   });
+  // Click-through, Windows sometimes stops passing the pointer's moves on to the overlay, and her
+  // panel's buttons go dead under it. While a panel is up, she checks where the pointer is herself.
+  setInterval(async () => {
+    if (!panel.rect() || capri.dragging) return;
+    const at = await host.cursor().catch(() => null);
+    if (!at) return;
+    mouse = at.inside ? { x: at.x, y: at.y } : null;
+    refreshHit();
+  }, 120);
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();
