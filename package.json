@@ -8,16 +8,14 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "start-agy": "electron . --agy",
     "dev": "electron . --dev",
-    "dev-agy": "electron . --dev --agy",
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
     "hooks:codex:install": "node scripts/install-codex-hooks.js",
     "hooks:codex:uninstall": "node scripts/install-codex-hooks.js --uninstall",
-    "hooks:install-agy": "node scripts/install-hooks-agy.js",
-    "hooks:uninstall-agy": "node scripts/install-hooks-agy.js --uninstall",
+    "hooks:agy:install": "node scripts/install-hooks-agy.js",
+    "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
     "test:hooks": "node --test tests/hooks.test.js",
     "dist": "electron-builder --win"

@@ -819,33 +819,72 @@ export const LINES = {
   },
 };
 
-// Reuse every translated reaction without mutating the Claude vocabulary.
-const codexLines = new Map();
+// The coding assistants she can watch besides Claude Code: the same lines with their name, their
+// hooks file, and what to do once her hooks are in.
+export const ASSISTANT_NAMES = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity' };
+const OTHERS = {
+  codex: {
+    name: 'Codex', file: 'hooks.json', dir: '.codex',
+    // before the click, and after it
+    ask: {
+      en: 'Want me to plug into Codex? One click, then restart Codex and trust my hooks when it asks.',
+      fr: 'Tu veux que je me branche sur Codex ? Un clic, puis relance Codex et autorise mes hooks quand il te le demande.',
+      es: '¿Quieres que me conecte a Codex? Un clic, y luego reinicia Codex y autoriza mis hooks cuando te lo pida.',
+      pt: 'Quer que eu me conecte ao Codex? Um clique, depois reinicie o Codex e autorize meus hooks quando ele pedir.',
+      ru: 'Подключиться к Codex? Один клик, потом перезапусти Codex и разреши мои хуки, когда он спросит.',
+    },
+    after: {
+      en: 'Now restart Codex and trust my hooks when it asks. As soon as it does something, I’ll tell you.',
+      fr: 'Maintenant relance Codex et autorise mes hooks quand il te le demande. Dès qu’il fait quelque chose, je te le dis.',
+      es: 'Ahora reinicia Codex y autoriza mis hooks cuando te lo pida. En cuanto haga algo, te aviso.',
+      pt: 'Agora reinicie o Codex e autorize meus hooks quando ele pedir. Assim que ele fizer algo, eu te aviso.',
+      ru: 'Теперь перезапусти Codex и разреши мои хуки, когда он спросит. Как только он что-то сделает, я скажу.',
+    },
+  },
+  agy: {
+    name: 'Antigravity', file: 'hooks.json', dir: '.gemini',
+    ask: {
+      en: 'Want me to plug into Antigravity? One click, then start a new conversation in it.',
+      fr: 'Tu veux que je me branche sur Antigravity ? Un clic, puis lance une nouvelle conversation dedans.',
+      es: '¿Quieres que me conecte a Antigravity? Un clic, y luego empieza una conversación nueva en él.',
+      pt: 'Quer que eu me conecte ao Antigravity? Um clique, depois comece uma conversa nova nele.',
+      ru: 'Подключиться к Antigravity? Один клик, потом начни в нём новый разговор.',
+    },
+    after: {
+      en: 'Now start a new conversation in Antigravity. As soon as it does something, I’ll tell you.',
+      fr: 'Maintenant lance une nouvelle conversation dans Antigravity. Dès qu’il fait quelque chose, je te le dis.',
+      es: 'Ahora empieza una conversación nueva en Antigravity. En cuanto haga algo, te aviso.',
+      pt: 'Agora comece uma conversa nova no Antigravity. Assim que ele fizer algo, eu te aviso.',
+      ru: 'Теперь начни новый разговор в Antigravity. Как только он что-то сделает, я скажу.',
+    },
+  },
+};
+const converted = new Map();
 export function linesFor(lang, assistant = 'claude') {
   const base = LINES[lang] || LINES.fr;
-  if (assistant !== 'codex') return base;
-  if (codexLines.has(base)) return codexLines.get(base);
+  const other = OTHERS[assistant];
+  if (!other) return base;
+  const key = `${assistant}:${lang}`;
+  if (converted.has(key)) return converted.get(key);
+  // French drops the e of "de" and "que" before a vowel: "la fenêtre d'Antigravity"
+  const elide = lang === 'fr' && /^[aeiouy]/i.test(other.name);
   const convert = (value) => {
-    if (typeof value === 'string') return value.replace(/Claude Code|Claude/g, 'Codex')
-      .replaceAll('settings.json', 'hooks.json').replaceAll('.claude', '.codex');
+    if (typeof value === 'string') {
+      let text = value;
+      if (elide) text = text.replace(/\b(d|qu)e (Claude Code|Claude)\b/g, `$1’${other.name}`);
+      return text.replace(/Claude Code|Claude/g, other.name).replaceAll('CLAUDE', other.name.toUpperCase())
+        .replaceAll('settings.json', other.file).replaceAll('.claude', other.dir);
+    }
     if (Array.isArray(value)) return value.map(convert);
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, convert(v)]));
     return value;
   };
   const result = convert(base);
-  const trust = {
-    en: 'Restart Codex, then review and trust the Capri hooks when prompted.',
-    fr: 'Relance Codex, puis vérifie et autorise les hooks Capri quand il te le demande.',
-    es: 'Reinicia Codex y revisa y autoriza los hooks de Capri cuando te lo pida.',
-    pt: 'Reinicie o Codex e revise e autorize os hooks da Capri quando solicitado.',
-    ru: 'Перезапусти Codex, затем проверь и разреши хуки Capri при запросе.',
-  }[lang] || 'Restart Codex, then review and trust the Capri hooks when prompted.';
-  result.welcome.connect = trust;
-  result.welcome.restart = trust;
-  result.welcome.readyHow = `${result.welcome.readyHow}\n${trust}`;
-  // The Claude subscription requirement does not apply to Codex.
-  result.welcome.noClaude = result.welcome.about;
-  result.hooksOk = trust;
-  codexLines.set(base, result);
+  const after = other.after[lang] || other.after.en;
+  result.welcome.connect = other.ask[lang] || other.ask.en;
+  result.welcome.restart = after;
+  result.welcome.noClaude = result.welcome.about; // nothing to buy for these
+  result.hooksOk = after;
+  converted.set(key, result);
   return result;
 }

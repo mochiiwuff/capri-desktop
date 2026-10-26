@@ -3,8 +3,8 @@
 # Capri
 
 Capri, le construct du *Project Capricorn* (Cyberpunk: Edgerunners, saison 2), vit sur ton bureau
-et te raconte ce que fait **Claude Code** : elle se téléporte, glitche, commente chaque action,
-vient te chercher quand Claude attend ta permission et part en vrille quand la tâche est finie.
+et te raconte ce que fait ton IA de code, **Claude Code**, **Codex** ou **Antigravity** : elle se téléporte,
+glitche, commente chaque action, vient te chercher quand elle attend ta permission et part en vrille quand la tâche est finie.
 
 ![Capri annonce que Claude a terminé](docs/done.png)
 
@@ -215,16 +215,20 @@ Relance tes sessions Claude Code ensuite. Pour retirer : `npm run hooks:uninstal
 
 Les hooks sont lancés en `async` : ils ne ralentissent jamais Claude, et si Capri n'est pas lancée ils ne font rien.
 
-### La brancher sur Google Antigravity
+### Codex ou Antigravity à la place de Claude Code
 
-Pour utiliser Capri avec **Google Antigravity** (AGY CLI / IDE / App) :
+Clic droit sur elle › **Surveiller** › **Codex** ou **Antigravity**. Elle te salue et propose de se brancher, comme
+pour Claude Code. Ensuite :
 
-```bash
-npm run hooks:install-agy
-npm run start-agy
-```
+- **Codex** : relance-le et autorise ses hooks quand il te le demande. Ils vont dans `~/.codex/hooks.json`. Son hook
+  pour Codex a besoin de [Node.js](https://nodejs.org) 20 ou plus dans ton PATH.
+- **Antigravity** : lance une nouvelle conversation. Ses hooks vont dans `~/.gemini/config/hooks.json`.
 
-Ça ajoute un hook (`capri-agy`) dans `~/.gemini/config/hooks.json` (avec sauvegarde et conservation des hooks existants) et lance Capri avec `--agy`. Pour retirer : `npm run hooks:uninstall-agy`.
+Elle en suit un seul à la fois, celui choisi dans son menu, et ses répliques, son guide et son chat prennent son nom.
+Elle ne fait que regarder : quand Codex ou Antigravity demande une autorisation, c'est toujours là-bas que tu réponds.
+En ligne de commande : `npm run hooks:codex:install` ou `npm run hooks:agy:install` (`:uninstall` pour les retirer),
+et `npm run test:hooks` lance les tests des deux adaptateurs. **Surveiller** › **Rien, juste me tenir compagnie** :
+elle ne parle plus d'aucun.
 
 ### Tester sans Claude
 
@@ -275,7 +279,7 @@ avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 
 - **Mac, Linux ?** Pas encore d'installeur, mais tu peux la lancer depuis le code (voir plus haut).
 - **Téléphone, Android ?** Non, il lui faut un ordinateur.
-- **D'autres assistants (Codex, Cursor, Windsurf, Gemini…) ?** Seulement Claude Code pour l'instant.
+- **D'autres assistants ?** Claude Code, Codex et Antigravity : son menu › **Surveiller**. Cursor, Windsurf et Gemini CLI : pas encore.
 - **Ollama ?** De deux façons. Claude Code qui tourne sur un modèle local via Ollama (`ollama launch claude`) : elle le
   voit comme n'importe quel Claude Code, c'est juste plus lent, et son ticker compte les secondes pendant qu'il
   réfléchit. Et elle peut discuter avec toi via Ollama : voir « Lui parler ».

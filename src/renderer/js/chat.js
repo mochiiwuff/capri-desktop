@@ -4,6 +4,7 @@
 // it with a tag in its answer), shows you a button with that app's name, and only your click closes it.
 
 import { pick, fmt } from './util.js';
+import { ASSISTANT_NAMES } from './lines.js';
 
 const REMEMBER = 20; // messages she has in mind when answering
 const KEEP = 60;     // messages she remembers across restarts (memory.json)
@@ -240,7 +241,7 @@ export class Chat {
 
   // Who she is, how she talks, and what's going on right now.
   persona() {
-    const assistant = this.brain.assistant === 'codex' ? 'Codex' : 'Claude Code';
+    const assistant = ASSISTANT_NAMES[this.brain.assistant] || 'Claude Code';
     const language = LANGUAGE[this.brain.lang] || 'English';
     const watching = this.brain.watching; // else Claude Code isn't part of her life here
     return [

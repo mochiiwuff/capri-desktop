@@ -156,7 +156,8 @@ function mapTool(toolCall) {
 
 function buildEvents(payload) {
   const base = {
-    session_id: payload.conversationId || "agy-session",
+    // marked as Antigravity's, so she only follows it when it's the assistant she watches
+    session_id: `agy:${payload.conversationId || "session"}`,
     cwd: (Array.isArray(payload.workspacePaths) && payload.workspacePaths[0]) || process.cwd(),
   };
 

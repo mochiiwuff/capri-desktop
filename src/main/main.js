@@ -14,7 +14,7 @@ const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const llm = require('./llm');
 const apps = require('./apps');
-const { assistant } = require('./assistants');
+const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
@@ -228,8 +228,9 @@ function rebuildTray() {
   if (!tray) return;
   const cfg = config.load();
   const hookState = activeHooks().status();
+  const watched = activeAssistant();
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
-    [key, typeof value === 'string' && activeAssistant().id === 'codex' ? value.replaceAll('Claude Code', 'Codex') : value]));
+    [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
 
   const displays = screen.getAllDisplays();
   const current = targetDisplay().id;
@@ -310,11 +311,23 @@ function rebuildTray() {
         label, type: 'radio', checked: cfg.rest === rest, click: () => updateConfig({ rest }),
       })),
     },
-    { label: 'Codex / Claude Code', submenu: ['codex', 'claude'].map((id) => ({
-      label: id === 'codex' ? 'Codex' : 'Claude Code', type: 'radio', checked: activeAssistant().id === id,
-      click: () => { updateConfig({ assistant: id, linked: false, welcomed: false }); sendCommand('assistantChanged'); },
-    })) },
-    { label: t.claude, type: 'checkbox', checked: cfg.claude, click: (item) => updateConfig({ claude: item.checked }) },
+    // the coding assistant she watches (a new one: she says hello and offers to plug herself in), or none
+    {
+      label: t.watch,
+      submenu: [
+        ...Object.entries(ASSISTANTS).map(([id, { name }]) => ({
+          label: name,
+          type: 'radio',
+          checked: cfg.claude && watched.id === id,
+          click: () => {
+            const other = watched.id !== id;
+            updateConfig({ claude: true, assistant: id, ...(other && { linked: false, welcomed: false }) });
+            if (other) sendCommand('assistantChanged');
+          },
+        })),
+        { label: t.watchNone, type: 'radio', checked: !cfg.claude, click: () => updateConfig({ claude: false }) },
+      ],
+    },
     {
       label: t.motion,
       submenu: [['auto', t.motionAuto], ['full', t.motionFull], ['reduced', t.motionReduced]].map(([motion, label]) => ({

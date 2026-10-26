@@ -3,32 +3,14 @@
 # Capri
 
 Capri, the *Project Capricorn* construct from Cyberpunk: Edgerunners season 2, lives on your desktop
-and tells you what **Claude Code** is up to. She teleports, glitches, comments on every action,
-comes to find you when Claude needs your permission, and loses it when the job is done.
+and tells you what your coding AI is up to: **Claude Code**, **Codex** or **Antigravity**. She teleports,
+glitches, comments on every action, comes to find you when it needs your permission, and loses it when the job is done.
 
 ![Capri telling you Claude is done](docs/done.png)
 
 ![Teleport, frame by frame](docs/teleport.png)
 
 ## What she does
-
-### Basic Codex support
-
-With Node.js 20+ available on PATH, run `npm run hooks:codex:install` from this checkout.
-This merges Capri hooks into `~/.codex/hooks.json` (or `$CODEX_HOME/hooks.json`),
-preserves other hooks, and backs up changed configuration. Restart Codex and review/trust
-the hooks when prompted. Keep this checkout in place and Capri running.
-See the [Codex hook documentation](https://learn.chatgpt.com/docs/hooks) for runtime support and trust review.
-
-Capri detects Codex hooks on startup. Use the **Codex / Claude Code** tray submenu to choose
-which assistant she watches. Her welcome, reactions, guide, hook buttons, folder/help links,
-and chat persona follow that choice in every language. **Plug me in** installs the selected
-assistant's hooks. Existing Claude support remains available.
-
-The adapter shows tool activity, approval/input alerts, completion, interruption, compaction,
-and subagent activity using the existing UI. It only observes approval requests; decisions
-remain in Codex. Remove the adapter with `npm run hooks:codex:uninstall`.
-Run `npm run test:hooks` for adapter, event-handler, and installer tests.
 
 - **When she starts**: she grabs your screen. Its edges crackle red, her left hand slams onto its edge, then her
   right, her arms reach in along them as she hauls herself up, and her face hits the glass (a white flash, an ink
@@ -219,16 +201,19 @@ Restart your Claude Code sessions afterwards. To remove it: `npm run hooks:unins
 
 The hooks run `async`: they never slow Claude down, and when Capri isn't running they do nothing.
 
-### Hook her up to Google Antigravity
+### Codex or Antigravity instead of Claude Code
 
-To run Capri with **Google Antigravity** (AGY CLI / IDE / App):
+Right-click her › **Watch** › **Codex** or **Antigravity**. She says hi and offers to plug herself in, like she does
+for Claude Code. Then:
 
-```bash
-npm run hooks:install-agy
-npm run start-agy
-```
+- **Codex**: restart it and trust her hooks when it asks. They go in `~/.codex/hooks.json`. Her hook for Codex needs
+  [Node.js](https://nodejs.org) 20 or newer on your PATH.
+- **Antigravity**: start a new conversation. Her hooks go in `~/.gemini/config/hooks.json`.
 
-This adds a lifecycle hook entry (`capri-agy`) to `~/.gemini/config/hooks.json` (preserving existing hooks and writing a timestamped backup) and launches Capri with `--agy` so her dialogue and tray menu target Antigravity. To remove it: `npm run hooks:uninstall-agy`.
+She follows one of them at a time, the one picked in her menu, and her lines, her guide and her chat use its name.
+She only watches: when Codex or Antigravity asks for approval, you still answer it there. From the command line:
+`npm run hooks:codex:install` or `npm run hooks:agy:install` (`:uninstall` to remove them), and `npm run test:hooks`
+runs the tests of both adapters. **Watch** › **Nothing, just keep me company**: she stops talking about any of them.
 
 ### Try it without Claude
 
@@ -279,7 +264,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 - **Mac, Linux?** No installer yet, but you can run her from the source (see above).
 - **Phone, Android?** No, she needs a desktop.
-- **Other assistants (Codex, Cursor, Windsurf, Gemini…)?** Claude Code only for now.
+- **Other assistants?** Claude Code, Codex and Antigravity: her menu › **Watch**. Cursor, Windsurf and Gemini CLI: not yet.
 - **Ollama?** Two ways. Claude Code running on a local model through Ollama (`ollama launch claude`): she sees it like
   any Claude Code, it's just slower, and her ticker counts the seconds while it thinks. And she can chat with you
   through Ollama herself: see "Talk to her".

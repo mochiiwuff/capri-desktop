@@ -175,3 +175,48 @@ test('installer preserves other hooks, is idempotent, backs up, and uninstalls o
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('Antigravity: its events reach her as its own sessions, and its hook never decides for it', async (t) => {
+  const events = [];
+  const server = createBridge({ port: 0, onEvent(evt) { events.push(evt); } });
+  await once(server, 'listening');
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const port = server.address().port;
+  const run = (type, payload) => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(__dirname, '..', 'hooks', 'capri-agy-hook.js'), type], {
+      env: { ...process.env, CAPRI_PORT: String(port) }, windowsHide: true,
+    });
+    let out = '';
+    child.stdout.on('data', (s) => { out += s; });
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolve(JSON.parse(out)) : reject(new Error(`exit ${code}`))));
+    child.stdin.end(JSON.stringify(payload));
+  });
+  const base = { conversationId: 'c1', workspacePaths: ['/project'] };
+  // "allow" only means it doesn't block: Antigravity's own approval still applies (never "auto_approve")
+  assert.deepEqual(await run('PreToolUse', { ...base, toolCall: { name: 'run_command', args: { CommandLine: 'npm test' } } }), { decision: 'allow' });
+  assert.deepEqual(await run('Stop', base), { decision: 'stop' });
+  assert.ok(events.length >= 3);
+  assert.ok(events.every((e) => e.session_id === 'agy:c1'));
+  assert.equal(events[0].tool_input.command, 'npm test');
+  assert.equal(events[1].notification_type, 'permission_prompt');
+
+  // she follows it only while it's the assistant she watches
+  globalThis.matchMedia = () => ({ matches: false });
+  t.after(() => { delete globalThis.matchMedia; });
+  const { Brain } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/brain.js')));
+  const noop = () => {};
+  const stub = (obj) => new Proxy(obj, { get: (o, key) => (key in o ? o[key] : noop) });
+  const brain = new Brain({
+    capri: stub({ windows: { fg: null, wins: [] }, mode: 'idle', setMode(mode) { this.mode = mode; } }),
+    panel: stub({ say() {}, setTicker() {} }), voice: { play: noop }, host: { cursor: async () => null }, lang: 'fr', assistant: 'agy',
+  });
+  t.after(() => clearInterval(brain.thinkTimer));
+  await brain.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'agy:c1', cwd: '/project', prompt: 'go' });
+  await brain.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'claude-session', cwd: '/other', prompt: 'go' });
+  assert.ok(brain.sessions.has('agy:c1'));
+  assert.equal(brain.sessions.has('claude-session'), false);
+  assert.match(brain.t.guide.claude.there, /Antigravity/);
+  const texts = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(texts) : []);
+  assert.doesNotMatch(texts(brain.t).join('\n'), /Claude|settings\.json/); // what she says, not the keys
+});

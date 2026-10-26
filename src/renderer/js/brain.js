@@ -1,6 +1,6 @@
 // Turns Claude Code hook events into things Capri says and does.
 
-import { linesFor } from './lines.js';
+import { linesFor, ASSISTANT_NAMES } from './lines.js';
 import { pick, fmt, duration, basename, rand } from './util.js';
 
 const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
@@ -22,7 +22,7 @@ export class Brain {
     this.host = host;
     this.mission = mission; // today's log, for her report card (mission.js)
     this.lang = lang;
-    this.assistant = assistant; // 'claude' or 'codex': whose events she follows
+    this.assistant = assistant; // 'claude', 'codex' or 'agy': whose events she follows
     this.sessions = new Map();
     this.replyFor = null;    // the session whose answer she's holding up for you
     this.linked = true;      // has a Claude Code event ever reached her (app.js sets it from the config)
@@ -38,11 +38,16 @@ export class Brain {
     return linesFor(this.lang, this.assistant);
   }
 
+  // the assistant she watches, as she calls it
+  get name() {
+    return this.assistant === 'claude' ? 'Claude' : ASSISTANT_NAMES[this.assistant] || 'Claude';
+  }
+
   session(evt) {
     const id = evt.session_id || 'default';
     let s = this.sessions.get(id);
     if (!s) {
-      s = { id, project: this.assistant === 'codex' ? 'Codex' : 'Claude', taskStart: null, count: 0, files: new Set(), log: [], working: false, waiting: false };
+      s = { id, project: this.name, taskStart: null, count: 0, files: new Set(), log: [], working: false, waiting: false };
       this.sessions.set(id, s);
     }
     if (evt.cwd) s.project = basename(evt.cwd);
@@ -65,12 +70,13 @@ export class Brain {
   }
 
   handle(evt) {
-    if (evt.demo && this.assistant === 'codex' && typeof evt.message === 'string') {
-      evt = { ...evt, message: evt.message.replace(/Claude Code|Claude/g, 'Codex') };
+    if (evt.demo && this.assistant !== 'claude' && typeof evt.message === 'string') {
+      evt = { ...evt, message: evt.message.replace(/Claude Code|Claude/g, this.name) };
     }
     // the demo's second half (scripts/demo-sequence.js), not a Claude event
     if (evt.hook_event_name === 'CapriShowcase') return this.onShowcase?.();
-    if (!evt.demo && (String(evt.session_id || '').startsWith('codex:') ? 'codex' : 'claude') !== this.assistant) return;
+    // Codex's and Antigravity's hooks mark their sessions (codex:..., agy:...): only the one she watches counts
+    if (!evt.demo && (/^(codex|agy):/.exec(String(evt.session_id || ''))?.[1] || 'claude') !== this.assistant) return;
     if (!this.watching && !evt.demo) return undefined; // not watching Claude Code: none of its business
     // the first real Claude Code event that ever reaches her (the demo's don't count)
     if (!this.linked && !evt.demo) {
@@ -357,7 +363,7 @@ export class Brain {
 
   // What's going on, in plain words, for her chat: so she can answer "what's Claude up to?".
   context() {
-    const assistant = this.assistant === 'codex' ? 'Codex' : 'Claude';
+    const assistant = this.name;
     const busy = this.busySessions.sort((a, b) => b.seen - a.seen);
     const now = busy.length
       ? busy.map((s) => {
