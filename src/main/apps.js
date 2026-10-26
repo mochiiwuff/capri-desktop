@@ -10,7 +10,7 @@ const { execFile } = require('node:child_process');
 // Ollama (she talks through it)
 const KEEP = new Set([
   'explorer', 'applicationframehost', 'textinputhost', 'shellexperiencehost', 'startmenuexperiencehost',
-  'searchhost', 'searchapp', 'lockapp', 'dwm', 'capri', 'electron', 'claude', 'ollama', 'ollama app',
+  'searchhost', 'searchapp', 'lockapp', 'dwm', 'capri', 'electron', 'claude', 'codex', 'ollama', 'ollama app',
 ]);
 
 function powershell(script) {

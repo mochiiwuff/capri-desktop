@@ -7,7 +7,7 @@ import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
 import { Chat } from './chat.js';
-import { LINES } from './lines.js';
+import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
 
 const host = window.host;
@@ -65,7 +65,7 @@ async function boot() {
   const panel = new Panel({
     panel: document.getElementById('panel'),
     ticker: document.getElementById('ticker'),
-    labels: LINES[config.lang] || LINES.fr,
+    labels: linesFor(config.lang, config.provider),
   });
 
   const capri = new Capri({
@@ -82,7 +82,7 @@ async function boot() {
   capri.setScale(config.scale);
 
   const mission = new Mission();
-  const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang });
+  const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, provider: config.provider });
 
   // Click-through everywhere except on her body, the panel and her biochip.
   let interactive = false;
@@ -296,17 +296,24 @@ async function boot() {
     capri.possessWindows = cfg.possess;
     capri.restOn = cfg.rest || 'corner';
     applyMotion(cfg.motion);
-    if (cfg.claude === false && brain.watching) {
+    if ((cfg.claude === false && brain.watching) || cfg.provider !== brain.provider) {
+      guide.answer(null);
+      panel.hide();
+      capri.stopPointing();
+      brain.replyFor = null;
+      brain.linked = cfg.linked;
       // no longer watching Claude Code: whatever it was in the middle of is no business of hers
       brain.sessions.clear();
       panel.setTicker(null);
       if (capri.mode === 'work' || capri.mode === 'alert') capri.setMode('idle');
     }
     brain.watching = cfg.claude !== false;
+    brain.provider = cfg.provider;
+    panel.labels = linesFor(cfg.lang, cfg.provider);
     if (cfg.scale !== capri.scale) capri.setScale(cfg.scale);
     if (cfg.lang !== brain.lang) {
       brain.lang = cfg.lang;
-      panel.labels = LINES[cfg.lang] || LINES.fr;
+      panel.labels = linesFor(cfg.lang, cfg.provider);
       document.documentElement.lang = cfg.lang;
     }
   });
@@ -319,6 +326,9 @@ async function boot() {
         break;
       case 'status':
         brain.status();
+        break;
+      case 'providerChanged':
+        guide.welcome();
         break;
       case 'welcome': // "How does it work?" in her menu
         guide.menu();

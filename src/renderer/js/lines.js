@@ -808,3 +808,34 @@ export const LINES = {
     },
   },
 };
+
+// Reuse every translated reaction without mutating the Claude vocabulary.
+const codexLines = new Map();
+export function linesFor(lang, provider = 'claude') {
+  const base = LINES[lang] || LINES.fr;
+  if (provider !== 'codex') return base;
+  if (codexLines.has(base)) return codexLines.get(base);
+  const convert = (value) => {
+    if (typeof value === 'string') return value.replace(/Claude Code|Claude/g, 'Codex')
+      .replaceAll('settings.json', 'hooks.json').replaceAll('.claude', '.codex');
+    if (Array.isArray(value)) return value.map(convert);
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, convert(v)]));
+    return value;
+  };
+  const result = convert(base);
+  const trust = {
+    en: 'Restart Codex, then review and trust the Capri hooks when prompted.',
+    fr: 'Relance Codex, puis vérifie et autorise les hooks Capri quand il te le demande.',
+    es: 'Reinicia Codex y revisa y autoriza los hooks de Capri cuando te lo pida.',
+    pt: 'Reinicie o Codex e revise e autorize os hooks da Capri quando solicitado.',
+    ru: 'Перезапусти Codex, затем проверь и разреши хуки Capri при запросе.',
+  }[lang] || 'Restart Codex, then review and trust the Capri hooks when prompted.';
+  result.welcome.connect = trust;
+  result.welcome.restart = trust;
+  result.welcome.readyHow = `${result.welcome.readyHow}\n${trust}`;
+  // The Claude subscription requirement does not apply to Codex.
+  result.welcome.noClaude = result.welcome.about;
+  result.hooksOk = trust;
+  codexLines.set(base, result);
+  return result;
+}

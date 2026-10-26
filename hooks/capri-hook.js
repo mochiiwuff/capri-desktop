@@ -47,36 +47,42 @@ function slim(evt) {
   return out;
 }
 
-const bail = () => process.exit(0);
-setTimeout(bail, 2000).unref();
+function run(adapt = (evt) => evt) {
+  const bail = () => process.exit(0);
+  setTimeout(bail, 2000).unref();
 
-let raw = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
-  raw += chunk;
-  if (raw.length > 8 * 1024 * 1024) bail();
-});
-process.stdin.on('error', bail);
-process.stdin.on('end', () => {
-  let evt;
-  try {
-    evt = JSON.parse(raw);
-  } catch {
-    return bail();
-  }
-  const body = JSON.stringify(slim(evt));
-  const req = http.request({
-    host: '127.0.0.1',
-    port: PORT,
-    path: '/event',
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
-    timeout: 800,
-  }, (res) => {
-    res.resume();
-    res.on('end', bail);
+  let raw = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => {
+    raw += chunk;
+    if (raw.length > 8 * 1024 * 1024) bail();
   });
-  req.on('timeout', () => { req.destroy(); bail(); });
-  req.on('error', bail);
-  req.end(body);
-});
+  process.stdin.on('error', bail);
+  process.stdin.on('end', () => {
+    let evt;
+    try {
+      evt = adapt(JSON.parse(raw));
+      if (!evt || typeof evt !== 'object') return bail();
+    } catch {
+      return bail();
+    }
+    const body = JSON.stringify(slim(evt));
+    const req = http.request({
+      host: '127.0.0.1',
+      port: PORT,
+      path: '/event',
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      timeout: 800,
+    }, (res) => {
+      res.resume();
+      res.on('end', bail);
+    });
+    req.on('timeout', () => { req.destroy(); bail(); });
+    req.on('error', bail);
+    req.end(body);
+  });
+}
+
+module.exports = { run };
+if (require.main === module) run();

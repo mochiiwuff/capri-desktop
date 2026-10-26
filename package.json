@@ -12,6 +12,9 @@
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
+    "hooks:codex:install": "node scripts/install-codex-hooks.js",
+    "hooks:codex:uninstall": "node scripts/install-codex-hooks.js --uninstall",
+    "test:hooks": "node --test tests/hooks.test.js",
     "dist": "electron-builder --win"
   },
   "keywords": [
