@@ -323,6 +323,9 @@ async function boot() {
       case 'welcome': // "How does it work?" in her menu
         guide.menu();
         break;
+      case 'forget': // "Forget our conversations" in her menu, maybe with her chat open
+        chat.history = [];
+        break;
       case 'chat': // "Talk to her" in her menu
         chat.start();
         break;

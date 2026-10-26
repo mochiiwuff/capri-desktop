@@ -5,7 +5,8 @@
 
 import { pick, fmt } from './util.js';
 
-const REMEMBER = 12; // messages of this conversation she keeps in mind
+const REMEMBER = 20; // messages she has in mind when answering
+const KEEP = 60;     // messages she remembers across restarts (memory.json)
 const LANGUAGE = { fr: 'French', en: 'English', es: 'Spanish', pt: 'Brazilian Portuguese', ru: 'Russian' };
 const STAY_MS = 10 * 60 * 1000; // no wandering off mid-conversation
 const LOADING_AFTER_MS = 5000;
@@ -20,7 +21,8 @@ export class Chat {
     this.voice = voice;
     this.host = host;
     this.brain = brain;
-    this.history = []; // this run's conversation, [{ role, content }]
+    this.history = []; // your chats with her, [{ role, content }], kept by main.js across restarts
+    this.warm = false; // a model already answered this run (Ollama's first answer waits for it to load)
     this.open = false;
     this.turn = 0;     // id of the answer coming in, if any
     this.answer = '';
@@ -67,6 +69,8 @@ export class Chat {
       });
       return;
     }
+    this.history = await host.chatMemory().catch(() => this.history); // "forget" in her menu may have emptied it
+    this.cold = status.warmup && !this.warm;
     this.agent = Boolean(status.agent); // Claude Code answers, as her, and really works in your project
     this.listApps();
     host.focusOverlay(true); // the keyboard, for typing to her
@@ -119,9 +123,11 @@ export class Chat {
     this.capri.pulse();
     await Promise.race([this.appsReady, new Promise((r) => setTimeout(r, 1500))]);
     const messages = [{ role: 'system', content: this.persona() }, ...this.history.slice(-REMEMBER)];
-    // nothing yet after a few seconds: the model is still loading (the first answer after a start)
-    const slow = setTimeout(() => {
-      if (this.turn === id && !this.answer) this.panel.stream(this.t.loading);
+    // nothing yet after a few seconds: Ollama is still loading the model (the first answer after a start),
+    // or Claude Code is at work
+    const wait = this.agent ? this.t.working : this.cold ? this.t.loading : null;
+    const slow = wait && setTimeout(() => {
+      if (this.turn === id && !this.answer) this.panel.stream(wait);
     }, LOADING_AFTER_MS);
     const res = await this.host.chatSend({ id, messages });
     clearTimeout(slow);
@@ -139,7 +145,8 @@ export class Chat {
       return;
     }
     const answer = clean(res.text) || '…';
-    this.history.push({ role: 'assistant', content: answer });
+    this.warm = true;
+    this.remember({ role: 'assistant', content: answer });
     this.panel.stream(answer, { done: true });
     this.panel.setFace(mood(answer));
     this.panel.setChatBusy(false);
@@ -147,6 +154,13 @@ export class Chat {
     const wanted = this.askedToClose(text) || tagged(res.text);
     if (wanted && !this.agent) this.offerClose(wanted, answer);
     this.listApps(); // fresh for the next message
+  }
+
+  // an answer of hers, kept with your message before it
+  remember(message) {
+    this.history.push(message);
+    this.history = this.history.slice(-KEEP);
+    this.host.chatRemember(this.history);
   }
 
   listApps() {
@@ -195,7 +209,7 @@ export class Chat {
     else line = fmt(force ? t.unkillable : t.stillOpen, { app: app.name });
     this.panel.setFace(res.running || res.error ? 'aside' : 'laugh');
     this.panel.stream(line, { done: true });
-    this.history.push({ role: 'assistant', content: line });
+    this.remember({ role: 'assistant', content: line });
     // it hid in the tray, or it's asking you to save something: forcing it is your call
     if (res.running && !force && !res.error) {
       this.panel.setActions(

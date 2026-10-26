@@ -16,7 +16,7 @@ const TRAY = {
     soundsDir: 'Ouvrir le dossier des sons perso', screen: 'Écran', wander: 'Se balader quand rien ne se passe',
     possess: 'Posséder mes fenêtres', lang: 'Langue', auto: 'Automatique (système)', startup: 'Lancer au démarrage',
     hooksOn: 'Hooks Claude Code : installés', hooksOff: 'Installer les hooks Claude Code',
-    hooksRemove: 'Retirer les hooks Claude Code', quit: 'Quitter',
+    hooksRemove: 'Retirer les hooks Claude Code', forget: 'Oublier nos conversations', quit: 'Quitter',
   },
   en: {
     name: 'English',
@@ -30,7 +30,7 @@ const TRAY = {
     soundsDir: 'Open custom sounds folder', screen: 'Screen', wander: 'Wander around when idle',
     possess: 'Possess my windows', lang: 'Language', auto: 'Automatic (system)', startup: 'Start with Windows',
     hooksOn: 'Claude Code hooks: installed', hooksOff: 'Install Claude Code hooks',
-    hooksRemove: 'Remove Claude Code hooks', quit: 'Quit',
+    hooksRemove: 'Remove Claude Code hooks', forget: 'Forget our conversations', quit: 'Quit',
   },
   es: {
     name: 'Español',
@@ -44,7 +44,7 @@ const TRAY = {
     soundsDir: 'Abrir la carpeta de sonidos propios', screen: 'Pantalla', wander: 'Pasear cuando no pasa nada',
     possess: 'Poseer mis ventanas', lang: 'Idioma', auto: 'Automático (sistema)', startup: 'Iniciar con Windows',
     hooksOn: 'Hooks de Claude Code: instalados', hooksOff: 'Instalar los hooks de Claude Code',
-    hooksRemove: 'Quitar los hooks de Claude Code', quit: 'Salir',
+    hooksRemove: 'Quitar los hooks de Claude Code', forget: 'Olvidar nuestras conversaciones', quit: 'Salir',
   },
   pt: {
     name: 'Português (Brasil)',
@@ -58,7 +58,7 @@ const TRAY = {
     soundsDir: 'Abrir a pasta de sons personalizados', screen: 'Tela', wander: 'Passear quando nada acontece',
     possess: 'Possuir minhas janelas', lang: 'Idioma', auto: 'Automático (sistema)', startup: 'Iniciar com o Windows',
     hooksOn: 'Hooks do Claude Code: instalados', hooksOff: 'Instalar os hooks do Claude Code',
-    hooksRemove: 'Remover os hooks do Claude Code', quit: 'Sair',
+    hooksRemove: 'Remover os hooks do Claude Code', forget: 'Esquecer nossas conversas', quit: 'Sair',
   },
   ru: {
     name: 'Русский',
@@ -72,7 +72,7 @@ const TRAY = {
     soundsDir: 'Открыть папку своих звуков', screen: 'Экран', wander: 'Гулять, когда ничего не происходит',
     possess: 'Вселяться в мои окна', lang: 'Язык', auto: 'Автоматически (системный)', startup: 'Запускать вместе с Windows',
     hooksOn: 'Хуки Claude Code: установлены', hooksOff: 'Установить хуки Claude Code',
-    hooksRemove: 'Удалить хуки Claude Code', quit: 'Выйти',
+    hooksRemove: 'Удалить хуки Claude Code', forget: 'Забыть наши разговоры', quit: 'Выйти',
   },
 };
 

@@ -68,6 +68,7 @@ export const LINES = {
       getOllama: 'Télécharger Ollama', ok: 'Compris',
       failed: 'Signal perdu :',
       loading: 'Le modèle se réveille… la première réponse prend un moment.',
+      working: 'Je m’en occupe… (Claude Code bosse)',
       // fermer une appli que tu lui demandes de fermer, après ton clic
       closeIt: 'Fermer {app}', no: 'Non',
       closed: '{app} : flatliné. C’est fait.',
@@ -228,6 +229,7 @@ export const LINES = {
       getOllama: 'Get Ollama', ok: 'Got it',
       failed: 'Lost the signal:',
       loading: 'Waking the model up… the first answer takes a moment.',
+      working: 'On it… (Claude Code is working)',
       // closing an app you ask her to close, after your click
       closeIt: 'Close {app}', no: 'No',
       closed: '{app}: flatlined. Done.',
@@ -387,6 +389,7 @@ export const LINES = {
       getOllama: 'Descargar Ollama', ok: 'Entendido',
       failed: 'Se perdió la señal:',
       loading: 'Despertando el modelo… la primera respuesta tarda un poco.',
+      working: 'En ello… (Claude Code está trabajando)',
       // cerrar una app que le pides cerrar, tras tu clic
       closeIt: 'Cerrar {app}', no: 'No',
       closed: '{app}: flatline. Hecho.',
@@ -545,6 +548,7 @@ export const LINES = {
       getOllama: 'Baixar Ollama', ok: 'Entendi',
       failed: 'Perdi o sinal:',
       loading: 'Acordando o modelo… a primeira resposta demora um pouco.',
+      working: 'Tô nessa… (o Claude Code está trabalhando)',
       // fechar um app que você pede para fechar, depois do seu clique
       closeIt: 'Fechar {app}', no: 'Não',
       closed: '{app}: flatline. Feito.',
@@ -703,6 +707,7 @@ export const LINES = {
       getOllama: 'Скачать Ollama', ok: 'Понятно',
       failed: 'Сигнал потерян:',
       loading: 'Модель просыпается… первый ответ займёт немного времени.',
+      working: 'Уже занимаюсь… (Claude Code работает)',
       // закрыть приложение, которое ты просишь закрыть, после твоего клика
       closeIt: 'Закрыть {app}', no: 'Нет',
       closed: '{app}: флэтлайн. Готово.',

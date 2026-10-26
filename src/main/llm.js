@@ -179,6 +179,13 @@ function resetClaude() {
   claudeStarted = false;
 }
 
+// Claude Code's conversation, to save and pick up again after a restart.
+const claudeMemory = () => ({ session: claudeSession, started: claudeStarted });
+function restoreClaude(saved) {
+  claudeSession = saved?.session || null;
+  claudeStarted = Boolean(claudeSession && saved.started);
+}
+
 const isChatSession = (id) => Boolean(id) && id === claudeSession;
 
 async function chat(id, cfg, { model, messages }, onDelta, signal) {
@@ -196,4 +203,4 @@ function isLocal(id, cfg) {
   return Boolean(PROVIDERS[id].local);
 }
 
-module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession };
+module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession, claudeMemory, restoreClaude };

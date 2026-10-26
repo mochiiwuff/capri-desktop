@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('host', {
   chatStatus: () => ipcRenderer.invoke('chat:status'),
   chatSend: (request) => ipcRenderer.invoke('chat:send', request),
   chatStop: (id) => ipcRenderer.send('chat:stop', id),
+  chatMemory: () => ipcRenderer.invoke('chat:memory'),
+  chatRemember: (history) => ipcRenderer.send('chat:remember', history),
   onChatDelta: on('chat:delta'),
   openOllama: () => ipcRenderer.send('chat:ollama'),
   openApps: () => ipcRenderer.invoke('apps:list'),

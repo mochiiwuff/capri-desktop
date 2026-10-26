@@ -41,6 +41,28 @@ const chats = new Map(); // id -> AbortController of an answer being streamed
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
 
+// Her memory of your chats, across restarts: { history: [{ role, content }], claude: Claude Code's session }
+const memoryFile = () => path.join(app.getPath('userData'), 'memory.json');
+function readMemory() {
+  try {
+    return JSON.parse(fs.readFileSync(memoryFile(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+function saveMemory(patch) {
+  try {
+    fs.writeFileSync(memoryFile(), JSON.stringify({ ...readMemory(), ...patch }));
+  } catch (err) {
+    console.error('[capri] could not save her memory:', err.message);
+  }
+}
+function forgetChats() {
+  llm.resetClaude();
+  saveMemory({ history: [], claude: null });
+  sendCommand('forget');
+}
+
 // capri://app/...        -> files of this repo
 // capri://usersounds/... -> the user's own sound overrides
 function serveProtocol() {
@@ -271,8 +293,8 @@ function rebuildTray() {
               label: mode, type: 'radio', checked: cfg.claudeMode === mode, click: () => updateConfig({ claudeMode: mode }),
             })),
           },
-          { label: 'New Claude Code conversation', click: () => llm.resetClaude() },
         ] : []),
+        { label: t.forget, click: forgetChats },
         // keys and the custom URL: by hand, in config.json (read again when you open her chat)
         { label: 'API keys / custom URL (config.json)…', click: () => { config.save({}); shell.openPath(config.file()); } },
       ],
@@ -361,7 +383,8 @@ async function pickProvider(provider) {
 async function pickClaudeFolder() {
   const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'], defaultPath: config.load().claudeCwd || app.getPath('home') });
   if (canceled || !filePaths[0]) return;
-  llm.resetClaude(); // a new folder, a new conversation
+  llm.resetClaude(); // a new folder, a new Claude Code conversation (hers goes on)
+  saveMemory({ claude: null });
   updateConfig({ claudeCwd: filePaths[0] });
 }
 
@@ -401,7 +424,7 @@ function registerIpc() {
     if (!models) return { ok: false, error: chatError || 'offline' };
     if (!models.length) return { ok: false, error: 'nomodel' };
     llm.warm(provider, pickModel()); // loading while you type your first message
-    return { ok: true, model: pickModel(), agent: provider === 'claude', local: llm.isLocal(provider, cfg) };
+    return { ok: true, model: pickModel(), agent: provider === 'claude', local: llm.isLocal(provider, cfg), warmup: provider === 'ollama' };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
   ipcMain.handle('chat:send', async (_e, { id, messages }) => {
@@ -411,6 +434,7 @@ function registerIpc() {
       const send = (text) => overlay?.webContents.send('chat:delta', { id, text });
       const cfg = config.load();
       const text = await llm.chat(cfg.provider, cfg, { model: pickModel(), messages }, send, abort.signal);
+      if (cfg.provider === 'claude') saveMemory({ claude: llm.claudeMemory() });
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message };
@@ -419,6 +443,8 @@ function registerIpc() {
     }
   });
   ipcMain.on('chat:stop', (_e, id) => chats.get(id)?.abort());
+  ipcMain.handle('chat:memory', () => readMemory().history || []);
+  ipcMain.on('chat:remember', (_e, history) => Array.isArray(history) && saveMemory({ history }));
   ipcMain.on('chat:ollama', () => shell.openExternal(OLLAMA_SITE));
   // closing an app you asked her to close, once you've clicked to confirm (apps.js)
   const appInfo = (app) => app && { name: app.process, label: app.label };
@@ -571,6 +597,7 @@ function main() {
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
     screen.on('display-metrics-changed', fitOverlay);
     screen.on('display-added', () => { fitOverlay(); rebuildTray(); });
