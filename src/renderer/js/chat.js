@@ -67,6 +67,7 @@ export class Chat {
       });
       return;
     }
+    this.agent = Boolean(status.agent); // Claude Code answers, as her, and really works in your project
     this.listApps();
     host.focusOverlay(true); // the keyboard, for typing to her
     const shown = this.panel.say({
@@ -144,7 +145,7 @@ export class Chat {
     this.panel.setChatBusy(false);
     // what you asked for first (a small model doesn't always write its tag right), else its tag
     const wanted = this.askedToClose(text) || tagged(res.text);
-    if (wanted) this.offerClose(wanted, answer);
+    if (wanted && !this.agent) this.offerClose(wanted, answer);
     this.listApps(); // fresh for the next message
   }
 
@@ -235,7 +236,9 @@ export class Chat {
       'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk, flatline), not in every sentence.',
       `Rules: answer in the language the user writes in (${language} if unsure). Keep it short: one to three sentences of plain text, no markdown, no lists, no emoji. Stay in character.`,
       'You are an AI-generated fan version of the character, not the real one: say so if asked.',
-      ...this.powers(),
+      ...(this.agent
+        ? ['Under the hood you are Claude Code, working in the user\'s project: really do what they ask with your tools, as carefully as ever. Only your final answer is in character: it shows in a small speech bubble, so sum up what you did in those few sentences.']
+        : this.powers()),
       ...(watching ? ['For what Claude is doing, only use what follows, and never make anything up.', `Right now: ${this.brain.context()}`] : []),
     ].join('\n');
   }

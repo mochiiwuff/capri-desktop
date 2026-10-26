@@ -400,7 +400,7 @@ function registerIpc() {
     if (!models) return { ok: false, error: chatError || 'offline' };
     if (!models.length) return { ok: false, error: 'nomodel' };
     llm.warm(provider, pickModel()); // loading while you type your first message
-    return { ok: true, model: pickModel() };
+    return { ok: true, model: pickModel(), agent: provider === 'claude' };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
   ipcMain.handle('chat:send', async (_e, { id, messages }) => {

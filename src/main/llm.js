@@ -5,6 +5,8 @@
 // Keys come from config.json's `apiKeys` ({ openai: "sk-..." }) or the provider's env variable.
 
 const os = require('node:os');
+const fs = require('node:fs');
+const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { spawn, execFile } = require('node:child_process');
 const ollama = require('./ollama');
@@ -115,10 +117,13 @@ function claudeVersion() {
   });
 }
 
-function claudeChat(cfg, text, onDelta, signal) {
+function claudeChat(cfg, text, persona, onDelta, signal) {
+  // her persona, from a file: too long and too full of quotes and newlines for cmd's command line
+  const personaFile = path.join(os.tmpdir(), 'capri-persona.txt');
+  fs.writeFileSync(personaFile, persona);
   const args = ['-p', '--output-format', 'stream-json', '--verbose',
     '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'acceptEdits',
-    '--append-system-prompt', quote('Your replies are shown in a small desktop speech bubble: end with a short plain-text summary.')];
+    '--append-system-prompt-file', quote(personaFile)];
   if (!claudeSession) claudeSession = randomUUID();
   args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);
   return new Promise((resolve, reject) => {
@@ -179,8 +184,8 @@ const isChatSession = (id) => Boolean(id) && id === claudeSession;
 async function chat(id, cfg, { model, messages }, onDelta, signal) {
   const p = endpoint(id, cfg);
   if (p.kind === 'ollama') return ollama.chat({ model, messages }, onDelta, signal);
-  // Claude Code keeps its own memory of the conversation: only your last message goes
-  if (p.kind === 'claude') return claudeChat(cfg, messages.at(-1).content, onDelta, signal);
+  // Claude Code keeps its own memory of the conversation: only her persona and your last message go
+  if (p.kind === 'claude') return claudeChat(cfg, messages.at(-1).content, messages[0].content, onDelta, signal);
   return openaiChat(p, { model, messages }, onDelta, signal);
 }
 

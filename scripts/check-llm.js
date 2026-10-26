@@ -20,12 +20,14 @@ http.createServer((req, res) => {
   console.log('pollinations:', models[0], '->', text.slice(0, 60));
   await assert.rejects(llm.models('openai', cfg), /no API key/);
   assert.deepStrictEqual(await llm.models('claude', cfg), ['Claude Code']);
-  const a = await llm.chat('claude', cfg, { messages: [{ role: 'user', content: 'Remember the word "kiwi". Reply only: ok' }] }, () => {}, new AbortController().signal);
-  const b = await llm.chat('claude', cfg, { messages: [{ role: 'user', content: 'What word did I ask you to remember? One word.' }] }, () => {}, new AbortController().signal);
+  const persona = { role: 'system', content: 'You are Capri, a playful ghost from Project Capricorn. Keep it to one sentence.' };
+  const a = await llm.chat('claude', cfg, { messages: [persona, { role: 'user', content: 'Remember the word "kiwi". Reply only: ok' }] }, () => {}, new AbortController().signal);
+  const b = await llm.chat('claude', cfg, { messages: [persona, { role: 'user', content: 'What word did I ask you to remember, and what is your name?' }] }, () => {}, new AbortController().signal);
   console.log('claude:', a, '|', b);
   // her hooks (if installed) post this chat's events to CAPRI_PORT: all of them must be recognised as hers
   if (seen.size) assert([...seen].every(llm.isChatSession), `chat events recognised: ${[...seen]}`);
   console.log('hook sessions seen:', seen.size ? [...seen] : 'none (hooks not installed)');
   assert(/kiwi/i.test(b), 'claude session resumes');
+  assert(/capri/i.test(b), 'claude speaks as her');
   console.log('ALL OK');
 })().catch((e) => { console.error('FAIL', e); process.exit(1); });
