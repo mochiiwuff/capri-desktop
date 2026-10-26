@@ -38,7 +38,7 @@ comes to find you when Claude needs your permission, and loses it when the job i
   the summary (`12 actions · 3 files changed · 2m 14s`) and Claude's last sentence.
 - **When Claude answers and you're on another window**: she shows you its whole answer, in a wider panel that
   scrolls (paragraphs, lists and code kept). It goes away when you're back on Claude's window, or when you click it.
-  Claude's window is the one you typed your prompt in. Windows only, like the window tracking.
+  Claude's window is the one you typed your prompt in (supported on Windows and macOS).
 - **The rest of the time**: she floats, her mane sways and sheds shards, she drifts from one corner to another,
   turns around and cocks her head when your mouse comes near (or, little menace, zaps it with red lightning and a sly grin),
   looks up at the satellite, and falls asleep after 10 quiet minutes.
@@ -81,8 +81,8 @@ comes to find you when Claude needs your permission, and loses it when the job i
 
 ![Asleep down to her mask, waking up, and put away bottom left](docs/sleep.png)
 
-Window tracking is Windows-only for now (a tiny PowerShell helper reads window positions, no titles, no contents).
-On macOS and Linux she still floats, peeks, falls and wanders.
+Window tracking works on Windows (PowerShell Win32 DWM) and macOS (AppleScript System Events), reading window positions only (no titles, no contents).
+On Linux she still floats, peeks, falls and wanders.
 
 ### She shows you around
 
@@ -332,7 +332,7 @@ tools/build-sprite.py    rebuilds the sprite from the original cut-out (Python +
 tools/build-cutins.py    cuts the cut-ins and her faces out of frames of the show
 tools/build-intro.py     cuts her intro's close-ups out of their background, all the same way
 src/main/                Electron: full-screen transparent click-through window, tray, local HTTP bridge
-  windows.js / .ps1      where the other windows are (Windows only), so she can sit on them
+  windows.js / .ps1 / .applescript  where the other windows are (Windows & macOS), so she can sit on them
   ollama.js              her chat: the local model, through Ollama
   apps.js                closing an app you asked her to close (after your click)
 src/renderer/js/

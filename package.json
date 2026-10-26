@@ -46,7 +46,8 @@
     ],
     "asarUnpack": [
       "hooks/**",
-      "src/main/windows.ps1"
+      "src/main/windows.ps1",
+      "src/main/windows.applescript"
     ],
     "win": {
       "target": "nsis",

@@ -40,7 +40,7 @@ vient te chercher quand Claude attend ta permission et part en vrille quand la t
   le résumé (`12 actions · 3 fichiers modifiés · 2 min 14`) et la dernière phrase de Claude.
 - **Quand Claude te répond et que tu es sur une autre fenêtre** : elle t'affiche sa réponse en entier, dans un panneau
   plus large qui défile (paragraphes, listes et code gardés). Il s'en va quand tu reviens sur la fenêtre de Claude, ou
-  quand tu cliques dessus. La fenêtre de Claude, c'est celle où tu as tapé ton message. Sous Windows, comme le suivi des fenêtres.
+  quand tu cliques dessus. La fenêtre de Claude, c'est celle où tu as tapé ton message (supporté sous Windows et macOS).
 - **Le reste du temps** : elle flotte, sa crinière ondule et perd des éclats, elle se balade d'un coin à l'autre de l'écran,
   se retourne et penche la tête quand ta souris approche (ou, petite peste, lui envoie un éclair rouge avec un sourire en coin),
   lève les yeux vers le satellite, et s'endort si rien ne se passe pendant 10 minutes.
@@ -85,8 +85,8 @@ vient te chercher quand Claude attend ta permission et part en vrille quand la t
 
 ![Elle s'endort jusqu'à son masque, se réveille, et rangée en bas à gauche](docs/sleep.png)
 
-Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, pas leurs titres ni leur contenu).
-Sur macOS et Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
+Le suivi des fenêtres fonctionne sous Windows (PowerShell Win32 DWM) et sous macOS (AppleScript System Events), en lisant uniquement la position des fenêtres (aucun titre, aucun contenu).
+Sur Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
 
 ### Elle te fait visiter
 
@@ -351,7 +351,7 @@ tools/build-sprite.py    reconstruit le sprite depuis la découpe d'origine (Pyt
 tools/build-cutins.py    découpe les cut-ins et ses expressions dans des images de la série
 tools/build-intro.py     détoure les gros plans de son intro, tous de la même façon
 src/main/                Electron : fenêtre transparente plein écran, clic à travers, tray, bridge HTTP local
-  windows.js / .ps1      où sont les autres fenêtres (Windows), pour qu'elle s'assoie dessus
+  windows.js / .ps1 / .applescript  où sont les autres fenêtres (Windows & macOS), pour qu'elle s'assoie dessus
   ollama.js              son chat : le modèle local, via Ollama
   apps.js                fermer une appli que tu lui demandes de fermer (après ton clic)
 src/renderer/js/
