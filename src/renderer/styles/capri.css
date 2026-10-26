@@ -643,6 +643,21 @@ body {
   scrollbar-color: var(--violet) transparent;
 }
 
+/* her answer arrived: a short jolt of split colours and sideways slices, on twos */
+.panel__line.is-glitching {
+  animation: line-glitch 420ms steps(1, end) 1;
+}
+
+@keyframes line-glitch {
+  0% { text-shadow: -3px 0 var(--red), 3px 0 var(--blue); transform: translateX(2px) skewX(-6deg); clip-path: inset(0 0 55% 0); }
+  14% { text-shadow: 2px 0 var(--red), -2px 0 var(--green); transform: translateX(-3px); clip-path: inset(40% 0 0 0); }
+  28% { text-shadow: -2px 0 var(--red), 2px 0 var(--blue); transform: none; clip-path: none; }
+  46% { text-shadow: 1px 0 var(--violet), -1px 0 var(--green); transform: translateX(1px) skewX(4deg); clip-path: inset(10% 0 20% 0); }
+  62% { text-shadow: none; transform: none; clip-path: none; }
+  78% { text-shadow: -1px 0 var(--red), 1px 0 var(--blue); }
+  100% { text-shadow: none; }
+}
+
 /* her answer coming in: a block cursor at its end, on twos */
 .panel__line.is-streaming::after {
   content: '▌';
@@ -823,6 +838,7 @@ html[data-motion='reduced'] .panel__face img,
 html[data-motion='reduced'] .ticker.is-flash .ticker__plate,
 html[data-motion='reduced'] .ticker__dot,
 html[data-motion='reduced'] .panel__line.is-streaming::after,
+html[data-motion='reduced'] .panel__line.is-glitching,
 html[data-motion='reduced'] .panel[data-kind='alert'] .panel__state {
   animation: none !important;
 }
