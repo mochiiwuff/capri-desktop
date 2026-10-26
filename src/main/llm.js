@@ -5,6 +5,7 @@
 // Keys come from config.json's `apiKeys` ({ openai: "sk-..." }) or the provider's env variable.
 
 const os = require('node:os');
+const { randomUUID } = require('node:crypto');
 const { spawn, execFile } = require('node:child_process');
 const ollama = require('./ollama');
 
@@ -103,7 +104,9 @@ async function openaiChat(p, { model, messages }, onDelta, signal) {
 // only ever sees fixed arguments.
 
 const quote = (s) => (process.platform === 'win32' ? `"${s}"` : s); // cmd joins the arguments
-let claudeSession = null; // its session id: each message continues the same conversation
+// its session id, picked here so her hooks can tell its events from your other sessions' (main.js)
+let claudeSession = null;
+let claudeStarted = false; // each message after the first continues the same conversation
 
 function claudeVersion() {
   return new Promise((resolve, reject) => {
@@ -116,9 +119,14 @@ function claudeChat(cfg, text, onDelta, signal) {
   const args = ['-p', '--output-format', 'stream-json', '--verbose',
     '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'acceptEdits',
     '--append-system-prompt', quote('Your replies are shown in a small desktop speech bubble: end with a short plain-text summary.')];
-  if (claudeSession && /^[\w-]+$/.test(claudeSession)) args.push('--resume', claudeSession);
+  if (!claudeSession) claudeSession = randomUUID();
+  args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, { cwd: cfg.claudeCwd || os.homedir(), shell: process.platform === 'win32', windowsHide: true });
+    const child = spawn('claude', args, {
+      cwd: cfg.claudeCwd || os.homedir(),
+      shell: process.platform === 'win32',
+      windowsHide: true,
+    });
     const kill = () => (process.platform === 'win32'
       ? execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], () => {})
       : child.kill());
@@ -136,7 +144,7 @@ function claudeChat(cfg, text, onDelta, signal) {
         buffer = buffer.slice(nl + 1);
         let msg;
         try { msg = JSON.parse(line); } catch { continue; }
-        if (msg.session_id) claudeSession = msg.session_id;
+        claudeStarted = true;
         if (msg.type === 'assistant') {
           for (const block of msg.message?.content || []) {
             if (block.type !== 'text' || !block.text) continue;
@@ -163,7 +171,10 @@ function claudeChat(cfg, text, onDelta, signal) {
 
 function resetClaude() {
   claudeSession = null;
+  claudeStarted = false;
 }
+
+const isChatSession = (id) => Boolean(id) && id === claudeSession;
 
 async function chat(id, cfg, { model, messages }, onDelta, signal) {
   const p = endpoint(id, cfg);
@@ -173,4 +184,4 @@ async function chat(id, cfg, { model, messages }, onDelta, signal) {
   return openaiChat(p, { model, messages }, onDelta, signal);
 }
 
-module.exports = { PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude };
+module.exports = { PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession };

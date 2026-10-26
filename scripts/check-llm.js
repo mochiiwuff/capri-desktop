@@ -1,6 +1,15 @@
 // self-check: keyless gateway + Claude Code through llm.js
 const assert = require('node:assert');
+const http = require('node:http');
 const llm = require('../src/main/llm');
+
+const seen = new Set(); // session ids in the hook events Claude Code sends while she chats
+process.env.CAPRI_PORT = '47999'; // inherited by claude, then by its hooks: not the running Capri's port
+http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => { try { seen.add(JSON.parse(body).session_id); } catch {} res.end('{}'); });
+}).listen(47999, '127.0.0.1').unref();
 (async () => {
   const cfg = { apiKeys: {}, claudeMode: 'default', claudeCwd: process.cwd() };
   const models = await llm.models('pollinations', cfg);
@@ -14,6 +23,9 @@ const llm = require('../src/main/llm');
   const a = await llm.chat('claude', cfg, { messages: [{ role: 'user', content: 'Remember the word "kiwi". Reply only: ok' }] }, () => {}, new AbortController().signal);
   const b = await llm.chat('claude', cfg, { messages: [{ role: 'user', content: 'What word did I ask you to remember? One word.' }] }, () => {}, new AbortController().signal);
   console.log('claude:', a, '|', b);
+  // her hooks (if installed) post this chat's events to CAPRI_PORT: all of them must be recognised as hers
+  if (seen.size) assert([...seen].every(llm.isChatSession), `chat events recognised: ${[...seen]}`);
+  console.log('hook sessions seen:', seen.size ? [...seen] : 'none (hooks not installed)');
   assert(/kiwi/i.test(b), 'claude session resumes');
   console.log('ALL OK');
 })().catch((e) => { console.error('FAIL', e); process.exit(1); });
