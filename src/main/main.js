@@ -5,14 +5,14 @@ const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
-  clipboard, ClipboardItem,
+  clipboard, ClipboardItem, dialog,
 } = require('electron');
 
 const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
-const ollama = require('./ollama');
+const llm = require('./llm');
 const apps = require('./apps');
 const hooks = require('../../scripts/install-hooks');
 const demoSteps = require('../../scripts/demo-sequence');
@@ -35,7 +35,8 @@ let demoTimer = null;
 let windowWatch = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
-let chatModels = null; // the Ollama models, as last seen (null: Ollama not reached)
+let chatModels = null; // the provider's models, as last seen (null: not reached)
+let chatError = null;  // why not, when the provider said
 const chats = new Map(); // id -> AbortController of an answer being streamed
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
@@ -251,11 +252,30 @@ function rebuildTray() {
     },
     {
       label: t.chatModel,
-      submenu: chatModels?.length
-        ? chatModels.map((name) => ({
-          label: name, type: 'radio', checked: name === pickModel(cfg), click: () => updateConfig({ chatModel: name }),
-        }))
-        : [{ label: t.noOllama, enabled: false }],
+      submenu: [
+        ...Object.entries(llm.PROVIDERS).map(([provider, p]) => ({
+          label: p.label, type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
+        })),
+        { type: 'separator' },
+        ...(chatModels?.length
+          ? chatModels.map((name) => ({
+            label: name, type: 'radio', checked: name === pickModel(cfg), click: () => updateConfig({ chatModel: name }),
+          }))
+          : [{ label: (chatError || t.noOllama).slice(0, 80), enabled: false }]),
+        { type: 'separator' },
+        ...(cfg.provider === 'claude' ? [
+          { label: `Claude Code: ${cfg.claudeCwd || app.getPath('home')}`, click: pickClaudeFolder },
+          {
+            label: 'Claude Code permissions',
+            submenu: llm.CLAUDE_MODES.map((mode) => ({
+              label: mode, type: 'radio', checked: cfg.claudeMode === mode, click: () => updateConfig({ claudeMode: mode }),
+            })),
+          },
+          { label: 'New Claude Code conversation', click: () => llm.resetClaude() },
+        ] : []),
+        // keys and the custom URL: by hand, in config.json (read again when you open her chat)
+        { label: 'API keys / custom URL (config.json)…', click: () => { config.save({}); shell.openPath(config.file()); } },
+      ],
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
@@ -326,9 +346,23 @@ function pickModel(cfg = config.load()) {
 }
 
 async function refreshModels() {
-  chatModels = await ollama.models().catch(() => null);
+  const cfg = config.load();
+  chatError = null;
+  chatModels = await llm.models(cfg.provider, cfg).catch((err) => { chatError = err.message; return null; });
   rebuildTray();
   return chatModels;
+}
+
+async function pickProvider(provider) {
+  updateConfig({ provider });
+  await refreshModels();
+}
+
+async function pickClaudeFolder() {
+  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'], defaultPath: config.load().claudeCwd || app.getPath('home') });
+  if (canceled || !filePaths[0]) return;
+  llm.resetClaude(); // a new folder, a new conversation
+  updateConfig({ claudeCwd: filePaths[0] });
 }
 
 function createTray() {
@@ -361,10 +395,11 @@ function registerIpc() {
   ipcMain.handle('windows:get', () => lastWindows);
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
+    const { provider } = config.load(true); // keys may have been edited by hand
     const models = await refreshModels();
-    if (!models) return { ok: false, error: 'offline' };
+    if (!models) return { ok: false, error: chatError || 'offline' };
     if (!models.length) return { ok: false, error: 'nomodel' };
-    ollama.warm(pickModel()); // loading while you type your first message
+    llm.warm(provider, pickModel()); // loading while you type your first message
     return { ok: true, model: pickModel() };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
@@ -373,7 +408,8 @@ function registerIpc() {
     chats.set(id, abort);
     try {
       const send = (text) => overlay?.webContents.send('chat:delta', { id, text });
-      const text = await ollama.chat({ model: pickModel(), messages }, send, abort.signal);
+      const cfg = config.load();
+      const text = await llm.chat(cfg.provider, cfg, { model: pickModel(), messages }, send, abort.signal);
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message };

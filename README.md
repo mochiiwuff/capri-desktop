@@ -367,3 +367,15 @@ the show, a fan-made cut-out and fan art (her intro's close-ups); they are **not
 If a rights holder wants them removed, open an issue.
 
 Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fontsource.
+
+## Other AI models
+
+Tray menu → **AI model** picks who answers her chat:
+
+- **Local:** Ollama, LM Studio (`:1234`), llama.cpp / vLLM (`:8080`)
+- **No key:** Pollinations (cloud), gpt4free gateway (local `:1337`)
+- **Cloud:** OpenRouter, OpenAI, Groq, Gemini, DeepSeek, Mistral: set the env variable (`OPENAI_API_KEY`...) or `apiKeys` in `config.json` (menu → *API keys / custom URL*)
+- **Custom:** any OpenAI-compatible server, `customUrl` in `config.json`
+- **Claude Code:** your messages go to `claude -p` in the folder you pick, continuing one conversation; her hooks narrate what it does. Permission mode is in the same submenu (`acceptEdits` by default).
+
+`npm run check:llm` checks the keyless gateway and Claude Code from the command line.

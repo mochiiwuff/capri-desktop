@@ -48,13 +48,14 @@ export class Chat {
     if (!status.ok) {
       // no Ollama, or nothing to talk with yet: what to do about it
       const offline = status.error === 'offline';
+      const other = !offline && status.error !== 'nomodel'; // another provider, saying why
       capri.perform('curious', capri.towardCenter());
       this.panel.say({
         kind: 'info',
         face: 'aside',
         guide: true,
-        line: offline ? t.offline : t.noModel,
-        quote: offline ? t.offlineHow : t.noModelHow,
+        line: other ? t.failed : offline ? t.offline : t.noModel,
+        quote: other ? status.error : offline ? t.offlineHow : t.noModelHow,
         actions: offline
           ? [{ id: 'get', label: t.getOllama, primary: true }, { id: 'ok', label: t.ok }]
           : [{ id: 'ok', label: t.ok, primary: true }],
