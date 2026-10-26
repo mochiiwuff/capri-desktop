@@ -12,6 +12,24 @@ comes to find you when Claude needs your permission, and loses it when the job i
 
 ## What she does
 
+### Basic Codex support
+
+With Node.js 20+ available on PATH, run `npm run hooks:codex:install` from this checkout.
+This merges Capri hooks into `~/.codex/hooks.json` (or `$CODEX_HOME/hooks.json`),
+preserves other hooks, and backs up changed configuration. Restart Codex and review/trust
+the hooks when prompted. Keep this checkout in place and Capri running.
+See the [Codex hook documentation](https://learn.chatgpt.com/docs/hooks) for runtime support and trust review.
+
+Capri detects Codex hooks on startup. Use the **Codex / Claude Code** tray submenu to choose
+which assistant she watches. Her welcome, reactions, guide, hook buttons, folder/help links,
+and chat persona follow that choice in every language. **Plug me in** installs the selected
+assistant's hooks. Existing Claude support remains available.
+
+The adapter shows tool activity, approval/input alerts, completion, interruption, compaction,
+and subagent activity using the existing UI. It only observes approval requests; decisions
+remain in Codex. Remove the adapter with `npm run hooks:codex:uninstall`.
+Run `npm run test:hooks` for adapter, event-handler, and installer tests.
+
 - **When she starts**: she grabs your screen. Its edges crackle red, her left hand slams onto its edge, then her
   right, her arms reach in along them as she hauls herself up, and her face hits the glass (a white flash, an ink
   one, her colours apart, the screen shaking). She looks around, blinks, opens her mouth wide on "hi" (a tag pops

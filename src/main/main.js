@@ -14,14 +14,16 @@ const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const llm = require('./llm');
 const apps = require('./apps');
-const hooks = require('../../scripts/install-hooks');
+const { assistant } = require('./assistants');
+const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
+const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const DEV = process.argv.includes('--dev');
 const PORT = Number(process.env.CAPRI_PORT) || 47823;
 const SOUND_EXT = /\.(mp3|wav|ogg|m4a)$/i;
-const CLAUDE_CODE_HELP = 'https://code.claude.com/docs/en/quickstart';
+
 const OLLAMA_SITE = 'https://ollama.com';
 
 protocol.registerSchemesAsPrivileged([
@@ -210,7 +212,7 @@ function resolveLang(setting) {
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
   const cfg = config.load();
-  return { ...cfg, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  return { ...cfg, assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
 }
 
 function updateConfig(patch) {
@@ -225,8 +227,9 @@ function updateConfig(patch) {
 function rebuildTray() {
   if (!tray) return;
   const cfg = config.load();
-  const hookState = hooks.status();
-  const t = TRAY[resolveLang(cfg.lang)];
+  const hookState = activeHooks().status();
+  const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
+    [key, typeof value === 'string' && activeAssistant().id === 'codex' ? value.replaceAll('Claude Code', 'Codex') : value]));
 
   const displays = screen.getAllDisplays();
   const current = targetDisplay().id;
@@ -307,6 +310,10 @@ function rebuildTray() {
         label, type: 'radio', checked: cfg.rest === rest, click: () => updateConfig({ rest }),
       })),
     },
+    { label: 'Codex / Claude Code', submenu: ['codex', 'claude'].map((id) => ({
+      label: id === 'codex' ? 'Codex' : 'Claude Code', type: 'radio', checked: activeAssistant().id === id,
+      click: () => { updateConfig({ assistant: id, linked: false, welcomed: false }); sendCommand('assistantChanged'); },
+    })) },
     { label: t.claude, type: 'checkbox', checked: cfg.claude, click: (item) => updateConfig({ claude: item.checked }) },
     {
       label: t.motion,
@@ -351,7 +358,7 @@ function loginItemOptions() {
 function runHooks(action, { quiet = false } = {}) {
   let outcome;
   try {
-    const result = action === 'install' ? hooks.install() : hooks.uninstall();
+    const result = action === 'install' ? activeHooks().install() : activeHooks().uninstall();
     outcome = { action, ok: true, file: result.file };
   } catch (err) {
     outcome = { action, ok: false, error: err.message };
@@ -406,15 +413,15 @@ function registerIpc() {
     return { x: p.x - b.x, y: p.y - b.y, inside: p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height };
   });
   ipcMain.handle('config:get', () => rendererConfig());
-  ipcMain.handle('hooks:status', () => hooks.status());
+  ipcMain.handle('hooks:status', () => activeHooks().status());
   ipcMain.handle('config:set', (_e, patch) => updateConfig(patch));
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
   // right-clicking her: the same menu as the tray icon (which Windows often hides behind the ^ by the clock)
   ipcMain.on('menu:open', () => trayMenu?.popup({ window: overlay }));
   // her welcome panel's buttons
   ipcMain.handle('hooks:install', () => runHooks('install', { quiet: true }));
-  ipcMain.handle('claude:found', () => fs.existsSync(path.dirname(hooks.status().file))); // Claude Code keeps its settings there
-  ipcMain.on('claude:help', () => shell.openExternal(CLAUDE_CODE_HELP));
+  ipcMain.handle('claude:found', () => fs.existsSync(path.dirname(activeHooks().status().file))); // Claude Code keeps its settings there
+  ipcMain.on('claude:help', () => shell.openExternal(activeAssistant().help));
   ipcMain.handle('windows:get', () => lastWindows);
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
@@ -478,12 +485,12 @@ function registerIpc() {
   });
   // her guide: Claude Code's folder (~/.claude) in Explorer, its settings file selected
   ipcMain.handle('guide:claudeFolder', () => {
-    const file = hooks.status().file;
+    const file = activeHooks().status().file;
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) return { found: false, dir };
     if (fs.existsSync(file)) shell.showItemInFolder(file);
     else shell.openPath(dir);
-    return { found: true, dir, file: fs.existsSync(file) };
+    return { found: true, dir, file: fs.existsSync(file), label: fs.existsSync(file) ? path.basename(file) : path.basename(dir) };
   });
   ipcMain.handle('sounds:list', () => {
     try {
@@ -579,6 +586,7 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
+    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();

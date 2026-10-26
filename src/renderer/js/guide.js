@@ -201,7 +201,7 @@ export class Guide {
     const front = () => capri.windows.wins.find((w) => w.id === capri.windows.fg) || null;
     const win = (await this.until(() => (capri.windows.fg !== before ? front() : null), 2500)) || front();
     const scene = this.sceneId;
-    if (win && capri.canPoint(win)) await capri.pointAt(win, { label: opened.file ? 'settings.json' : '.claude' });
+    if (win && capri.canPoint(win)) await capri.pointAt(win, { label: opened.label || (this.brain.assistant === 'codex' ? 'hooks.json' : 'settings.json') });
     if (scene !== this.sceneId) return; // another scene took over meanwhile
     const id = await this.ask({
       face: 'smug',
