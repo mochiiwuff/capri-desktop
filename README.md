@@ -151,18 +151,25 @@ own. You can choose another one in her menu.
 
 ## Install
 
-### Quick start (Windows, no coding)
+## Install
 
-1. Download **`Capri-Setup-x.y.z.exe`** from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
-   and run it. It installs for your user only (no admin rights), adds a desktop shortcut and starts Capri.
-   You don't need Node.js or anything else.
-2. The installer isn't signed (a code-signing certificate costs money), so Windows SmartScreen may say
-   "Windows protected your PC": click **More info**, then **Run anyway**.
-3. Capri shows up and introduces herself. Click **Plug me in**: that connects her to Claude Code.
-4. Close Claude Code completely and open it again (it reads its hooks when a session starts). As soon as Claude does
+### Direct Download (No coding required)
+
+Download the ready-to-run app from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest):
+
+| Platform | File | Notes |
+|---|---|---|
+| **Windows** | `Capri-Setup-x.y.z.exe` | Run installer. If SmartScreen appears: **More info** › **Run anyway**. |
+| **macOS (Apple Silicon M-series)** | `Capri-x.y.z-mac-arm64.dmg` | Open DMG, drag to Applications. On first launch, Control-click (or right-click) `Capri.app` and select **Open** (or run `xattr -cr /Applications/Capri.app`). Follows along all Spaces! |
+| **macOS (Intel)** | `Capri-x.y.z-mac-x64.dmg` | Open DMG, drag to Applications. Control-click to open. |
+| **Linux (AppImage)** | `Capri-x.y.z-linux-x86_64.AppImage` | `chmod +x Capri-*.AppImage && ./Capri-*.AppImage` (runs on any distro). |
+| **Linux (Debian / Ubuntu)** | `Capri-x.y.z-linux-amd64.deb` | `sudo dpkg -i Capri-*.deb` |
+
+1. Start Capri. She shows up and introduces herself. Click **Plug me in**: that connects her to Claude Code.
+2. Close Claude Code completely and open it again (it reads its hooks when a session starts). As soon as Claude does
    something, she tells you **"I can see Claude!"**: that's how you know it worked.
 
-Her menu: **right-click her**. It's also on her tray icon, which Windows 11 often hides behind the **^** next to the clock.
+Her menu: **right-click her**. It's also on her tray icon (next to the clock or in the macOS menu bar).
 
 ### What's Claude Code? Do I need it?
 

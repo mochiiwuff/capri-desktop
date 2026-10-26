@@ -163,19 +163,23 @@ système. Tu peux en choisir une autre dans son menu.
 
 ## Installation
 
-### Démarrage rapide (Windows, sans coder)
+### Téléchargement direct (sans coder)
 
-1. Télécharge **`Capri-Setup-x.y.z.exe`** dans la [dernière release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
-   et lance-le. Il s'installe pour ton utilisateur seulement (pas besoin d'être administrateur), ajoute un raccourci
-   sur le bureau et lance Capri. Pas besoin de Node.js ni de rien d'autre.
-2. L'installeur n'est pas signé (un certificat de signature, c'est payant), donc Windows SmartScreen peut afficher
-   « Windows a protégé votre ordinateur » : clique sur **Informations complémentaires**, puis **Exécuter quand même**.
-3. Capri apparaît et se présente. Clique sur **Me brancher** : ça la connecte à Claude Code.
-4. Ferme complètement Claude Code et rouvre-le (il lit ses hooks au début d'une session). Dès que Claude fait quelque
+Télécharge l'application prête à l'emploi depuis la [dernière version](https://github.com/mochiiwuff/capri-desktop/releases/latest) :
+
+| Plateforme | Fichier | Notes |
+|---|---|---|
+| **Windows** | `Capri-Setup-x.y.z.exe` | Lance l'installeur. Si SmartScreen apparaît : **Informations complémentaires** › **Exécuter quand même**. |
+| **macOS (Apple Silicon M)** | `Capri-x.y.z-mac-arm64.dmg` | Ouvre le DMG, glisse Capri dans Applications. Au premier lancement, fais un clic droit (ou Contrôle-clic) sur `Capri.app` puis **Ouvrir** (ou `xattr -cr /Applications/Capri.app`). Te suit sur tous tes Spaces ! |
+| **macOS (Intel)** | `Capri-x.y.z-mac-x64.dmg` | Ouvre le DMG, glisse Capri dans Applications. Contrôle-clic pour ouvrir. |
+| **Linux (AppImage)** | `Capri-x.y.z-linux-x86_64.AppImage` | `chmod +x Capri-*.AppImage && ./Capri-*.AppImage` (compatible avec toutes les distributions). |
+| **Linux (Debian / Ubuntu)** | `Capri-x.y.z-linux-amd64.deb` | `sudo dpkg -i Capri-*.deb` |
+
+1. Lance Capri. Elle apparaît et se présente. Clique sur **Me brancher** : ça la connecte à Claude Code.
+2. Ferme complètement Claude Code et rouvre-le (il lit ses hooks au début d'une session). Dès que Claude fait quelque
    chose, elle te dit **« Je vois Claude ! »** : c'est comme ça que tu sais que ça marche.
 
-Son menu : **clic droit sur elle**. Il est aussi sur son icône, que Windows 11 cache souvent derrière le **^** à côté
-de l'horloge.
+Son menu : **clic droit sur elle**. Il est aussi sur son icône près de l'horloge ou dans la barre de menus macOS.
 
 ### C'est quoi Claude Code ? Il le faut ?
 

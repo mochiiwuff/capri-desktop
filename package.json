@@ -12,7 +12,11 @@
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
+    "dist:all": "electron-builder -mwl"
   },
   "keywords": [
     "claude-code",
@@ -59,6 +63,23 @@
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
       "artifactName": "Capri-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icons/capri.icns",
+      "category": "public.app-category.utilities",
+      "artifactName": "Capri-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "artifactName": "Capri-${version}-mac-${arch}.dmg"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "assets/icons/capri.png",
+      "category": "Utility",
+      "artifactName": "Capri-${version}-linux-${arch}.${ext}"
     }
   }
 }
