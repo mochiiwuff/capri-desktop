@@ -12,9 +12,9 @@ const { spawn, execFile } = require('node:child_process');
 const ollama = require('./ollama');
 
 const PROVIDERS = {
-  ollama: { label: 'Ollama (local)', kind: 'ollama' },
-  lmstudio: { label: 'LM Studio (local)', url: 'http://127.0.0.1:1234/v1' },
-  llamacpp: { label: 'llama.cpp / vLLM (local :8080)', url: 'http://127.0.0.1:8080/v1' },
+  ollama: { label: 'Ollama (local)', kind: 'ollama', local: true },
+  lmstudio: { label: 'LM Studio (local)', url: 'http://127.0.0.1:1234/v1', local: true },
+  llamacpp: { label: 'llama.cpp / vLLM (local :8080)', url: 'http://127.0.0.1:8080/v1', local: true },
   pollinations: {
     label: 'Pollinations (no key)', url: 'https://text.pollinations.ai/openai', modelsUrl: 'https://text.pollinations.ai/models',
   },
@@ -189,4 +189,11 @@ async function chat(id, cfg, { model, messages }, onDelta, signal) {
   return openaiChat(p, { model, messages }, onDelta, signal);
 }
 
-module.exports = { PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession };
+// Whether her answers stay on this PC: a local server (a gateway like gpt4free passes them on to the web).
+function isLocal(id, cfg) {
+  if (id === 'ollama') return /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/.test(process.env.OLLAMA_HOST || '127.0.0.1');
+  if (id === 'custom') return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(cfg.customUrl || '');
+  return Boolean(PROVIDERS[id].local);
+}
+
+module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession };

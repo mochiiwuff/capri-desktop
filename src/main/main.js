@@ -395,12 +395,13 @@ function registerIpc() {
   ipcMain.handle('windows:get', () => lastWindows);
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
-    const { provider } = config.load(true); // keys may have been edited by hand
+    const cfg = config.load(true); // keys may have been edited by hand
+    const { provider } = cfg;
     const models = await refreshModels();
     if (!models) return { ok: false, error: chatError || 'offline' };
     if (!models.length) return { ok: false, error: 'nomodel' };
     llm.warm(provider, pickModel()); // loading while you type your first message
-    return { ok: true, model: pickModel(), agent: provider === 'claude' };
+    return { ok: true, model: pickModel(), agent: provider === 'claude', local: llm.isLocal(provider, cfg) };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
   ipcMain.handle('chat:send', async (_e, { id, messages }) => {

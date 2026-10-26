@@ -81,7 +81,7 @@ export class Chat {
         send: t.send,
         close: t.close,
         noteTag: t.noteTag,
-        note: t.note,
+        note: status.local ? t.note : t.noteCloud,
       },
       onSend: (text) => this.send(text),
       onLeave: () => this.close(),
