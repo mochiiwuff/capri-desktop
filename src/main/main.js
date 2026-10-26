@@ -5,14 +5,14 @@ const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
-  clipboard, ClipboardItem,
+  clipboard, ClipboardItem, dialog,
 } = require('electron');
 
 const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
-const ollama = require('./ollama');
+const llm = require('./llm');
 const apps = require('./apps');
 const hooks = require('../../scripts/install-hooks');
 const demoSteps = require('../../scripts/demo-sequence');
@@ -35,10 +35,33 @@ let demoTimer = null;
 let windowWatch = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
-let chatModels = null; // the Ollama models, as last seen (null: Ollama not reached)
+let chatModels = null; // the provider's models, as last seen (null: not reached)
+let chatError = null;  // why not, when the provider said
 const chats = new Map(); // id -> AbortController of an answer being streamed
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
+
+// Her memory of your chats, across restarts: { history: [{ role, content }], claude: Claude Code's session }
+const memoryFile = () => path.join(app.getPath('userData'), 'memory.json');
+function readMemory() {
+  try {
+    return JSON.parse(fs.readFileSync(memoryFile(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+function saveMemory(patch) {
+  try {
+    fs.writeFileSync(memoryFile(), JSON.stringify({ ...readMemory(), ...patch }));
+  } catch (err) {
+    console.error('[capri] could not save her memory:', err.message);
+  }
+}
+function forgetChats() {
+  llm.resetClaude();
+  saveMemory({ history: [], claude: null });
+  sendCommand('forget');
+}
 
 // capri://app/...        -> files of this repo
 // capri://usersounds/... -> the user's own sound overrides
@@ -251,11 +274,30 @@ function rebuildTray() {
     },
     {
       label: t.chatModel,
-      submenu: chatModels?.length
-        ? chatModels.map((name) => ({
-          label: name, type: 'radio', checked: name === pickModel(cfg), click: () => updateConfig({ chatModel: name }),
-        }))
-        : [{ label: t.noOllama, enabled: false }],
+      submenu: [
+        ...Object.entries(llm.PROVIDERS).map(([provider, p]) => ({
+          label: p.label, type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
+        })),
+        { type: 'separator' },
+        ...(chatModels?.length
+          ? chatModels.map((name) => ({
+            label: name, type: 'radio', checked: name === pickModel(cfg), click: () => updateConfig({ chatModel: name }),
+          }))
+          : [{ label: (chatError || t.noOllama).slice(0, 80), enabled: false }]),
+        { type: 'separator' },
+        ...(cfg.provider === 'claude' ? [
+          { label: `Claude Code: ${cfg.claudeCwd || app.getPath('home')}`, click: pickClaudeFolder },
+          {
+            label: 'Claude Code permissions',
+            submenu: llm.CLAUDE_MODES.map((mode) => ({
+              label: mode, type: 'radio', checked: cfg.claudeMode === mode, click: () => updateConfig({ claudeMode: mode }),
+            })),
+          },
+        ] : []),
+        { label: t.forget, click: forgetChats },
+        // keys and the custom URL: by hand, in config.json (read again when you open her chat)
+        { label: 'API keys / custom URL (config.json)…', click: () => { config.save({}); shell.openPath(config.file()); } },
+      ],
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
@@ -326,9 +368,24 @@ function pickModel(cfg = config.load()) {
 }
 
 async function refreshModels() {
-  chatModels = await ollama.models().catch(() => null);
+  const cfg = config.load();
+  chatError = null;
+  chatModels = await llm.models(cfg.provider, cfg).catch((err) => { chatError = err.message; return null; });
   rebuildTray();
   return chatModels;
+}
+
+async function pickProvider(provider) {
+  updateConfig({ provider });
+  await refreshModels();
+}
+
+async function pickClaudeFolder() {
+  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'], defaultPath: config.load().claudeCwd || app.getPath('home') });
+  if (canceled || !filePaths[0]) return;
+  llm.resetClaude(); // a new folder, a new Claude Code conversation (hers goes on)
+  saveMemory({ claude: null });
+  updateConfig({ claudeCwd: filePaths[0] });
 }
 
 function createTray() {
@@ -361,11 +418,13 @@ function registerIpc() {
   ipcMain.handle('windows:get', () => lastWindows);
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
+    const cfg = config.load(true); // keys may have been edited by hand
+    const { provider } = cfg;
     const models = await refreshModels();
-    if (!models) return { ok: false, error: 'offline' };
+    if (!models) return { ok: false, error: chatError || 'offline' };
     if (!models.length) return { ok: false, error: 'nomodel' };
-    ollama.warm(pickModel()); // loading while you type your first message
-    return { ok: true, model: pickModel() };
+    llm.warm(provider, pickModel()); // loading while you type your first message
+    return { ok: true, model: pickModel(), agent: provider === 'claude', local: llm.isLocal(provider, cfg), warmup: provider === 'ollama' };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
   ipcMain.handle('chat:send', async (_e, { id, messages }) => {
@@ -373,7 +432,9 @@ function registerIpc() {
     chats.set(id, abort);
     try {
       const send = (text) => overlay?.webContents.send('chat:delta', { id, text });
-      const text = await ollama.chat({ model: pickModel(), messages }, send, abort.signal);
+      const cfg = config.load();
+      const text = await llm.chat(cfg.provider, cfg, { model: pickModel(), messages }, send, abort.signal);
+      if (cfg.provider === 'claude') saveMemory({ claude: llm.claudeMemory() });
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message };
@@ -382,6 +443,8 @@ function registerIpc() {
     }
   });
   ipcMain.on('chat:stop', (_e, id) => chats.get(id)?.abort());
+  ipcMain.handle('chat:memory', () => readMemory().history || []);
+  ipcMain.on('chat:remember', (_e, history) => Array.isArray(history) && saveMemory({ history }));
   ipcMain.on('chat:ollama', () => shell.openExternal(OLLAMA_SITE));
   // closing an app you asked her to close, once you've clicked to confirm (apps.js)
   const appInfo = (app) => app && { name: app.process, label: app.label };
@@ -529,10 +592,12 @@ function main() {
     });
     createBridge({
       port: PORT,
-      onEvent: (evt) => overlay?.webContents.send('claude:event', evt),
+      // her own Claude Code chat's hooks would cover its answer with theirs
+      onEvent: (evt) => !llm.isChatSession(evt.session_id) && overlay?.webContents.send('claude:event', evt),
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
     screen.on('display-metrics-changed', fitOverlay);
     screen.on('display-added', () => { fitOverlay(); rebuildTray(); });

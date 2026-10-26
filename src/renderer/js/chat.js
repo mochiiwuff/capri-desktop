@@ -5,7 +5,8 @@
 
 import { pick, fmt } from './util.js';
 
-const REMEMBER = 12; // messages of this conversation she keeps in mind
+const REMEMBER = 20; // messages she has in mind when answering
+const KEEP = 60;     // messages she remembers across restarts (memory.json)
 const LANGUAGE = { fr: 'French', en: 'English', es: 'Spanish', pt: 'Brazilian Portuguese', ru: 'Russian' };
 const STAY_MS = 10 * 60 * 1000; // no wandering off mid-conversation
 const LOADING_AFTER_MS = 5000;
@@ -20,7 +21,8 @@ export class Chat {
     this.voice = voice;
     this.host = host;
     this.brain = brain;
-    this.history = []; // this run's conversation, [{ role, content }]
+    this.history = []; // your chats with her, [{ role, content }], kept by main.js across restarts
+    this.warm = false; // a model already answered this run (Ollama's first answer waits for it to load)
     this.open = false;
     this.turn = 0;     // id of the answer coming in, if any
     this.answer = '';
@@ -48,13 +50,14 @@ export class Chat {
     if (!status.ok) {
       // no Ollama, or nothing to talk with yet: what to do about it
       const offline = status.error === 'offline';
+      const other = !offline && status.error !== 'nomodel'; // another provider, saying why
       capri.perform('curious', capri.towardCenter());
       this.panel.say({
         kind: 'info',
         face: 'aside',
         guide: true,
-        line: offline ? t.offline : t.noModel,
-        quote: offline ? t.offlineHow : t.noModelHow,
+        line: other ? t.failed : offline ? t.offline : t.noModel,
+        quote: other ? status.error : offline ? t.offlineHow : t.noModelHow,
         actions: offline
           ? [{ id: 'get', label: t.getOllama, primary: true }, { id: 'ok', label: t.ok }]
           : [{ id: 'ok', label: t.ok, primary: true }],
@@ -66,6 +69,9 @@ export class Chat {
       });
       return;
     }
+    this.history = await host.chatMemory().catch(() => this.history); // "forget" in her menu may have emptied it
+    this.cold = status.warmup && !this.warm;
+    this.agent = Boolean(status.agent); // Claude Code answers, as her, and really works in your project
     this.listApps();
     host.focusOverlay(true); // the keyboard, for typing to her
     const shown = this.panel.say({
@@ -79,7 +85,7 @@ export class Chat {
         send: t.send,
         close: t.close,
         noteTag: t.noteTag,
-        note: t.note,
+        note: status.local ? t.note : t.noteCloud,
       },
       onSend: (text) => this.send(text),
       onLeave: () => this.close(),
@@ -117,9 +123,11 @@ export class Chat {
     this.capri.pulse();
     await Promise.race([this.appsReady, new Promise((r) => setTimeout(r, 1500))]);
     const messages = [{ role: 'system', content: this.persona() }, ...this.history.slice(-REMEMBER)];
-    // nothing yet after a few seconds: the model is still loading (the first answer after a start)
-    const slow = setTimeout(() => {
-      if (this.turn === id && !this.answer) this.panel.stream(this.t.loading);
+    // nothing yet after a few seconds: Ollama is still loading the model (the first answer after a start),
+    // or Claude Code is at work
+    const wait = this.agent ? this.t.working : this.cold ? this.t.loading : null;
+    const slow = wait && setTimeout(() => {
+      if (this.turn === id && !this.answer) this.panel.stream(wait);
     }, LOADING_AFTER_MS);
     const res = await this.host.chatSend({ id, messages });
     clearTimeout(slow);
@@ -137,14 +145,22 @@ export class Chat {
       return;
     }
     const answer = clean(res.text) || '…';
-    this.history.push({ role: 'assistant', content: answer });
+    this.warm = true;
+    this.remember({ role: 'assistant', content: answer });
     this.panel.stream(answer, { done: true });
     this.panel.setFace(mood(answer));
     this.panel.setChatBusy(false);
     // what you asked for first (a small model doesn't always write its tag right), else its tag
     const wanted = this.askedToClose(text) || tagged(res.text);
-    if (wanted) this.offerClose(wanted, answer);
+    if (wanted && !this.agent) this.offerClose(wanted, answer);
     this.listApps(); // fresh for the next message
+  }
+
+  // an answer of hers, kept with your message before it
+  remember(message) {
+    this.history.push(message);
+    this.history = this.history.slice(-KEEP);
+    this.host.chatRemember(this.history);
   }
 
   listApps() {
@@ -193,7 +209,7 @@ export class Chat {
     else line = fmt(force ? t.unkillable : t.stillOpen, { app: app.name });
     this.panel.setFace(res.running || res.error ? 'aside' : 'laugh');
     this.panel.stream(line, { done: true });
-    this.history.push({ role: 'assistant', content: line });
+    this.remember({ role: 'assistant', content: line });
     // it hid in the tray, or it's asking you to save something: forcing it is your call
     if (res.running && !force && !res.error) {
       this.panel.setActions(
@@ -234,7 +250,9 @@ export class Chat {
       'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk, flatline), not in every sentence.',
       `Rules: answer in the language the user writes in (${language} if unsure). Keep it short: one to three sentences of plain text, no markdown, no lists, no emoji. Stay in character.`,
       'You are an AI-generated fan version of the character, not the real one: say so if asked.',
-      ...this.powers(),
+      ...(this.agent
+        ? ['Under the hood you are Claude Code, working in the user\'s project: really do what they ask with your tools, as carefully as ever. Only your final answer is in character: it shows in a small speech bubble, so sum up what you did in those few sentences.']
+        : this.powers()),
       ...(watching ? ['For what Claude is doing, only use what follows, and never make anything up.', `Right now: ${this.brain.context()}`] : []),
     ].join('\n');
   }

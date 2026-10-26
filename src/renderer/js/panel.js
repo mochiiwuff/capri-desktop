@@ -28,6 +28,8 @@ export class Panel {
     this.tickerEl = ticker;
     this.labels = labels;
     this.line = panel.querySelector('.panel__line');
+    this.stopStream(); // her chat answer, decoding in (stream)
+    this.streamTo = [];
     this.portrait = panel.querySelector('.panel__face img');
     this.quote = panel.querySelector('.panel__quote');
     this.reply = panel.querySelector('.panel__reply');
@@ -273,6 +275,7 @@ export class Panel {
   chatTurn({ quote, face }) {
     if (!this.current?.chat) return;
     clearInterval(this.decodeTimer);
+    this.stopStream();
     this.setFace(face);
     this.quote.textContent = quote;
     this.quote.hidden = !quote;
@@ -281,13 +284,61 @@ export class Panel {
     this.place();
   }
 
-  // Her answer so far (done: all of it).
+  // Her answer so far (done: all of it). It decodes in through noise like her other lines, catching
+  // up faster the further behind it is (Claude Code's answer comes in one piece), and glitches once done.
   stream(text, { done = false } = {}) {
     if (!this.current?.chat) return;
-    this.line.textContent = text;
-    this.line.classList.toggle('is-streaming', !done);
+    this.streamTo = [...text];
+    this.streamDone = done;
+    // an answer rewritten rather than added to (a reasoning block cut out, an error): from where they part
+    let same = 0;
+    const max = Math.min(this.streamShown, this.streamTo.length);
+    while (same < max && this.streamTo[same] === this.streamAt[same]) same++;
+    this.streamShown = same;
+    if (reducedMotion.matches) {
+      this.streamShown = this.streamTo.length;
+      return this.streamStep();
+    }
+    this.streamTimer ??= setInterval(() => this.streamStep(), DECODE_STEP_MS);
+  }
+
+  streamStep() {
+    const chars = this.streamTo;
+    const behind = chars.length - this.streamShown;
+    this.streamShown += Math.min(behind, Math.max(2, Math.ceil(behind / 14)));
+    this.streamAt = chars.slice(0, this.streamShown);
+    const caughtUp = this.streamShown >= chars.length;
+    if (caughtUp && this.streamDone) {
+      this.stopStream();
+      this.line.textContent = chars.join('');
+      this.line.classList.remove('is-streaming');
+      this.glitchLine();
+    } else {
+      // noise where the next characters land; still waiting for more, a little static at the end
+      let tail = '';
+      for (let i = 0; i < (caughtUp ? 2 : Math.min(6, behind)); i++) {
+        tail += chars[this.streamShown + i] === ' ' ? ' ' : NOISE[Math.floor(Math.random() * NOISE.length)];
+      }
+      this.line.textContent = this.streamAt.join('') + tail;
+      this.line.classList.add('is-streaming');
+    }
     this.line.scrollTop = this.line.scrollHeight;
     this.place();
+  }
+
+  stopStream() {
+    clearInterval(this.streamTimer);
+    this.streamTimer = null;
+    this.streamShown = 0;
+    this.streamAt = [];
+  }
+
+  // a jolt through her finished answer: split colours, slices knocked sideways
+  glitchLine() {
+    if (reducedMotion.matches) return;
+    this.line.classList.remove('is-glitching');
+    void this.line.offsetWidth; // restart the CSS animation
+    this.line.classList.add('is-glitching');
   }
 
   // While she answers you can't send another.
@@ -355,6 +406,7 @@ export class Panel {
   hide() {
     clearTimeout(this.hideTimer);
     clearInterval(this.decodeTimer);
+    this.stopStream();
     this.onTalk?.(false);
     if (this.el.hidden || this.leaving) return;
     const gone = this.current;

@@ -12,6 +12,7 @@
     "demo": "node scripts/demo.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
+    "check:llm": "node scripts/check-llm.js",
     "dist": "electron-builder --win"
   },
   "keywords": [
