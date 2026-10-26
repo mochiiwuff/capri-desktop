@@ -215,6 +215,17 @@ Relance tes sessions Claude Code ensuite. Pour retirer : `npm run hooks:uninstal
 
 Les hooks sont lancés en `async` : ils ne ralentissent jamais Claude, et si Capri n'est pas lancée ils ne font rien.
 
+### La brancher sur Google Antigravity
+
+Pour utiliser Capri avec **Google Antigravity** (AGY CLI / IDE / App) :
+
+```bash
+npm run hooks:install-agy
+npm run start-agy
+```
+
+Ça ajoute un hook (`capri-agy`) dans `~/.gemini/config/hooks.json` (avec sauvegarde et conservation des hooks existants) et lance Capri avec `--agy`. Pour retirer : `npm run hooks:uninstall-agy`.
+
 ### Tester sans Claude
 
 ```bash

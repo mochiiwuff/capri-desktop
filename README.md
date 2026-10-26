@@ -219,6 +219,17 @@ Restart your Claude Code sessions afterwards. To remove it: `npm run hooks:unins
 
 The hooks run `async`: they never slow Claude down, and when Capri isn't running they do nothing.
 
+### Hook her up to Google Antigravity
+
+To run Capri with **Google Antigravity** (AGY CLI / IDE / App):
+
+```bash
+npm run hooks:install-agy
+npm run start-agy
+```
+
+This adds a lifecycle hook entry (`capri-agy`) to `~/.gemini/config/hooks.json` (preserving existing hooks and writing a timestamped backup) and launches Capri with `--agy` so her dialogue and tray menu target Antigravity. To remove it: `npm run hooks:uninstall-agy`.
+
 ### Try it without Claude
 
 ```bash
