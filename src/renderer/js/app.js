@@ -133,10 +133,10 @@ async function boot() {
     refreshHit();
     hoverChip();
   });
-  // Click-through, Windows sometimes stops passing the pointer's moves on to the overlay, and her
-  // panel's buttons go dead under it. While a panel is up, she checks where the pointer is herself.
+  // Click-through, Windows sometimes stops passing the pointer's moves on to the overlay, and she
+  // can't be grabbed, nor her panel's buttons clicked. So she also checks where the pointer is herself.
   setInterval(async () => {
-    if (!panel.rect() || capri.dragging) return;
+    if (capri.dragging) return;
     const at = await host.cursor().catch(() => null);
     if (!at) return;
     mouse = at.inside ? { x: at.x, y: at.y } : null;
