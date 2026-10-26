@@ -16,6 +16,9 @@ const DEFAULTS = {
   welcomed: false,   // she has introduced herself (her welcome panel)
   linked: false,     // a Claude Code event has reached her at least once
   chatModel: null,   // the Ollama model she talks with (null: the first one installed)
+  cloudModel: 'gpt-oss:20b', // the cloud Ollama model (cheapest free model)
+  ollamaApiKey: '',  // Ollama cloud API key (never printed, stored here so the settings menu can set it)
+  notifications: true, // system notifications for Claude updates
 };
 
 let cache = null;

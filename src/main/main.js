@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
-  clipboard, ClipboardItem,
+  clipboard, ClipboardItem, Notification, dialog,
 } = require('electron');
 
 const config = require('./config');
@@ -96,6 +96,10 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  // Multi virtual desktop: follow across all macOS Spaces / Linux workspaces
+  if (typeof overlay.setVisibleOnAllWorkspaces === 'function') {
+    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner
   overlay.once('ready-to-show', () => overlay.showInactive());
@@ -246,6 +250,11 @@ function rebuildTray() {
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
+    { label: t.notifications, type: 'checkbox', checked: cfg.notifications, click: (item) => updateConfig({ notifications: item.checked }) },
+    {
+      label: t.ollamaKey,
+      click: () => promptApiKey(t),
+    },
     {
       label: t.lang,
       submenu: [[t.auto, 'auto'], ...LANGS.map((lang) => [TRAY[lang].name, lang])].map(([label, lang]) => ({
@@ -290,8 +299,10 @@ function runHooks(action, { quiet = false } = {}) {
   return outcome;
 }
 
-// The model she talks with: the one picked in her menu if it's still installed, else the first.
+// The model she talks with: in cloud mode, the configured cloudModel; locally, the one picked
+// in her menu if it's still installed, else the first.
 function pickModel(cfg = config.load()) {
+  if (ollama.isCloud()) return cfg.cloudModel || 'gpt-oss:20b';
   if (!chatModels?.length) return null;
   return chatModels.includes(cfg.chatModel) ? cfg.chatModel : chatModels[0];
 }
@@ -300,6 +311,93 @@ async function refreshModels() {
   chatModels = await ollama.models().catch(() => null);
   rebuildTray();
   return chatModels;
+}
+
+// Prompt for the Ollama API key (from the tray menu).
+async function promptApiKey(t) {
+  const cfg = config.load();
+  const hasKey = Boolean(cfg.ollamaApiKey || process.env.OLLAMA_API_KEY);
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    title: t.ollamaKeyTitle || 'Ollama API Key',
+    message: t.ollamaKeyMsg || 'Paste your Ollama API key (from ollama.com/settings/keys).\nLeave empty to use local Ollama instead.',
+    detail: hasKey ? (t.ollamaKeySet || 'A key is currently set.') : (t.ollamaKeyNone || 'No key is set.'),
+    buttons: [t.ollamaKeySave || 'Save', t.ollamaKeyClear || 'Clear key', t.ollamaKeyCancel || 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    inputFieldValue: '', // we never show the current key
+  });
+  // Electron's showMessageBox doesn't have an input field, so we use a prompt workaround:
+  // use the detail text to show current state, and a separate input dialog for the key.
+  if (result.response === 2) return; // cancel
+  if (result.response === 1) {
+    // clear the key
+    config.save({ ollamaApiKey: '' });
+    ollama.setApiKey('');
+    refreshModels();
+    return;
+  }
+  // Ask for the key using a BrowserWindow prompt (Electron has no native text input dialog)
+  const key = await showInputDialog(t);
+  if (key === null) return; // cancelled
+  config.save({ ollamaApiKey: key });
+  ollama.setApiKey(key);
+  refreshModels();
+}
+
+// A tiny window to paste the API key (Electron doesn't have a native text input dialog).
+function showInputDialog(t) {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      width: 480, height: 180, resizable: false, minimizable: false, maximizable: false,
+      modal: true, parent: null, show: false, title: t.ollamaKeyTitle || 'Ollama API Key',
+      webPreferences: { contextIsolation: false, nodeIntegration: true },
+    });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; background: #1a1a2e; color: #e0e0e0; margin: 0; }
+      input { width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 14px; border: 1px solid #444; border-radius: 6px; background: #16213e; color: #e0e0e0; margin: 12px 0; outline: none; }
+      input:focus { border-color: #0f9b8e; }
+      .buttons { text-align: right; margin-top: 8px; }
+      button { padding: 6px 18px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; margin-left: 8px; }
+      .ok { background: #0f9b8e; color: #fff; } .ok:hover { background: #0dbaa8; }
+      .cancel { background: #333; color: #ccc; } .cancel:hover { background: #444; }
+    </style></head><body>
+      <div>${t.ollamaKeyPrompt || 'Paste your API key:'}</div>
+      <input id="key" type="password" placeholder="sk-..." autofocus />
+      <div class="buttons">
+        <button class="cancel" onclick="send(null)">${t.ollamaKeyCancel || 'Cancel'}</button>
+        <button class="ok" onclick="send(document.getElementById('key').value)">${t.ollamaKeySave || 'Save'}</button>
+      </div>
+      <script>const { ipcRenderer } = require('electron');
+        function send(v) { ipcRenderer.send('apikey:result', v); }
+        document.getElementById('key').addEventListener('keydown', e => {
+          if (e.key === 'Enter') send(document.getElementById('key').value);
+          if (e.key === 'Escape') send(null);
+        });
+      </script>
+    </body></html>`;
+    win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    win.once('ready-to-show', () => win.show());
+    const handler = (_e, value) => { resolve(value); win.close(); };
+    ipcMain.once('apikey:result', handler);
+    win.on('closed', () => {
+      ipcMain.removeListener('apikey:result', handler);
+      resolve(null);
+    });
+  });
+}
+
+// System notification for Claude events: what she says, as a native notification.
+function notifyUser(line, tag) {
+  const cfg = config.load();
+  if (!cfg.notifications) return;
+  if (!Notification.isSupported()) return;
+  const notif = new Notification({
+    title: tag ? `Capri — ${tag}` : 'Capri',
+    body: String(line || '').slice(0, 200),
+    silent: true, // her own sounds are enough
+  });
+  notif.show();
 }
 
 function createTray() {
@@ -491,6 +589,9 @@ function main() {
     registerIpc();
     createOverlay();
     createTray();
+    // Load the API key from config (the settings menu can set it at runtime)
+    const cfg = config.load();
+    if (cfg.ollamaApiKey) ollama.setApiKey(cfg.ollamaApiKey);
     windowWatch = startWindowWatch({
       overlay,
       onUpdate: (data) => {
@@ -500,7 +601,19 @@ function main() {
     });
     createBridge({
       port: PORT,
-      onEvent: (evt) => overlay?.webContents.send('claude:event', evt),
+      onEvent: (evt) => {
+        overlay?.webContents.send('claude:event', evt);
+        // System notification for key Claude events
+        const name = evt.hook_event_name;
+        if (name === 'Notification' && (evt.notification_type === 'permission_prompt' || evt.notification_type === 'elicitation_dialog')) {
+          notifyUser(evt.message || 'Claude needs your permission.', 'ALERT');
+        } else if (name === 'Stop') {
+          const quote = String(evt.last_assistant_message || '').replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+          notifyUser(quote.slice(0, 150) || 'Claude finished.', 'DONE');
+        } else if (name === 'PostToolUseFailure') {
+          notifyUser(`${evt.tool_name || 'Tool'} failed: ${(evt.error || '').split('\n')[0]}`, 'ERROR');
+        }
+      },
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());

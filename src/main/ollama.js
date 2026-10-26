@@ -3,11 +3,35 @@
 // Talking to her: a local model through Ollama (https://ollama.com). Done from here, not from
 // the overlay's page, which can't reach other local ports. Everything stays on this machine
 // unless OLLAMA_HOST points somewhere else.
+//
+// Cloud mode: when OLLAMA_API_KEY is set, she talks to Ollama's cloud API at https://ollama.com
+// instead, sending the key as Authorization: Bearer. No local Ollama install needed.
+
+let configKey = ''; // set from the app's config (settings menu)
+
+function setApiKey(key) {
+  configKey = key || '';
+}
+
+function apiKey() {
+  return process.env.OLLAMA_API_KEY || configKey;
+}
+
+function isCloud() {
+  return Boolean(apiKey());
+}
 
 function base() {
+  if (isCloud()) return 'https://ollama.com';
   let host = process.env.OLLAMA_HOST || '127.0.0.1:11434';
   if (!/^https?:\/\//.test(host)) host = `http://${host}`;
   return host.replace('://0.0.0.0', '://127.0.0.1').replace(/\/+$/, '');
+}
+
+function headers() {
+  const h = { 'content-type': 'application/json' };
+  if (isCloud()) h['authorization'] = `Bearer ${apiKey()}`;
+  return h;
 }
 
 // Ollama's errors come as {"error": "..."}
@@ -20,20 +44,24 @@ async function failure(res) {
   }
 }
 
-// The models installed, by name ("llama3.2:latest"...).
+// The models available (local: installed; cloud: models in the plan).
 async function models() {
-  const res = await fetch(`${base()}/api/tags`, { signal: AbortSignal.timeout(2500) });
+  const res = await fetch(`${base()}/api/tags`, {
+    headers: headers(),
+    signal: AbortSignal.timeout(isCloud() ? 10000 : 2500),
+  });
   if (!res.ok) throw await failure(res);
   const { models: list = [] } = await res.json();
   return list.map((m) => m.name);
 }
 
 // Loads the model into memory ahead of the first message (the first answer after a fresh start
-// otherwise waits for it to load, which can take a while).
+// otherwise waits for it to load, which can take a while). Skipped in cloud mode (no keep_alive).
 function warm(model) {
+  if (isCloud()) return;
   fetch(`${base()}/api/generate`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({ model, keep_alive: '15m' }),
   }).catch(() => {});
 }
@@ -42,12 +70,12 @@ function warm(model) {
 async function chat({ model, messages }, onDelta, signal) {
   const res = await fetch(`${base()}/api/chat`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({
       model,
       messages,
       stream: true,
-      keep_alive: '15m', // she stays loaded while you chat
+      ...(isCloud() ? {} : { keep_alive: '15m' }), // she stays loaded while you chat (local only)
       options: { temperature: 0.85, num_predict: 240 },
     }),
     signal,
@@ -76,4 +104,4 @@ async function chat({ model, messages }, onDelta, signal) {
   return text;
 }
 
-module.exports = { models, warm, chat };
+module.exports = { models, warm, chat, isCloud, setApiKey };
