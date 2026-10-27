@@ -17,6 +17,7 @@
     "hooks:agy:install": "node scripts/install-hooks-agy.js",
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
+    "test:chat": "node --test tests/chat.test.js",
     "test:hooks": "node --test tests/hooks.test.js",
     "dist": "electron-builder --win"
   },

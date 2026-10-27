@@ -3,7 +3,7 @@
 // She can do a few things on your PC when you ask (Windows): open an app or a game, play music or
 // control what's playing, open a website, close an app. She spots what you want in what you wrote,
 // or the model asks for it with a tag in its answer. Music right away; an app you named yourself
-// right away; anything only the model asked for, a website, and closing an app behind a button.
+// right away (except opening Spotify); anything only the model asked for, a website, and closing an app behind a button.
 
 import { pick, fmt } from './util.js';
 import { ASSISTANT_NAMES } from './lines.js';
@@ -189,7 +189,7 @@ export class Chat {
     this.panel.setActions([]); // a close button she offered before goes with a new message
     this.panel.chatTurn({ quote: text, face: 'aside' });
     this.capri.pulse();
-    // what you asked for plainly happens right away (the music, the volume, an app you named): her
+    // what you asked for plainly happens right away (the music, the volume, most apps you named): her
     // line about it comes under her answer (Claude Code, answering her chat, does things its own way)
     const asked = this.agent ? null : this.asked(text);
     const early = asked && asked.kind !== 'close' ? this.doNow(asked) : null;
@@ -285,6 +285,7 @@ export class Chat {
       return (await this.host.openSite(site.url)) ? { line: fmt(t.siteOpened, { site: site.name }), face: 'laugh' } : null;
     }
     if (!item) return null; // nothing by that name here: her tag may still say what you meant
+    if (/\bspotify\b/i.test(item.name)) return { confirm: item };
     this.zap();
     const res = await this.host.launch(item);
     return { line: res.ok ? fmt(t.opened, { app: item.name }) : `${t.failed} ${res.error}`, face: res.ok ? 'laugh' : 'aside' };
@@ -295,6 +296,7 @@ export class Chat {
   async after(raw, answer, asked, early, text) {
     const { t } = this;
     const done = early && (await early);
+    if (done?.confirm) return this.launch(done.confirm, answer);
     if (done) return this.addLine(answer, done.line, done.face);
     if (asked?.kind === 'close') return this.offerClose(asked.name, answer);
     if (asked && asked.kind !== 'open') return undefined; // music that didn't work out: nothing more to offer
