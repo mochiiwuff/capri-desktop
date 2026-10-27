@@ -1,0 +1,116 @@
+/* ------------------------------------------------------------------
+   "Set my own times": the little window for her focus mode.
+   Same cel look as her panel: ink plate, hard bevels, violet copy.
+------------------------------------------------------------------- */
+
+html,
+body.times {
+  background: var(--ink);
+  color: var(--paper);
+  overflow: auto;
+  user-select: auto;
+}
+
+.times__form {
+  --accent: var(--red);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px 22px;
+}
+
+.times__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.times__face {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  background: var(--ink-2);
+  filter: drop-shadow(3px 3px 0 var(--violet));
+  clip-path: polygon(14% 0, 100% 0, 100% 80%, 84% 100%, 0 100%, 0 16%);
+}
+
+.times__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.times__hint {
+  margin: 4px 0 0;
+  color: var(--paper-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+  line-height: 1.5;
+}
+
+.times__row {
+  display: grid;
+  grid-template-columns: 1fr 86px 34px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  background: var(--ink-2);
+  border-left: 3px solid var(--red);
+}
+
+.times__row[data-phase='rest'] {
+  border-left-color: var(--green);
+}
+
+.times__name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.times__row input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.times__row input:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 1px;
+}
+
+.times__row input[aria-invalid='true'] {
+  outline: 2px solid var(--red);
+}
+
+.times__unit {
+  color: var(--paper-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+}
+
+.times__error {
+  margin: 0;
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+}
+
+.times__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}

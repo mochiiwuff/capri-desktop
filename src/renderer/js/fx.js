@@ -386,6 +386,28 @@ export class FxLayer {
     this.add({ type: 'glyph', life: rand(900, 1400), x: x + rand(-40, 40), y, text: pick(GLYPHS), drift: rand(-12, 12) });
   }
 
+  // ---------- focus mode: the last seconds and the finale ----------
+
+  // One number of the final countdown, huge in the middle of the screen: it slams in on an
+  // impact frame, holds, and drops out in stepped fades. color: a key of COLORS.
+  count(n, { color = 'red', life = 950 } = {}) {
+    const { w, h } = this.size;
+    this.add({ type: 'count', life, x: w / 2, y: h / 2, text: String(n), color, size: Math.min(w, h) * 0.42 });
+    this.slices(w / 2 - w * 0.12, h / 2 - h * 0.18, w * 0.24, h * 0.36, { count: 6, life: 140 });
+  }
+
+  // The whole screen in one colour for a couple of drawings: an impact frame.
+  flash(color = 'red', { life = 90 } = {}) {
+    this.add({ type: 'flash', life, color });
+  }
+
+  // A band across the whole screen with a word on it: wipes in over three drawings,
+  // holds, and is knocked out in slivers.
+  banner(text, { sub = '', color = 'red', life = 2600 } = {}) {
+    const { w, h } = this.size;
+    this.add({ type: 'banner', life, text, sub, color, y: h / 2, w, band: Math.max(110, h * 0.17) });
+  }
+
   // One shard coming loose from the mane and floating away, slowly, outward and up.
   drift(x, y, angle) {
     const speed = rand(16, 34);
@@ -757,6 +779,47 @@ export class FxLayer {
       return 0;
     }
     return 1 - Math.floor(k * 4) / 4;
+  }
+
+  // The banner itself (see banner()): a violet copy under an ink band, an accent rule top and
+  // bottom, slanted stripes at both ends, the word big in the middle and the small line under it.
+  bannerBody(it, top, w, band) {
+    const { ctx } = this;
+    const accent = COLORS[it.color];
+    ctx.fillStyle = COLORS.violet;
+    ctx.fillRect(0, top + 8, w, band);
+    ctx.fillStyle = COLORS.ink;
+    ctx.fillRect(0, top, w, band);
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, top, w, 5);
+    ctx.fillRect(0, top + band - 5, w, 5);
+    const step = 34;
+    for (const x0 of [0, w - step * 5]) {
+      for (let i = 0; i < 5; i++) {
+        const x = x0 + i * step;
+        ctx.beginPath();
+        ctx.moveTo(x, top + band - 12);
+        ctx.lineTo(x + 14, top + band - 12);
+        ctx.lineTo(x + 14 + band * 0.5, top + 12);
+        ctx.lineTo(x + band * 0.5, top + 12);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    const size = Math.round(band * 0.42);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${size}px "Chakra Petch", sans-serif`;
+    const ty = it.sub ? it.y - band * 0.08 : it.y;
+    ctx.fillStyle = COLORS.violet;
+    ctx.fillText(it.text, w / 2 + 4, ty + 4);
+    ctx.fillStyle = COLORS.paper;
+    ctx.fillText(it.text, w / 2, ty);
+    if (it.sub) {
+      ctx.font = `600 ${Math.round(band * 0.13)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = accent;
+      ctx.fillText(it.sub, w / 2, it.y + band * 0.3);
+    }
   }
 
   // A shard shape centred on the origin, with its violet copy.
@@ -1358,6 +1421,90 @@ export class FxLayer {
           ctx.closePath();
           ctx.fillStyle = s.color;
           ctx.fill();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'count': {
+        // slams in: a negative impact frame at 1.5x, then 1.25x, then it lands; stepped fade out
+        const frame = Math.floor((t * it.life) / FRAME_MS);
+        const scale = frame === 0 ? 1.5 : frame < 3 ? 1.25 : 1;
+        const alpha = t > 0.72 ? 1 - Math.ceil(((t - 0.72) / 0.28) * 3) / 3 : 1;
+        if (alpha <= 0) break;
+        const impact = frame === 0;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(it.x, it.y);
+        ctx.scale(scale, scale);
+        ctx.font = `700 ${Math.round(it.size)}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'miter';
+        const off = it.size * 0.04;
+        ctx.fillStyle = COLORS.violet;
+        ctx.fillText(it.text, off, off);
+        ctx.fillStyle = impact ? COLORS.ink : COLORS[it.color];
+        ctx.fillText(it.text, 0, 0);
+        ctx.lineWidth = Math.max(3, it.size * 0.018);
+        ctx.strokeStyle = impact ? COLORS[it.color] : COLORS.ink;
+        ctx.strokeText(it.text, 0, 0);
+        // a glitch: one horizontal band of the number knocked sideways on odd drawings
+        if (frame % 2 === 1) {
+          const bh = it.size * 0.12;
+          const by = rand(-it.size * 0.35, it.size * 0.25);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(-it.size, by, it.size * 2, bh);
+          ctx.clip();
+          ctx.fillStyle = COLORS.paper;
+          ctx.fillText(it.text, rand(-1, 1) * it.size * 0.06, 0);
+          ctx.restore();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'flash': {
+        const frame = Math.floor((t * it.life) / FRAME_MS);
+        ctx.save();
+        ctx.globalAlpha = frame === 0 ? 0.8 : 0.4;
+        ctx.fillStyle = COLORS[it.color];
+        ctx.fillRect(0, 0, this.size.w, this.size.h);
+        ctx.restore();
+        break;
+      }
+      case 'banner': {
+        const frame = Math.floor((t * it.life) / FRAME_MS);
+        const open = frame === 0 ? 0.25 : frame === 1 ? 0.6 : 1; // the wipe in, three drawings
+        const out = t > 0.86; // knocked out in slivers
+        const band = it.band;
+        const top = it.y - band / 2;
+        const right = it.w * open;
+        ctx.save();
+        if (out) {
+          // the band breaks into slivers that slide apart
+          const k = (t - 0.86) / 0.14;
+          const n = 7;
+          for (let i = 0; i < n; i++) {
+            const sy = top + (band / n) * i;
+            const dx = (i % 2 ? 1 : -1) * k * it.w * 0.35;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, sy, it.w, band / n + 1);
+            ctx.clip();
+            ctx.translate(dx, 0);
+            this.bannerBody(it, top, it.w, band);
+            ctx.restore();
+          }
+        } else {
+          ctx.beginPath();
+          ctx.rect(0, top - 12, right, band + 24);
+          ctx.clip();
+          this.bannerBody(it, top, it.w, band);
+          // a red edge where the wipe is
+          if (open < 1) {
+            ctx.fillStyle = COLORS[it.color];
+            ctx.fillRect(right - 10, top - 12, 10, band + 24);
+          }
         }
         ctx.restore();
         break;

@@ -23,9 +23,15 @@ const DECODE_STEP_MS = 28;
 const COUNT_MS = 700; // her report's numbers counting up
 
 export class Panel {
-  constructor({ panel, ticker, labels }) {
+  constructor({ panel, ticker, focus, labels }) {
     this.el = panel;
     this.tickerEl = ticker;
+    this.focusEl = focus;
+    this.focusTime = focus.querySelector('.focus__time');
+    this.focusLabel = focus.querySelector('.focus__label');
+    this.focusRound = focus.querySelector('.focus__round');
+    this.focusState = null; // her pomodoro (main/focus.js), while it runs
+    this.focusTimer = null;
     this.labels = labels;
     this.line = panel.querySelector('.panel__line');
     this.stopStream(); // her chat answer, decoding in (stream)
@@ -147,6 +153,7 @@ export class Panel {
     this.renderLog(msg.log || []);
 
     this.tickerEl.hidden = true;
+    this.focusEl.hidden = true;
     this.leaving = false;
     this.el.hidden = false;
     this.el.classList.remove('is-leaving');
@@ -453,7 +460,8 @@ export class Panel {
         if (this.leaving) this.el.hidden = true;
       }, 150);
     }
-    // back to the ticker if Claude is still busy
+    // back to the countdown if she's timing you, and the ticker if Claude is still busy
+    if (this.focusState) this.showFocus();
     if (this.tickerAction) this.setTicker(this.tickerAction);
   }
 
@@ -466,12 +474,14 @@ export class Panel {
     this.suspended = true;
     this.el.style.visibility = 'hidden';
     this.tickerEl.style.visibility = 'hidden';
+    this.focusEl.style.visibility = 'hidden';
   }
 
   resume() {
     this.suspended = false;
     this.el.style.visibility = '';
     this.tickerEl.style.visibility = '';
+    this.focusEl.style.visibility = '';
     this.place();
     if (!this.el.hidden) this.replayEnter();
   }
@@ -538,6 +548,51 @@ export class Panel {
     }, wait);
   }
 
+  // Focus: her pomodoro countdown over her head, "FOCUS 23:41 2/4" and a bar filling up.
+  // state: main/focus.js's, or null when it's off. It steps aside while she talks, like the ticker.
+  setFocus(state) {
+    const on = state && state.phase !== 'off';
+    this.focusState = on ? state : null;
+    clearInterval(this.focusTimer);
+    if (!on) {
+      this.focusEl.hidden = true;
+      this.place();
+      return;
+    }
+    this.renderFocus();
+    this.focusTimer = setInterval(() => this.renderFocus(), 250);
+    if (!this.visible) this.showFocus();
+  }
+
+  showFocus() {
+    this.focusEl.hidden = false;
+    this.focusEl.classList.remove('is-flash');
+    void this.focusEl.offsetWidth;
+    this.focusEl.classList.add('is-flash');
+    this.place();
+  }
+
+  // ms left on the clock
+  get focusLeft() {
+    const f = this.focusState;
+    if (!f) return 0;
+    return Math.max(0, f.paused ? f.left : f.endsAt - Date.now());
+  }
+
+  renderFocus() {
+    const f = this.focusState;
+    if (!f) return;
+    const left = this.focusLeft;
+    const s = Math.ceil(left / 1000);
+    const plate = this.labels.focus.plate;
+    this.focusEl.dataset.phase = f.phase;
+    this.focusEl.classList.toggle('is-paused', f.paused);
+    this.focusLabel.textContent = f.paused ? plate.paused : plate[f.phase];
+    this.focusTime.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    this.focusRound.textContent = f.phase === 'work' ? `${f.round}/${f.rounds}` : '';
+    this.focusEl.style.setProperty('--done', f.length ? (1 - left / f.length).toFixed(4) : 0);
+  }
+
   setAnchor(anchor, view) {
     this.anchor = anchor;
     this.view = view;
@@ -569,10 +624,20 @@ export class Panel {
       this.el.dataset.below = below ? 'true' : 'false';
     }
 
+    // the countdown right over her head; the ticker, if Claude is busy too, on top of it
+    let above = crown;
+    if (!this.focusEl.hidden) {
+      const fw = this.focusEl.offsetWidth;
+      const left = clamp(x - fw / 2, margin, w - fw - margin);
+      const top = Math.max(margin, crown - this.focusEl.offsetHeight - 10);
+      this.focusEl.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+      above = top + 4;
+    }
+
     if (!this.tickerEl.hidden) {
       const tw = this.tickerEl.offsetWidth;
       const left = clamp(x - tw / 2, margin, w - tw - margin);
-      const top = Math.max(margin, crown - this.tickerEl.offsetHeight - 10);
+      const top = Math.max(margin, above - this.tickerEl.offsetHeight - 10);
       this.tickerEl.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
     }
   }

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+  <title>Capri</title>
+  <link rel="stylesheet" href="styles/capri.css">
+  <link rel="stylesheet" href="styles/focus-times.css">
+</head>
+<body class="times">
+  <form id="times" class="times__form" novalidate>
+    <header class="times__head">
+      <img class="times__face" src="../../assets/capri/face-smug.png" alt="">
+      <div>
+        <h1 class="times__title" data-label="timesHeading"></h1>
+        <p class="times__hint" data-label="timesHint"></p>
+      </div>
+    </header>
+
+    <label class="times__row" data-phase="work">
+      <span class="times__name" data-label="timesWork"></span>
+      <input name="work" type="number" inputmode="numeric" step="1" required>
+      <span class="times__unit" data-label="timesMin"></span>
+    </label>
+    <label class="times__row" data-phase="rest">
+      <span class="times__name" data-label="timesRest"></span>
+      <input name="rest" type="number" inputmode="numeric" step="1" required>
+      <span class="times__unit" data-label="timesMin"></span>
+    </label>
+    <label class="times__row" data-phase="rest">
+      <span class="times__name" data-label="timesLong"></span>
+      <input name="long" type="number" inputmode="numeric" step="1" required>
+      <span class="times__unit" data-label="timesMin"></span>
+    </label>
+    <label class="times__row">
+      <span class="times__name" data-label="timesRounds"></span>
+      <input name="rounds" type="number" inputmode="numeric" step="1" required>
+      <span class="times__unit"></span>
+    </label>
+
+    <p class="times__error" role="alert" hidden></p>
+
+    <div class="times__actions">
+      <button type="button" class="panel__action" data-act="cancel" data-label="timesCancel"></button>
+      <button type="button" class="panel__action" data-act="save" data-label="timesSave"></button>
+      <button type="submit" class="panel__action is-primary" data-act="start" data-label="timesSaveStart"></button>
+    </div>
+  </form>
+
+  <script type="module" src="js/focus-times.js"></script>
+</body>
+</html>

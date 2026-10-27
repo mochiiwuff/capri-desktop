@@ -117,6 +117,23 @@ glitche d'une expression à l'autre.
 
 ![Ses huit expressions](docs/faces.png)
 
+### Mode focus
+
+Un pomodoro qu'elle compte pour toi. Dans son menu, **Mode focus** : 25 min / 5 min, 50 min / 10 min, ou tes propres
+temps (**Choisir mes temps…** : focus, pause, grande pause et combien de tours avant ; elle les garde pour la prochaine fois).
+
+- **Pendant un tour** : le compte à rebours au-dessus de sa tête (`FOCUS 23:41 1/4`, en rouge, avec une barre qui se
+  remplit ; `PAUSE` en vert). Elle reste en place et ne s'endort pas : pas de balade, pas de fenêtres possédées, pas de
+  satellite. Claude passe quand même.
+- **Les dix dernières secondes** : chaque seconde, énorme, s'écrase au milieu de l'écran sur une image d'impact.
+- **Quand un tour se termine** : son final sur tout l'écran (flash d'impact, lignes de vitesse, ondes de choc, colonnes
+  de lumière et éclats sur toute la largeur, éclairs rouges entre eux, une bannière `TOUR 1/4 BOUCLÉ`), sa pose de
+  victoire, et ta pause.
+- **Quand la pause est finie** : `RETOUR AU BOULOT`, et elle vient te chercher.
+- Pause, passer à la pause, finir la pause ou arrêter, depuis le même menu. Clique sur elle pour le temps restant.
+
+![Le mode focus : le compte à rebours au-dessus de sa tête, les dernières secondes, et son final quand un tour se termine](docs/focus.png)
+
 ### Son rapport de mission
 
 **Rapport de mission** dans son menu : une carte de ce que Claude a abattu aujourd'hui, faite pour être capturée. Les
@@ -195,7 +212,7 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   fermés, en bas à gauche de l'écran. Ses yeux ne s'ouvrent que quand Claude a besoin de toi. Clique sur le masque
   (ou refais Ctrl+Alt+C) pour la faire revenir.
 - **Son menu** : clic droit sur elle (il est aussi sur son icône près de l'horloge) : téléporter, regarder le satellite,
-  démo, comment ça marche, rapport de mission, lui parler, taille, son, écran, modèle IA, se balader,
+  démo, comment ça marche, mode focus, rapport de mission, lui parler, taille, son, écran, modèle IA, se balader,
   posséder tes fenêtres, langue, lancement au démarrage, hooks.
 
 Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton
@@ -416,14 +433,16 @@ tools/build-cutins.py    découpe les cut-ins et ses expressions dans des images
 tools/build-intro.py     détoure les gros plans de son intro, tous de la même façon
 src/main/                Electron : fenêtre transparente plein écran, clic à travers, tray, bridge HTTP local
   windows.js / .ps1      où sont les autres fenêtres (Windows), pour qu'elle s'assoie dessus
+  focus.js               l'horloge du mode focus : tours, pauses, tes propres temps
   ollama.js              son chat : le modèle local, via Ollama
   apps.js                fermer une appli que tu lui demandes de fermer (après ton clic)
 src/renderer/js/
   sprite.js              shader WebGL : tête, crinière, position assise, smears, images rémanentes, couleurs, glitch
   acting.js              les feuilles d'exposition : chaque mouvement, dessin par dessin
   capri.js               le personnage : postures, téléportation, assise, bords d'écran, chute, drag, sommeil
-  fx.js                  éclats, colonnes de lumière, éclairs, glyphes, lignes de vitesse, ondes de choc, le satellite et la lumière rouge, les fenêtres possédées, les cut-ins, son intro
-  panel.js               le panneau « transmission », ses expressions et le ticker
+  fx.js                  éclats, colonnes de lumière, éclairs, glyphes, lignes de vitesse, ondes de choc, le satellite et la lumière rouge, les fenêtres possédées, les cut-ins, son intro, le compte à rebours et la bannière du mode focus
+  panel.js               le panneau « transmission », ses expressions, le ticker et le compte à rebours du focus
+  focus-times.js         la fenêtre « Choisir mes temps » (focus-times.html)
   guide.js               son guide : les tutos, aller jusqu'aux choses et les montrer du doigt
   brain.js               traduit les événements Claude en répliques et en actions
   mission.js             le journal de mission du jour, pour son rapport

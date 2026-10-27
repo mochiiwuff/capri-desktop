@@ -833,6 +833,76 @@ html[data-motion='reduced'] .panel__bar {
   color: var(--paper-2);
 }
 
+/* ---------- focus: her pomodoro countdown ---------- */
+
+.focus {
+  --focus-accent: var(--red);
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  filter: drop-shadow(3px 3px 0 var(--violet));
+  will-change: transform;
+}
+
+.focus[data-phase='rest'],
+.focus[data-phase='long'] {
+  --focus-accent: var(--green);
+}
+
+.focus__plate {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 14px 5px 11px;
+  background: var(--ink);
+  white-space: nowrap;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.focus__label {
+  color: var(--focus-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.focus__time {
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus__round {
+  color: var(--paper-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+}
+
+.focus__bar {
+  height: 3px;
+  margin-top: 2px;
+  background: var(--ink);
+}
+
+.focus__bar span {
+  display: block;
+  height: 100%;
+  width: calc(var(--done, 0) * 100%);
+  background: var(--focus-accent);
+}
+
+.focus.is-paused .focus__time {
+  animation: blink 900ms steps(2, jump-none) infinite;
+}
+
+.focus.is-flash .focus__plate {
+  animation: ticker-flash 160ms steps(2, jump-end) 1;
+}
+
 /* Claude thinking, nothing to show yet: her violet, a slower pulse, the seconds counting up */
 .ticker[data-thinking='true'] .ticker__dot {
   background: var(--violet);
@@ -860,6 +930,8 @@ html[data-motion='reduced'] .panel.is-leaving .panel__frame,
 html[data-motion='reduced'] .panel__face img,
 html[data-motion='reduced'] .ticker.is-flash .ticker__plate,
 html[data-motion='reduced'] .ticker__dot,
+html[data-motion='reduced'] .focus.is-paused .focus__time,
+html[data-motion='reduced'] .focus.is-flash .focus__plate,
 html[data-motion='reduced'] .panel__line.is-streaming::after,
 html[data-motion='reduced'] .panel__line.is-glitching,
 html[data-motion='reduced'] .panel[data-kind='alert'] .panel__state {

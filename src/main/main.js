@@ -13,6 +13,7 @@ const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
+const { createFocus, checkTimes, LIMITS } = require('./focus');
 const llm = require('./llm');
 const setup = require('./setup');
 const apps = require('./apps');
@@ -40,6 +41,15 @@ let demoTimer = null;
 let windowWatch = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
+// focus mode (her pomodoro): each change goes to the overlay, and the tray shows where it's at
+const focus = createFocus({
+  onChange: (event, state) => {
+    sendCommand('focus', { event, state });
+    rebuildTray();
+  },
+  custom: () => config.load().focusCustom,
+});
+let timesWin = null; // the little window where you type your own focus times
 let chatModels = null; // the provider's models, as last seen (null: not reached)
 let chatError = null;  // why not, when the provider said
 let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
@@ -229,6 +239,35 @@ function demoWindow(open) {
   return true;
 }
 
+// "Set my own times…": a small window (the overlay can't take typing) with the four numbers.
+// Saving keeps them in the config for "Start my times"; "Save and start" starts a round with them.
+function openFocusTimes() {
+  if (timesWin) {
+    timesWin.show();
+    timesWin.focus();
+    return;
+  }
+  const { workArea } = targetDisplay();
+  const width = 400, height = 470;
+  timesWin = new BrowserWindow({
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: Math.round(workArea.y + (workArea.height - height) / 2),
+    width, height, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    alwaysOnTop: true, autoHideMenuBar: true, backgroundColor: '#14101c', show: false,
+    title: TRAY[resolveLang(config.load().lang)].timesTitle,
+    icon: path.join(ROOT, 'assets', 'icons', 'tray.png'),
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  timesWin.loadURL('capri://app/src/renderer/focus-times.html');
+  timesWin.once('ready-to-show', () => timesWin?.show());
+  timesWin.on('closed', () => { timesWin = null; });
+}
+
 // 'auto' -> the first system language Capri speaks, English otherwise.
 function resolveLang(setting) {
   if (LANGS.includes(setting)) return setting;
@@ -266,8 +305,28 @@ function rebuildTray() {
   const displays = screen.getAllDisplays();
   const current = targetDisplay().id;
 
+  const f = focus.state;
+  const focusMenu = f.phase === 'off'
+    ? [
+      { label: t.focusClassic, click: () => focus.start('classic') },
+      { label: t.focusDeep, click: () => focus.start('deep') },
+      { label: t.focusMine(cfg.focusCustom), click: () => focus.start('custom') },
+      { type: 'separator' },
+      { label: t.focusSet, click: openFocusTimes },
+    ]
+    : [
+      { label: t.focusNow(f.phase, f.round, f.rounds), enabled: false },
+      f.paused
+        ? { label: t.focusResume, click: () => focus.resume() }
+        : { label: t.focusPause, click: () => focus.pause() },
+      { label: f.phase === 'work' ? t.focusSkipWork : t.focusSkipBreak, click: () => focus.skip() },
+      { label: t.focusStop, click: () => focus.stop() },
+    ];
+
   const menu = Menu.buildFromTemplate([
     { label: t.online(PORT), enabled: false },
+    { type: 'separator' },
+    { label: t.focus, submenu: focusMenu },
     { type: 'separator' },
     { label: t.teleport, click: () => sendCommand('teleport') },
     { label: t.satellite, click: () => sendCommand('satellite') },
@@ -522,6 +581,24 @@ function registerIpc() {
   ipcMain.handle('claude:found', () => fs.existsSync(path.dirname(activeHooks().status().file))); // Claude Code keeps its settings there
   ipcMain.on('claude:help', () => shell.openExternal(activeAssistant().help));
   ipcMain.handle('windows:get', () => lastWindows);
+  ipcMain.handle('focus:get', () => focus.state);
+  // her focus-times window: what's saved, the limits, and its words in her language
+  ipcMain.handle('focus:times', () => {
+    const cfg = config.load();
+    const lang = resolveLang(cfg.lang);
+    // only words cross to the window (functions can't): timesBad as a template
+    const words = Object.fromEntries(Object.entries(TRAY[lang]).filter(([, v]) => typeof v === 'string'));
+    return { times: cfg.focusCustom, limits: LIMITS, lang, labels: { ...words, timesBad: TRAY[lang].timesBad('{min}', '{max}') } };
+  });
+  ipcMain.handle('focus:saveTimes', (_e, times, start) => {
+    const checked = checkTimes(times);
+    if (!checked.ok) return checked;
+    updateConfig({ focusCustom: checked.times });
+    if (start) focus.start('custom');
+    timesWin?.close();
+    return checked;
+  });
+  ipcMain.on('focus:closeTimes', () => timesWin?.close());
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
     const cfg = config.load(true); // keys may have been edited by hand
@@ -666,6 +743,25 @@ async function debugHandler(route, body) {
   if (!DEV) throw new Error('debug routes need --dev');
   if (route === 'command') {
     sendCommand(body.name, body);
+    return { ok: true };
+  }
+  if (route === 'focus') {
+    // { do: 'start' | 'pause' | 'resume' | 'skip' | 'stop', preset }: as from her menu
+    if (typeof focus[body.do] !== 'function') throw new Error('unknown focus action');
+    focus[body.do](body.preset);
+    return { ok: true, state: focus.state };
+  }
+  if (route === 'focustimes') {
+    // her "Set my own times" window: { open: true } opens it; { capture } saves a frame of it
+    if (body.open) openFocusTimes();
+    if (body.capture && timesWin) {
+      const image = await timesWin.webContents.capturePage();
+      const dir = path.join(app.isPackaged ? app.getPath('userData') : ROOT, 'captures');
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, `${String(body.capture).replace(/[^\w-]/g, '')}.png`);
+      fs.writeFileSync(file, image.toPNG());
+      return { ok: true, file };
+    }
     return { ok: true };
   }
   if (route === 'reload') {

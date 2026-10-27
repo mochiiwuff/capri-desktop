@@ -10,7 +10,7 @@ import { Chat } from './chat.js';
 import { Setup } from './setup.js';
 import { Custom } from './custom.js';
 import { linesFor } from './lines.js';
-import { pick, fmt, reducedMotion } from './util.js';
+import { pick, fmt, duration, rand, reducedMotion } from './util.js';
 
 const host = window.host;
 
@@ -71,6 +71,7 @@ async function boot() {
   const panel = new Panel({
     panel: document.getElementById('panel'),
     ticker: document.getElementById('ticker'),
+    focus: document.getElementById('focus'),
     labels: linesFor(config.lang, config.assistant),
   });
 
@@ -201,8 +202,119 @@ async function boot() {
     const lines = when === 'end' ? brain.t.uplink : brain.t.gaze;
     if (!panel.visible && Math.random() < (when === 'end' ? 0.6 : 0.4)) panel.say({ kind: 'info', line: pick(lines), hold: 3800 });
   };
+  // Focus mode, her pomodoro (main/focus.js keeps the clock): she shows the countdown over her
+  // head, stays put and awake through a round, throws her victory pose when it ends, and calls
+  // you back when the break is over.
+  let focusState = null;
+  const focusStatus = () => {
+    const f = focusState;
+    const t = brain.t.focus;
+    const line = f.paused ? t.pausedStatus : f.phase === 'work' ? t.status : t.restStatus;
+    panel.say({
+      kind: 'info', badge: t.plate[f.paused ? 'paused' : f.phase], face: 'calm', hold: 4000,
+      line: fmt(line, { round: f.round, rounds: f.rounds, time: duration(panel.focusLeft, brain.lang) }),
+    });
+  };
+  // The last ten seconds of a round or a break: each second, huge, in the middle of the screen.
+  const COUNT_FROM = 10;
+  let lastCount = 0;
+  setInterval(() => {
+    const f = focusState;
+    if (!f || f.paused || reducedMotion.matches || capri.stowed) return;
+    const s = Math.ceil(panel.focusLeft / 1000);
+    if (s < 1 || s > COUNT_FROM || s === lastCount) return;
+    lastCount = s;
+    fx.count(s, { color: f.phase === 'work' ? 'red' : 'green' });
+    voice.play('tick');
+  }, 100);
+
+  // The round (or the break) is over: her finale, all over the screen. An impact frame, speed
+  // lines and a shockwave from the middle, pillars of light and shards across the whole width,
+  // red lightning jumping between them, and a banner with the word sweeping across.
+  const finale = (state, { back = false } = {}) => {
+    if (reducedMotion.matches) return;
+    const t = brain.t.focus;
+    const { innerWidth: w, innerHeight: h } = window;
+    const cx = w / 2, cy = h / 2;
+    const color = back ? 'red' : 'green';
+    const vars = { round: state.round, rounds: state.rounds, minutes: Math.round(state.length / 60000) };
+    fx.flash(back ? 'red' : 'paper');
+    fx.lines(cx, cy, { inner: Math.min(w, h) * 0.22, life: 1100 });
+    fx.ring(cx, cy, { size: 2.2 });
+    setTimeout(() => fx.ring(cx, cy, { size: 4.5 }), 160);
+    const pillars = back ? 5 : 9;
+    let prev = null;
+    for (let i = 0; i < pillars; i++) {
+      setTimeout(() => {
+        const x = (w * (i + 0.5)) / pillars + rand(-w * 0.03, w * 0.03);
+        const y = rand(h * 0.25, h * 0.85);
+        fx.beam(x, h, { life: 380, width: 46 });
+        fx.burst(x, y, { count: back ? 14 : 26, power: 1.5, spread: 120 });
+        if (prev) fx.bolt(prev, { x, y }, { life: 320, forks: 3, width: 4 });
+        prev = { x, y };
+      }, 140 + i * 90);
+    }
+    setTimeout(() => {
+      const text = back ? t.banner.back : fmt(state.phase === 'long' ? t.banner.long : t.banner.round, vars);
+      const sub = fmt(back ? t.bannerSub.back : t.bannerSub.rest, vars);
+      fx.banner(text, { sub, color, life: back ? 2200 : 3000 });
+      voice.play(back ? 'bolt' : 'rise');
+    }, 260);
+  };
+
+  const onFocus = async (event, state) => {
+    lastCount = 0;
+    focusState = state.phase === 'off' ? null : state;
+    panel.setFocus(focusState);
+    capri.focus = state.phase === 'work' && !state.paused;
+    if (!event) return; // just catching up after a reload
+    const t = brain.t.focus;
+    const vars = { minutes: Math.round(state.length / 60000), round: state.round, rounds: state.rounds };
+    const line = (lines) => fmt(Array.isArray(lines) ? pick(lines) : lines, vars);
+    if (event !== 'stop' && event !== 'pause') {
+      if (capri.stowed) {
+        host.setConfig({ visible: true });
+        await capri.unstow();
+      }
+      capri.wake();
+    }
+    switch (event) {
+      case 'start':
+        voice.play('charge');
+        capri.perform('hop');
+        panel.say({ kind: 'info', badge: t.plate.work, face: 'smug', line: line(t.start), hold: 5000 });
+        break;
+      case 'break': // the round is done: her finale across the screen, her victory, then the break
+        panel.hide();
+        finale(state);
+        capri.celebrate({
+          onSpeak: () => panel.say({
+            kind: 'done', badge: t.plate[state.phase], face: 'laugh', hold: 9000,
+            line: line(state.phase === 'long' ? t.long : t.break),
+          }),
+        });
+        break;
+      case 'back': // the break is over: she comes and gets you
+        finale(state, { back: true });
+        voice.play('alert');
+        capri.perform('alarm', capri.towardCenter());
+        panel.say({ kind: 'alert', badge: t.plate.work, face: 'look', line: line(t.back), hold: 8000 });
+        break;
+      case 'pause':
+      case 'resume':
+        panel.say({ kind: 'info', badge: t.plate[event === 'pause' ? 'paused' : state.phase], face: 'calm', line: line(t[event]), hold: 3000 });
+        break;
+      case 'stop':
+        panel.say({ kind: 'info', face: 'aside', line: line(t.stop), hold: 4000 });
+        break;
+      default:
+        break;
+    }
+  };
+
   capri.onClick = () => {
     if (panel.visible) panel.hide();
+    else if (focusState && !brain.busySessions.length) focusStatus();
     else brain.status();
   };
   panel.onChar = (kind) => voice.play('blip', { mood: kind });
@@ -317,6 +429,8 @@ async function boot() {
   });
   // the windows as they are now: the watcher only speaks again when something changes
   host.windowsNow().then((data) => data && capri.setWindows(data));
+  // a focus round already running (the overlay reloaded): pick the countdown back up
+  host.focusNow().then((state) => state && onFocus(null, state));
 
   host.onResize(({ width, height, gap = 0 }) => {
     floorGap = gap;
@@ -447,6 +561,9 @@ async function boot() {
         capri.wake();
         if (capri.stance === 'peek') await capri.unpeek();
         if (!capri.gaze({ big: true })) setTimeout(() => capri.gaze({ big: true }), 1500);
+        break;
+      case 'focus': // her pomodoro moved on: started, a break, back to work, paused, stopped
+        onFocus(cmd.event, cmd.state);
         break;
       case 'hooks':
         if (cmd.ok) panel.say({ kind: 'info', line: cmd.action === 'install' ? t.hooksOk : t.hooksRemoved, hold: 6000 });
