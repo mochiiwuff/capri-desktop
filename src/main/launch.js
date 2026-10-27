@@ -130,6 +130,17 @@ async function find(text) {
   return match(await launchables(), text);
 }
 
+function openStartApp(id) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('explorer.exe', [`shell:AppsFolder\\${id}`], { detached: true, stdio: 'ignore' });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
+
 // Opens one of them (only something she listed herself): a Start menu app through its AppsFolder
 // entry (desktop and Store apps alike), a game through its launcher's link.
 async function launch({ kind, id } = {}) {
@@ -137,8 +148,7 @@ async function launch({ kind, id } = {}) {
   if (!item) throw new Error('not found');
   if (kind === 'steam') return shell.openExternal(`steam://rungameid/${id}`);
   if (kind === 'epic') return shell.openExternal(`com.epicgames.launcher://apps/${encodeURIComponent(id)}?action=launch&silent=true`);
-  spawn('explorer.exe', [`shell:AppsFolder\\${id}`], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
-  return undefined;
+  return openStartApp(id);
 }
 
 // The media keys, as if pressed on the keyboard: whatever plays music (Spotify, a browser…) reacts.
