@@ -386,6 +386,38 @@ export class FxLayer {
     this.add({ type: 'glyph', life: rand(900, 1400), x: x + rand(-40, 40), y, text: pick(GLYPHS), drift: rand(-12, 12) });
   }
 
+  // ---------- her hands on the PC (powers.js) ----------
+
+  // A note floating off her mane while she moves to your music, swaying on its way up.
+  note(x, y) {
+    this.add({ type: 'note', life: rand(1100, 1600), x: x + rand(-50, 50), y, text: pick(['♪', '♫', '♪', '♬']), sway: rand(8, 16), phase: rand(0, 6), color: pick(['red', 'red', 'paper', 'green']) });
+  }
+
+  // The volume, as a bar of ten segments by her head that fills up on whole drawings:
+  // `level` 0-100, `label` over it ("VOL", an app's name), crossed out when muted.
+  meter(x, y, level, { label = 'VOL', muted = false, from = null } = {}) {
+    this.items = this.items.filter((it) => it.type !== 'meter'); // one at a time
+    this.add({ type: 'meter', life: 1900, x, y, level: clamp(level, 0, 100), from: from ?? level, label: String(label).toUpperCase().slice(0, 14), muted });
+  }
+
+  // Her look at your screen: a red line runs down the whole screen in drawings, sparks along it,
+  // the corners of the screen bracketed as she locks on.
+  scan({ life = 1100 } = {}) {
+    this.add({ type: 'scan', life, seed: rand(0, 100) });
+  }
+
+  // While she listens out loud: arcs of sound on both sides of her head, swelling with your
+  // voice. `at()` gives her head. Handle: level(0..1), heard(on: green while it's you talking),
+  // fade().
+  ears(at) {
+    const item = this.add({ type: 'ears', life: 60 * 60 * 1000, at, level: 0, shown: 0, heard: false, fadeAt: 0 });
+    return {
+      level: (v) => { item.level = clamp(v, 0, 1); },
+      heard: (on) => { item.heard = Boolean(on); },
+      fade: () => { item.fadeAt ||= performance.now(); },
+    };
+  }
+
   // One shard coming loose from the mane and floating away, slowly, outward and up.
   drift(x, y, angle) {
     const speed = rand(16, 34);
@@ -1797,6 +1829,137 @@ export class FxLayer {
         ctx.fillText(it.text, x - 1, y + 1);
         ctx.fillStyle = COLORS.green;
         ctx.fillText(it.text, x, y);
+        ctx.restore();
+        break;
+      }
+      case 'note': {
+        ctx.save();
+        ctx.font = '700 22px "Chakra Petch", sans-serif';
+        ctx.globalAlpha = t < 0.12 ? t / 0.12 : t > 0.7 ? 1 - Math.floor(((t - 0.7) / 0.3) * 4) / 4 : 1; // fades in steps
+        const y = Math.round(it.y - t * 90);
+        const x = Math.round(it.x + Math.sin(it.phase + t * 7) * it.sway);
+        ctx.fillStyle = COLORS.violet;
+        ctx.fillText(it.text, x - 2, y + 2);
+        ctx.fillStyle = COLORS[it.color];
+        ctx.fillText(it.text, x, y);
+        ctx.restore();
+        break;
+      }
+      case 'meter': {
+        const segs = 10, sw = 9, sh = 16, gap = 3;
+        const w = segs * (sw + gap) - gap + 16;
+        const h = sh + 34;
+        const x = Math.round(it.x - w / 2), y = Math.round(it.y - h);
+        // the segments fill (or empty) toward the new level over its first drawings
+        const k = Math.min(1, Math.floor(t * 24) / 6);
+        const level = it.from + (it.level - it.from) * k;
+        const lit = Math.round(level / 10);
+        const out = t > 0.82 ? 1 - Math.floor(((t - 0.82) / 0.18) * 4) / 4 : 1;
+        ctx.save();
+        ctx.globalAlpha = out;
+        ctx.fillStyle = COLORS.violet;
+        ctx.fillRect(x + 4, y + 4, w, h);
+        ctx.fillStyle = COLORS.ink;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = COLORS.red;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        ctx.font = '600 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = COLORS.paper;
+        ctx.textBaseline = 'top';
+        ctx.fillText(it.label, x + 8, y + 7);
+        const pct = it.muted ? 'MUTE' : `${Math.round(level)}%`;
+        ctx.fillStyle = it.muted ? COLORS.red : COLORS.green;
+        ctx.fillText(pct, x + w - 8 - ctx.measureText(pct).width, y + 7);
+        for (let i = 0; i < segs; i++) {
+          const sx = x + 8 + i * (sw + gap), sy = y + h - sh - 8;
+          const on = i < lit && !it.muted;
+          ctx.fillStyle = on ? (i >= 8 ? COLORS.paper : COLORS.red) : '#2a2238';
+          ctx.fillRect(sx, sy + (on ? 0 : sh * 0.5), sw, on ? sh : sh * 0.5);
+        }
+        if (it.muted) {
+          ctx.strokeStyle = COLORS.red;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + h - 6);
+          ctx.lineTo(x + w - 6, y + 22);
+          ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'scan': {
+        const { w, h } = this.size;
+        const k = Math.floor(t * 20) / 20; // twenty drawings
+        const y = Math.round(k * h);
+        ctx.save();
+        // its wake: thinner lines above it, lighter and lighter
+        for (let i = 1; i <= 5; i++) {
+          const ty = y - i * 26;
+          if (ty < 0) break;
+          ctx.globalAlpha = 0.45 / i;
+          ctx.fillStyle = i % 2 ? COLORS.red : COLORS.green;
+          ctx.fillRect(0, ty, w, 2);
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = COLORS.violet;
+        ctx.fillRect(0, y + 1, w, 5);
+        ctx.fillStyle = COLORS.red;
+        ctx.fillRect(0, y - 3, w, 5);
+        ctx.fillStyle = COLORS.paper;
+        ctx.fillRect(0, y - 2, w, 1);
+        // sparks along it, the same ones for a whole drawing
+        for (let i = 0; i < 16; i++) {
+          const sx = hash(i, it.seed + k * 37) * w;
+          ctx.fillStyle = i % 4 === 0 ? COLORS.green : i % 4 === 1 ? COLORS.paper : COLORS.red;
+          ctx.fillRect(Math.round(sx), y - 6 - Math.round(hash(i + 7, k * 13) * 14), Math.round(16 + hash(i + 3, it.seed) * 70), 3);
+        }
+        // the screen's corners, bracketed: she has it
+        if (t > 0.08) {
+          const m = 18, len = 46;
+          ctx.globalAlpha = t > 0.85 ? 1 - Math.floor(((t - 0.85) / 0.15) * 3) / 3 : 1;
+          for (const [cx, cy, dx, dy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]]) {
+            for (const [off, color] of [[3, COLORS.violet], [0, COLORS.green]]) {
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.moveTo(cx + off + dx * len, cy + off);
+              ctx.lineTo(cx + off, cy + off);
+              ctx.lineTo(cx + off, cy + off + dy * len);
+              ctx.stroke();
+            }
+          }
+          ctx.font = '700 13px "Chakra Petch", sans-serif';
+          ctx.fillStyle = COLORS.green;
+          ctx.fillText('CAPRI // SCAN', m + 12, m + 24);
+        }
+        ctx.restore();
+        break;
+      }
+      case 'ears': {
+        const fade = this.fadeStep(it, now, 260);
+        if (!fade) break;
+        it.shown += (it.level - it.shown) * 0.5; // eased toward your voice, a step a drawing
+        const head = it.at();
+        const color = it.heard ? COLORS.green : COLORS.red;
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.lineCap = 'butt';
+        for (const side of [-1, 1]) {
+          for (let i = 0; i < 3; i++) {
+            const swell = it.shown * (1 + i * 0.6);
+            const r = 74 + i * 15 + swell * 22;
+            const span = 0.32 + swell * 0.24;
+            const mid = side < 0 ? Math.PI : 0;
+            for (const [off, c] of [[3, COLORS.violet], [0, color]]) {
+              ctx.strokeStyle = c;
+              ctx.lineWidth = Math.max(2, 4 - i);
+              ctx.beginPath();
+              ctx.arc(head.x + off, head.y + off, r, mid - span, mid + span);
+              ctx.stroke();
+            }
+          }
+        }
         ctx.restore();
         break;
       }

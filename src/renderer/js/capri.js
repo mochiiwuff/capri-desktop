@@ -77,6 +77,10 @@ export class Capri {
     this.uplinkDue = false;
     this.pointing = null; // what she's showing you: { rect, aim, dir, side, reach, label, pointer }
     this.mouse = null; // last pointer position seen
+    this.music = false; // your music is playing (powers.js): she moves to it now and then
+    this.groove = true; // her menu: "Move to the music"
+    this.nextGroove = now + rand(8000, 20000);
+    this.castAt = null; // where what she throws goes (cast)
 
     this.onMove = null;     // her head moved on screen
     this.onTeleport = null; // ('start' | 'end')
@@ -88,6 +92,8 @@ export class Capri {
     this.onUnstow = null; // she's coming out of it
     this.chipAt = null;   // () => the biochip's middle on screen
     this.onDoze = null;   // ('start', face) | 'waking' | 'end': down to her mask and back
+    this.onWheel = null;  // (steps: + up, - down) the wheel turned over her: the volume
+    this.onMiddle = null; // middle click on her: play / pause
 
     this.alphaMap = this.buildAlphaMap(image);
     this.setScale(this.scale);
@@ -396,6 +402,12 @@ export class Capri {
     if (now > this.nextShed) {
       this.nextShed = now + rand(4000, 11000) * (this.mode === 'sleep' ? 2.5 : 1);
       if (!reducedMotion.matches && this.stance !== 'peek') this.shed();
+    }
+
+    // your music playing: she moves to it now and then
+    if (this.music && this.groove && this.mode === 'idle' && this.stance !== 'peek' && !this.act && now > this.nextGroove) {
+      this.nextGroove = now + rand(18000, 45000);
+      this.perform('groove');
     }
 
     if (this.mode === 'idle' && this.stance !== 'peek' && now > this.nextGaze) {
@@ -741,6 +753,21 @@ export class Capri {
     return true;
   }
 
+  // Sending something off (a page, an app, a search) toward (x, y): her arm flung at it, a bolt
+  // of red off her fingers. Plays even when she's sitting or acting (it's what you asked for);
+  // not while she's away (teleporting, in her biochip, asleep down to her mask).
+  cast(x, y) {
+    if (this.busy || this.hidden || this.stowed || this.dormant || this.stance === 'fall') return Promise.resolve();
+    const dir = x < this.pos.x ? -1 : 1;
+    const side = this.armToward(dir);
+    const reach = () => {
+      const sh = this.limb(side).shoulder;
+      return clamp(Math.atan2(sh.y - y, Math.abs(x - sh.x)) + 0.52, -0.3, 1.6);
+    };
+    this.castAt = { x, y, side };
+    return this.perform('cast', dir, { reach });
+  }
+
   // Where a cut-in goes, as fx.cutin's (x, y, dir): next to her head on the `dir` side, else on
   // the other side (unless `flip` is off because something is going on there), else over her mane.
   cutinAt(dir, { flip = true } = {}) {
@@ -840,6 +867,41 @@ export class Capri {
       }
       case 'tap':
         this.pointing?.pointer?.tap();
+        break;
+      // her hands on the PC (powers.js)
+      case 'cast': // flung out: a bolt off her fingertip to where it goes
+        if (this.castAt) {
+          const { x, y, side } = this.castAt;
+          const hand = this.limb(side).hand;
+          if (!reducedMotion.matches) {
+            this.fx.bolt(hand, { x, y }, { life: 280, forks: 3, width: 3 });
+            this.fx.ring(x, y, { size: 0.4 });
+            this.fx.burst(x, y, { count: 10, power: 0.45, spread: 24 });
+          }
+          this.voice.play('bolt');
+          this.castAt = null;
+        }
+        break;
+      case 'swipe': // slivers of the song knocked sideways
+        this.fx.slices(h.x - 90 * s, h.y - 60 * s, 220 * s, 140 * s, { count: 6 });
+        this.twitch();
+        this.voice.play('tick');
+        break;
+      case 'beat':
+        if (!reducedMotion.matches) this.fx.note(mane.x, mane.y - 50 * s);
+        break;
+      case 'hush': // shards pulled into her, quietly
+        this.fx.burst(mane.x, mane.y, { count: 8, inward: true, power: 0.35, spread: 110 * s });
+        break;
+      case 'scan': // her eyes on your screen: the line runs down it
+        if (!reducedMotion.matches) {
+          this.fx.scan();
+          this.fx.cutin(...this.cutinAt(this.towardCenter()), { kind: 'eyes', life: 520 });
+        }
+        this.voice.play('charge');
+        break;
+      case 'level':
+        this.voice.play('tick');
         break;
       case 'minds':
         this.twitch();
@@ -1559,7 +1621,26 @@ export class Capri {
       e.preventDefault();
       if (this.hit(e.clientX, e.clientY)) this.onMenu?.(); // right-click: her menu
     });
+    // the wheel over her: the volume, a notch at a time (gathered, so a fast spin is one change)
+    let wheel = 0;
+    let wheelTimer = 0;
+    this.canvas.addEventListener('wheel', (e) => {
+      if (!this.hit(e.clientX, e.clientY) || !this.onWheel) return;
+      e.preventDefault();
+      wheel += e.deltaY < 0 ? 1 : -1;
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        const steps = wheel;
+        wheel = 0;
+        if (steps) this.onWheel(steps);
+      }, 140);
+    }, { passive: false });
+    // middle click on her: play / pause your music
+    this.canvas.addEventListener('auxclick', (e) => {
+      if (e.button === 1 && this.hit(e.clientX, e.clientY)) this.onMiddle?.();
+    });
     this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 1 && this.hit(e.clientX, e.clientY)) e.preventDefault(); // no autoscroll
       if (e.button !== 0 || this.busy || !this.hit(e.clientX, e.clientY)) return;
       down = { x: e.clientX, y: e.clientY, pos: { ...this.pos } };
     });

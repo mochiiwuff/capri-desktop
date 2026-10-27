@@ -420,6 +420,144 @@ export const ACTS = {
     ],
   },
 
+  // ---- her hands on the PC (powers.js): what you ask her to do ----
+
+  // Sending something off (a page, an app, a search): the arm drawn back behind her, then flung
+  // out in one stretched drawing with a crackle of red ('cast'), held a beat while it goes,
+  // dropped. Aimed like the zap: `reach` is the arm's angle at what she throws it to.
+  cast: {
+    priority: 2,
+    fps: 24,
+    directional: true,
+    keys: [
+      [3, { reach: -0.35, long: 0.85, head: -0.06, tilt: -3, sy: 0.94, sx: 1.04, bob: 3, mane: -0.12 }],
+      [1, { reach: 0.95, long: 1.9, head: 0.14, tilt: 6, mane: 0.45, smear: [-14, 0], echo: [10, 0] }, 'cast'],
+      [2, { reach: 1.02, long: 1.62, head: 0.15, tilt: 5, mane: 0.36 }],
+      [8, { reach: 1, long: 1.45, head: 0.16, tilt: 3, mane: 0.22 }],
+      [3, { reach: 0.4, long: 1.1, head: 0.08, tilt: 1, mane: 0.08 }],
+      [2, { reach: 0, head: 0.02 }],
+      [1, {}],
+    ],
+  },
+
+  // Next or previous track: the arm whips across with a smear, slivers of the song knocked
+  // sideways ('swipe'), and back.
+  swipe: {
+    priority: 2,
+    fps: 24,
+    directional: true,
+    keys: [
+      [2, { reach: -0.4, long: 0.9, head: -0.08, tilt: -3, mane: -0.06 }],
+      [1, { reach: 0.6, long: 1.5, head: 0.1, tilt: 5, mane: 0.3, smear: [-18, 0], echo: [12, 0] }, 'swipe'],
+      [1, { reach: 0.9, long: 1.4, head: 0.14, tilt: 5, mane: 0.26, echo: [6, 0] }],
+      [5, { reach: 0.85, long: 1.3, head: 0.14, tilt: 4, mane: 0.18 }],
+      [3, { reach: 0.3, long: 1.05, head: 0.05, tilt: 1 }],
+      [1, {}],
+    ],
+  },
+
+  // Turning it up: a crouch, then both arms thrown up and her mane flaring, held, and down.
+  pump: {
+    priority: 2,
+    fps: 24,
+    keys: [
+      [2, { sy: 0.9, sx: 1.05, bob: 4, arms: -0.22, mane: -0.08 }],
+      [1, { sy: 1.14, sx: 0.9, bob: -10, arms: 0.9, mane: 0.38, smear: [0, 12] }, 'level'],
+      [2, { sy: 1.04, bob: -14, arms: 1.05, mane: 0.44, echo: [4, -2] }],
+      [6, { bob: -12, arms: 1, mane: 0.4 }],
+      [3, { bob: -6, arms: 0.6, mane: 0.22 }],
+      [2, { sy: 0.96, sx: 1.03, arms: 0.1 }],
+      [1, {}],
+    ],
+  },
+
+  // Turning it down: hands pushed down flat, squashed small, her mane pulled in.
+  press: {
+    priority: 2,
+    fps: 24,
+    keys: [
+      [2, { bob: -3, arms: 0.22, mane: 0.06 }],
+      [1, { sy: 0.86, sx: 1.1, bob: 6, arms: -0.7, mane: -0.26, smear: [0, -8] }, 'level'],
+      [6, { sy: 0.9, sx: 1.06, bob: 5, arms: -0.62, mane: -0.22 }],
+      [3, { sy: 0.97, sx: 1.01, bob: 2, arms: -0.22, mane: -0.08 }],
+      [1, {}],
+    ],
+  },
+
+  // Silence (pause, mute): her head drops, the mane pulled in tight, arms tucked, a slow settle.
+  hush: {
+    priority: 2,
+    keys: [
+      [1, { head: 0.05, mane: 0.05 }],
+      [2, { head: -0.1, mane: -0.3, arms: -0.45, sy: 0.95, sx: 1.02, bob: 3 }, 'hush'],
+      [12, { head: -0.12, mane: -0.32, arms: -0.45, sy: 0.96, sx: 1.02, bob: 3 }],
+      [3, { head: -0.04, mane: -0.1, arms: -0.15, bob: 1 }],
+      [1, {}],
+    ],
+  },
+
+  // Moving to your music, on twos: a bounce with the head going side to side, the mane hopping on
+  // the beat ('beat' lets a note float off), and a bigger hop to finish.
+  groove: {
+    priority: 1,
+    keys: [
+      ...rep(3, [
+        [3, { bob: 3, head: 0.08, hair: -2, mane: 0.04, arms: 0.08, sy: 0.96, sx: 1.03 }],
+        [3, { bob: -4, head: 0.02, mane: 0.14, arms: 0.22, sy: 1.03 }, 'beat'],
+        [3, { bob: 3, head: -0.08, hair: 2, mane: 0.04, arms: 0.08, sy: 0.96, sx: 1.03 }],
+        [3, { bob: -4, head: -0.02, mane: 0.14, arms: 0.22, sy: 1.03 }, 'beat'],
+      ]),
+      [2, { bob: 5, sy: 0.9, sx: 1.06, arms: -0.1 }],
+      [3, { bob: -14, head: 0.06, mane: 0.3, arms: 0.5, sy: 1.08, sx: 0.95 }, 'beat'],
+      [2, { bob: 2, sy: 0.94, sx: 1.04 }],
+      [1, {}],
+    ],
+  },
+
+  // Looking at your screen: she snaps her head up, eyes on it ('scan': the line runs down the
+  // screen), and her head sweeps from one side to the other while she reads it.
+  scan: {
+    priority: 2,
+    keys: [
+      [1, { head: -0.05, mane: 0.05 }],
+      [1, { head: 0.12, mane: 0.3, smear: [-8, 4] }, 'scan'],
+      [6, { head: 0.18, mane: 0.26, tilt: 1 }],
+      [4, { head: 0.08, mane: 0.22 }],
+      [6, { head: -0.12, mane: 0.22, tilt: -1 }],
+      [4, { head: -0.04, mane: 0.2 }],
+      [6, { head: 0.14, mane: 0.2, tilt: 1 }],
+      [3, { head: 0.05, mane: 0.1 }],
+      [1, {}],
+    ],
+  },
+
+  // You're talking to her out loud: she leans in, head cocked, a hand up by her head.
+  listen: {
+    priority: 1,
+    directional: true,
+    keys: [
+      [1, { head: -0.04 }],
+      [1, { head: 0.12, mane: 0.12, armL: 0.3, smear: [-6, 2] }],
+      [14, { head: 0.18, mane: 0.1, tilt: 2, armL: 0.36 }],
+      [6, { head: 0.16, mane: 0.08, tilt: 1.6, armL: 0.3 }],
+      [2, { head: 0.08, armL: 0.1 }],
+      [1, {}],
+    ],
+  },
+
+  // Got it: a quick double dip.
+  nod: {
+    priority: 1,
+    fps: 24,
+    keys: [
+      [2, { bob: 3, head: 0.04, sy: 0.97, sx: 1.01 }],
+      [2, { bob: -1, head: -0.02, sy: 1.01 }],
+      [2, { bob: 3, head: 0.04, sy: 0.97, sx: 1.01 }],
+      [2, { bob: 0, head: 0 }],
+      [1, {}],
+    ],
+  },
+
   // while falling: stretched, mane blown up, arms flailing every other drawing
   fall: {
     loop: true,

@@ -31,6 +31,16 @@ const DEFAULTS = {
   motion: 'auto',    // her animations: 'auto' (like Windows' animation effects), 'full' or 'reduced'
   motionAsked: false, // she asked once, Windows' animations being off, whether to move anyway
   render: 'auto',   // how her window is drawn: 'auto', 'gl' (OpenGL) or 'software' (no graphics card), for PCs that show it black
+  sight: false,      // she may look at your screen when you ask her to (off: she asks you each time)
+  peek: false,       // now and then she glances at your screen on her own and says something about it
+  visionModel: null, // the Ollama model she looks with (null: the chat model if it sees, else the first that does)
+  voiceName: null,   // her voice out loud, a voice of the system (null: the first one in her language)
+  voiceEngine: 'system', // 'capri': her own voice (Piper, fetched once with your yes, voicepack.js), else Windows'
+  voiceGlitch: 0.5,  // how unstable her own voice is: 0.15 (a little), 0.5 (creepy doll), 0.9 (falling apart)
+  speakChat: false,  // she also reads her typed answers out loud (in a spoken conversation she always does)
+  ears: 'base',      // the speech recognition model (Whisper) she hears you with: 'tiny', 'base' or 'small'
+  groove: true,      // she moves to your music when something's playing
+  mail: 'gmail',     // "open my mail": 'gmail', 'outlook' (on the web) or 'app' (the Outlook / Mail app)
 };
 
 let cache = null;

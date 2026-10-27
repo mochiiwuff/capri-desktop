@@ -16,7 +16,11 @@ const { startWindowWatch } = require('./windows');
 const llm = require('./llm');
 const setup = require('./setup');
 const apps = require('./apps');
+const ollama = require('./ollama'); // her look at your screen: always a local model that sees
 const launch = require('./launch');
+const system = require('./system');
+const sight = require('./sight');
+const voicepack = require('./voicepack');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
@@ -43,6 +47,8 @@ let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
 let chatError = null;  // why not, when the provider said
 let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
+let visionModels = []; // Ollama's models that can look at a picture (her look at your screen)
+let voices = []; // the system's voices in her language, as the overlay found them (her voice out loud)
 const chats = new Map(); // id -> AbortController of an answer being streamed
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
@@ -70,12 +76,19 @@ function forgetChats() {
 }
 
 // capri://app/...        -> files of this repo
+// capri://app/.voice/... -> her own voice, once fetched (voicepack.js): same origin as her page, so
+//                           her voice's worker can load it
 // capri://usersounds/... -> the user's own sound overrides
 function serveProtocol() {
   protocol.handle('capri', (request) => {
     const url = new URL(request.url);
-    const base = url.host === 'usersounds' ? userSoundsDir() : ROOT;
-    const target = path.resolve(base, '.' + decodeURIComponent(url.pathname));
+    let pathname = decodeURIComponent(url.pathname);
+    let base = url.host === 'usersounds' ? userSoundsDir() : ROOT;
+    if (url.host === 'app' && pathname.startsWith('/.voice/')) {
+      base = voicepack.dir();
+      pathname = pathname.slice('/.voice'.length);
+    }
+    const target = path.resolve(base, '.' + pathname);
     if (target !== base && !target.startsWith(base + path.sep)) {
       return new Response('forbidden', { status: 403 });
     }
@@ -275,6 +288,8 @@ function rebuildTray() {
     { label: t.help, click: () => sendCommand('welcome') },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
     { label: t.talk, click: () => sendCommand('chat') },
+    { label: t.voice, accelerator: 'Ctrl+Alt+V', click: () => sendCommand('voice') },
+    { label: t.look, click: () => sendCommand('look') },
     { label: t.custom, click: () => sendCommand('customize') },
     { label: cfg.visible ? t.hide : t.show, accelerator: 'Ctrl+Alt+C', click: () => toggleVisible() },
     { type: 'separator' },
@@ -336,6 +351,59 @@ function rebuildTray() {
         // the key (or the address) of the one picked, pasted in her panel
         { label: t.apiKey, click: () => sendCommand('setupKey') },
       ],
+    },
+    // her look at your screen: whether she may, and the model she looks with
+    { label: t.sight, type: 'checkbox', checked: cfg.sight, click: (item) => updateConfig({ sight: item.checked }) },
+    { label: t.peek, type: 'checkbox', checked: cfg.peek, click: (item) => updateConfig({ peek: item.checked }) },
+    {
+      label: t.visionModel,
+      submenu: visionModels.length
+        ? visionModels.map((name) => ({
+          label: name, type: 'radio', checked: name === pickVision(cfg), click: () => updateConfig({ visionModel: name }),
+        }))
+        : [{ label: chatModels ? t.noVision : t.noOllama, enabled: false }],
+    },
+    // her voice out loud, and her ears
+    {
+      label: t.speech,
+      submenu: [
+        { label: t.speakChat, type: 'checkbox', checked: cfg.speakChat, click: (item) => updateConfig({ speakChat: item.checked }) },
+        { type: 'separator' },
+        { label: t.herVoice, enabled: false },
+        // her own voice (fetched once, with your yes: the overlay asks), or one of Windows'
+        {
+          label: voicepack.status(resolveLang(cfg.lang)).available ? t.voiceCapri : t.voiceCapriNone,
+          type: 'radio',
+          enabled: voicepack.status(resolveLang(cfg.lang)).available,
+          checked: cfg.voiceEngine === 'capri',
+          click: () => sendCommand('capriVoice'),
+        },
+        ...(voices.length
+          ? voices.map((name, i) => ({
+            label: name, type: 'radio', checked: cfg.voiceEngine !== 'capri' && (cfg.voiceName ? name === cfg.voiceName : i === 0),
+            click: () => updateConfig({ voiceName: name, voiceEngine: 'system' }),
+          }))
+          : [{ label: t.noVoice, enabled: false }]),
+        {
+          label: t.glitch, // how unstable her own voice is
+          enabled: cfg.voiceEngine === 'capri',
+          submenu: [[0.15, t.glitchSoft], [0.5, t.glitchDoll], [0.9, t.glitchUnstable]].map(([voiceGlitch, label]) => ({
+            label, type: 'radio', checked: Math.abs((cfg.voiceGlitch ?? 0.5) - voiceGlitch) < 0.01, click: () => updateConfig({ voiceGlitch }),
+          })),
+        },
+        { type: 'separator' },
+        { label: t.ears, enabled: false },
+        ...[['tiny', t.earsTiny], ['base', t.earsBase], ['small', t.earsSmall]].map(([ears, label]) => ({
+          label, type: 'radio', checked: cfg.ears === ears, click: () => updateConfig({ ears }),
+        })),
+      ],
+    },
+    { label: t.groove, type: 'checkbox', checked: cfg.groove, click: (item) => updateConfig({ groove: item.checked }) },
+    {
+      label: t.mail, // where "open my mail" goes
+      submenu: [['gmail', t.mailGmail], ['outlook', t.mailOutlook], ['app', t.mailApp]].map(([mail, label]) => ({
+        label, type: 'radio', checked: cfg.mail === mail, click: () => updateConfig({ mail }),
+      })),
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
@@ -434,6 +502,15 @@ function pickModel(cfg = config.load()) {
   return chatModels.includes(cfg.chatModel) ? cfg.chatModel : chatModels[0];
 }
 
+// The model she looks at your screen with: the one picked in her menu, else the one she talks
+// with if it sees, else the first one that sees. Null: none of them can.
+function pickVision(cfg = config.load()) {
+  if (!visionModels.length) return null;
+  if (visionModels.includes(cfg.visionModel)) return cfg.visionModel;
+  const talking = pickModel(cfg);
+  return visionModels.includes(talking) ? talking : visionModels[0];
+}
+
 async function refreshModels() {
   const cfg = config.load();
   chatError = null;
@@ -443,8 +520,20 @@ async function refreshModels() {
     chatErrorCode = err.code || null;
     return null;
   });
+  await refreshVision();
   rebuildTray();
   return chatModels;
+}
+
+// What she sees of your screen, for one answer: a picture of the screen she's on.
+function lookAtScreen() {
+  return sight.capture({ display: targetDisplay(), overlay });
+}
+
+// Ollama's models that see, whatever answers her chat (Ollama may run beside Gemini, Claude Code…)
+async function refreshVision() {
+  const found = await ollama.catalog().catch(() => null);
+  visionModels = found ? found.filter((m) => m.vision).map((m) => m.name) : [];
 }
 
 // Her answer from the model picked, or from the next one when that one can't: too busy twice in a row
@@ -532,8 +621,11 @@ function registerIpc() {
     llm.warm(provider, pickModel()); // loading while you type your first message
     return { ok: true, provider, model: pickModel(), agent: provider === 'claude', local: llm.isLocal(provider, cfg), warmup: provider === 'ollama' };
   });
-  // her answer, streamed to the overlay piece by piece as `chat:delta`
-  ipcMain.handle('chat:send', async (_e, { id, messages }) => {
+  // her answer, streamed to the overlay piece by piece as `chat:delta`. look: she looks at your
+  // screen for this one (her menu lets her, or `once`: you just said yes, or `peek`: a glance of
+  // her own, only while her menu's "Comment on my screen now and then" is on), with a model that sees.
+  ipcMain.handle('chat:send', async (_e, { id, messages, look = false }) => {
+    if (look === 'peek' && !config.load().peek) return { ok: false, error: 'nosight' };
     const abort = new AbortController();
     chats.set(id, abort);
     try {
@@ -542,6 +634,18 @@ function registerIpc() {
         streamed = true;
         overlay?.webContents.send('chat:delta', { id, text });
       };
+      if (look) {
+        // her look at your screen: always Ollama, with a model that sees, whoever answers her chat
+        if (!config.load().sight && look !== 'once' && look !== 'peek') return { ok: false, error: 'nosight' };
+        await refreshVision();
+        const model = pickVision();
+        if (!model) return { ok: false, error: 'novision' };
+        const image = await lookAtScreen();
+        const last = messages.at(-1);
+        messages = [...messages.slice(0, -1), { ...last, images: [image] }]; // that picture, only in this request
+        const text = await ollama.chat({ model, messages, long: true }, send, abort.signal);
+        return { ok: true, text, model };
+      }
       const cfg = config.load();
       const text = await chatWithFallback(cfg, messages, send, abort.signal, () => streamed);
       if (cfg.provider === 'claude') saveMemory({ claude: llm.claudeMemory() });
@@ -614,6 +718,64 @@ function registerIpc() {
   ipcMain.handle('apps:media', (_e, action) => launch.media(action));
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
+  // what she does when you ask her plainly (powers.js, through system.js): the music, the volume,
+  // an app or a game (launch.js), the web. Every one answers { error } instead of throwing, so she
+  // can say it didn't work.
+  const safely = (fn) => async (_e, arg) => {
+    try {
+      return await fn(arg);
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
+  ipcMain.handle('system:playing', safely(async () => ({ playing: await system.playing() })));
+  ipcMain.handle('system:media', safely((action) => system.media(action)));
+  ipcMain.handle('system:volume', safely((change) => system.volume(change)));
+  ipcMain.handle('system:launch', safely(async (wanted) => {
+    if (process.platform !== 'win32') throw new Error('windows only');
+    const item = await launch.find(String(wanted || ''));
+    if (!item) return { missing: true };
+    await launch.launch(item);
+    return { name: item.name };
+  }));
+  ipcMain.handle('system:open', safely(async (address) => {
+    const url = system.webAddress(address);
+    if (!url) return { invalid: true };
+    await shell.openExternal(url);
+    return { url, host: new URL(url).hostname.replace(/^www\./, '') };
+  }));
+  ipcMain.handle('system:search', safely(async ({ site, query }) => {
+    await shell.openExternal(system.searchUrl(site, query));
+    return { ok: true };
+  }));
+  ipcMain.handle('system:music', safely(async (query) => {
+    const found = await system.musicSearch(query, launch);
+    await shell.openExternal(found.url);
+    return { where: found.where };
+  }));
+  // her voices out loud: the overlay knows them (speechSynthesis), her menu lists them
+  ipcMain.on('voices:list', (_e, list) => {
+    voices = Array.isArray(list) ? list.map(String).slice(0, 30) : [];
+    rebuildTray();
+  });
+  // her own voice (voicepack.js): there yet for her language, and fetching it once you've said yes
+  let fetchingVoice = null; // AbortController
+  ipcMain.handle('voice:status', (_e, lang) => voicepack.status(lang));
+  ipcMain.handle('voice:install', async (_e, lang) => {
+    fetchingVoice?.abort();
+    const abort = new AbortController();
+    fetchingVoice = abort;
+    try {
+      const done = await voicepack.install(lang, (got, total) => overlay?.webContents.send('voice:progress', { got, total }), abort.signal);
+      rebuildTray();
+      return { ok: true, ...done };
+    } catch (err) {
+      return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message };
+    } finally {
+      if (fetchingVoice === abort) fetchingVoice = null;
+    }
+  });
+  ipcMain.on('voice:cancel', () => fetchingVoice?.abort());
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
@@ -783,6 +945,7 @@ function main() {
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    globalShortcut.register('Control+Alt+V', () => sendCommand('voice')); // a spoken conversation, or the end of it
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
@@ -797,6 +960,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
+    system.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

@@ -122,8 +122,8 @@ own. The demo doesn't count, and it stays on your PC, one day at a time.
 ### Talk to her
 
 **Talk to her** in her menu (or the **Talk to me** button when you click her and nothing's going on): you type in her
-panel and she answers in character. She knows what Claude is doing and what it got done today. She answers in writing,
-in her own language. Enter sends, Esc closes.
+panel and she answers in character. She knows what Claude is doing and what it got done today. She answers in writing
+(or out loud: see "Talk to her out loud"), in her own language. Enter sends, Esc closes.
 
 The first time, she sets it up with you, with buttons, no terminal:
 
@@ -156,9 +156,85 @@ panel says so every time.
 - **Close an app** ("close AM Music", "can you shut Discord down?"): a button with the app's name, and nothing happens
   until you click it. She closes it the way its own close button does, so it can still ask you to save. If it only
   hid in the tray, she offers **Force quit**, again only on your click (unsaved work is lost then). She never closes
-  Windows' own pieces, Claude, Ollama or herself.
+  Windows' own pieces, Claude, Ollama or herself. Out loud, you confirm by saying "yes".
 
-Nothing else: she can't see your screen or your files.
+She can also look at your screen when you ask, and talk with you out loud: see below. Nothing else: never your files.
+
+### Straight from your words (Windows)
+
+Ask her in her chat, or out loud: she gets the simple requests right away and does them herself, in all five of her languages, without
+going through the AI (it's instant, and works even with a tiny model). For anything else, the model can ask for one
+of these itself, but only when your message asked for something. Several at once works too: "set the volume to 30 and
+open YouTube".
+
+| You say | She does | Her reaction |
+|---|---|---|
+| "open YouTube", "go to reddit.com" | opens the page in your browser (or the app of that name, if you have it) | she flings her arm at the screen, red lightning off her fingers |
+| "open a web page", "open the browser" | opens your browser | the same |
+| "open my mail", "open my inbox" | your mail: Gmail, Outlook (web) or the Outlook / Mail app, picked in her menu › **My mail** | the same |
+| "launch Spotify", "start Notepad", "launch Brawlhalla" | launches the app or the game (Start menu, Steam, Epic) | the same, at the taskbar |
+| "search for pancake recipes", "search lofi girl on YouTube" | a Google search (or YouTube, Wikipedia, Maps, Images) | the same |
+| "pause", "resume the music", "next song", "previous" | drives whatever's playing (Spotify, your browser, AM Music… anything Windows' media flyout sees) | she goes quiet with her head down, dances, or swipes the air |
+| "what's this song?" | tells you the title and the artist | she leans in to listen |
+| "play some Daft Punk" | looks it up in Spotify if it's installed, else on YouTube Music | she dances |
+| "volume 30", "turn it up", "a bit quieter", "all the way up", "mute" | the PC's volume | a volume bar by her head; arms thrown up to turn it up, hands pushed down to turn it down |
+| "turn Spotify down", "Discord volume to 20" | that app's slider in Windows' volume mixer | the same, with the app's name |
+
+If she can't find an app or a site by the name you said, she tells you and offers to look it up on the web (a button,
+or "yes" out loud).
+
+What she never does: touch your files, your settings or your messages. An app is only launched if it's in your Start
+menu (or a Steam / Epic game), and a page only opens over `http(s)`.
+
+And without asking her anything:
+- **The wheel** over her turns the volume (a bar shows by her head), **a middle click** pauses or resumes your music.
+- **While your music plays**, she dances to it now and then (notes float off her mane), and sometimes says something
+  about a new song. Her menu › **Move to my music** to calm her down.
+
+### She looks at your screen (when you ask)
+
+"Look at my screen", "what do you see?", or her menu › **Look at my screen**: her head snaps up, a close-up of her eyes,
+a red line runs down the whole screen and its corners lock on, then she tells you what she sees and comments on it,
+in character.
+
+- **Your permission first.** By default she asks every time (**Always**, **Just this once**, **No**, or "yes" out
+  loud). Her menu › **See my screen when I ask** lets her look without asking. She never looks on her own, unless you
+  turn on the option below.
+- **Glances of her own** (off by default): her menu › **Comment on my screen now and then**. Every 6 to 12 minutes, at
+  a quiet moment (no chat open, nothing on screen, Claude idle, her awake), she glances at your screen and says one
+  short thing about it in a "PEEK" bubble. She stays vague about anything that looks private and tries not to repeat
+  herself. The same single picture, the same local model, nothing saved.
+- **One picture**, of the screen she's on, taken when you ask, without her on it, handed to the local model and then
+  thrown away. Nothing is saved.
+- **It needs a model that sees** pictures, in Ollama (whatever answers her chat, Gemini or Claude Code included): `ollama pull gemma3` (about 3 GB; `llava`, `qwen2.5vl`, `minicpm-v`… work
+  too). She finds it on her own; her menu › **Model that sees (Ollama)** to pick another. If your chat model sees
+  pictures already, she uses it.
+
+### Talk to her out loud
+
+Her menu › **Talk to her out loud**, **Ctrl+Alt+V** from anywhere, or the **VOICE** button in her chat: she listens
+(arcs of sound around her head, green while it's you talking), answers you **out loud**, then listens again.
+Everything she can do works out loud too: "turn it down", "open YouTube", "look at my screen", and "yes" to confirm.
+"Bye" or "stop", Ctrl+Alt+V or ✕ to end it; if you say nothing, she asks if you're still there, then turns the mic
+off. You can still type meanwhile.
+
+- **Her ears**: [Whisper](https://github.com/openai/whisper), a speech recognition model running **on your PC** (on
+  the graphics card when there is one, through [transformers.js](https://github.com/huggingface/transformers.js)). The
+  first time, she asks before downloading it from Hugging Face (about 210 MB, once). Her menu › **Her voice** ›
+  **Speech recognition**: *tiny* (fastest), *base* (default), *small* (more accurate, heavier).
+- **Her voice**: picked in her menu › **Her voice**, and **Read her typed answers out loud** if you want to hear her
+  when you type, too.
+  - **Capri's voice**: her real voice, a neural voice ([Piper](https://github.com/rhasspy/piper)) running on your PC
+    and made *hers*: small, sweet and a little whispered, with the chorus of minds in her, dead stops as if her
+    processor froze, a word stuttering like a scratched CD, older voices rising under hers, and saturated "Hihi!" /
+    "Oops!" cut off by static. Her menu › **Her voice** › **Her glitches**: *Light*, *Creepy doll* (default),
+    *Unstable construct*. The first time, she asks before downloading the voice (about 63 MB) and eSpeak-NG (18 MB,
+    which reads the text for the voice): once, then it all happens on your PC. No Piper woman's voice in Portuguese:
+    there, she keeps Windows'.
+  - **One of Windows' own voices** (Zira, David, Mark in English…), nothing to install. It's also the one she uses
+    while her own isn't there yet.
+- **The microphone** is only on during a spoken conversation, and off while she talks (so she doesn't hear herself).
+  Your voice never leaves your PC. If it doesn't work: Windows Settings › Privacy › Microphone › let desktop apps use it.
 
 ### Make her yours
 
@@ -177,13 +253,16 @@ She only catches the mouse on her actual body (pixel-precise): the rest of the s
 
 - **Click** her: she tells you where Claude is at (nothing going on: a **Talk to me** button, to chat with her).
 - **Drag** her: move her around.
+- **Wheel** over her: the volume. **Middle click**: play / pause.
+- **Ctrl+Alt+V**: a spoken conversation (and Ctrl+Alt+V again to end it).
 - **Click** the panel: it closes.
 - **Ctrl+Alt+C**: she puts herself away (into her biochip, like in the show) and all that's left of her is her mask,
   eyes shut, in the bottom-left corner. Her eyes only open when Claude needs you. Click the mask (or Ctrl+Alt+C again)
   to bring her back.
 - **Her menu**: right-click her (it's also on her tray icon, next to the clock): teleport, look at the satellite, demo,
-  how it works, mission report, talk to her, size, sound, screen, AI model, wander, possess your windows,
-  language, start with Windows, hooks.
+  how it works, mission report, talk to her, talk to her out loud, look at my screen, size, sound, screen, AI model,
+  see my screen, comment on my screen, model that sees, her voice, move to my music, my mail, wander, possess your windows, language, start with
+  Windows, hooks.
 
 She speaks **French, English, Spanish, Brazilian Portuguese and Russian**, and picks the language of your system on her
 own. You can choose another one in her menu.
@@ -297,6 +376,10 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 - What she changes on your system: the hook in `~/.claude/settings.json` (a backup is written first, and you can remove
   it from her menu), and a startup entry only if you tick "Start with Windows". She uninstalls like any app, from
   Windows Settings › Apps.
+- What she can do when you ask: the music, the volume, launching a Start menu app, opening a web page or a search,
+  closing an app (after your click or your "yes"), looking at your screen (with your permission). Nothing else: not
+  your files, your settings or your messages. A small PowerShell script (`src/main/system.ps1`, read it) does these
+  for her.
 - The SmartScreen warning comes from the installer not being signed, not from anything it does.
 
 ## FAQ
@@ -327,6 +410,13 @@ Your file contents are never sent: for a write, only its size goes through.
 
 Her chat goes to Ollama on your PC (`127.0.0.1:11434`, or `OLLAMA_HOST`) with what she knows of the moment (the
 project's name, Claude's last action, today's counts). Her mission log stays in her own storage on your PC.
+
+When you ask her to look at your screen, the picture goes to that same local Ollama, for that one answer, and is then
+thrown away. In a spoken conversation, your voice is turned into words on your PC (Whisper) and never sent or saved.
+The only connections out are the ones you ask for: the one-time download of the Whisper model from Hugging Face, the
+one of her voice (Hugging Face for the Piper voice, jsDelivr for eSpeak-NG, each at a fixed version and checked
+against its fingerprint before it's kept), always after you said yes, and the pages or searches she opens in your
+browser.
 
 ## Art direction
 
@@ -396,6 +486,8 @@ src/main/                Electron: full-screen transparent click-through window,
   windows.js / .ps1      where the other windows are (Windows only), so she can sit on them
   ollama.js              her chat: the local model, through Ollama
   apps.js                closing an app you asked her to close (after your click)
+  system.js / .ps1       her hands on the PC: music, volume (the PC's or an app's), Start menu apps, web pages
+  sight.js               a picture of your screen, when you ask her to look
 src/renderer/js/
   sprite.js              WebGL shader: head tilt, mane flare, sitting, smears, afterimages, colors, glitch
   acting.js              the exposure sheets: every move, drawing by drawing
@@ -405,7 +497,11 @@ src/renderer/js/
   guide.js               her guide: the tutorials, going to things and pointing at them
   brain.js               turns Claude events into lines and actions
   mission.js             today's mission log, for her report card
-  chat.js                talking to her: the conversation, who she is, her answers coming in
+  chat.js                talking to her: the conversation, who she is, her answers coming in, the spoken conversation
+  commands.js            what you ask her to do, read straight from your words (5 languages, no AI)
+  powers.js              doing it: music, volume, apps, the web, with the reaction that fits; the wheel, the middle click, dancing to your music
+  ears.js                her ears: the microphone, telling when you talk, and Whisper (ears-worker.js, ears-worklet.js)
+  speech.js              her voice: her own (speech-worker.js: eSpeak-NG then Piper, voicefx.js: her effects), or a Windows one
   lines.js               what she says (FR / EN / ES / PT / RU)
   chip.js                her mask: while she sleeps, and bottom left when you put her away
   voice.js               the sounds
@@ -413,7 +509,10 @@ src/renderer/js/
 
 To hack on it: `npm run dev` turns on debug routes on the bridge (`/debug/capture` saves a frame of the window to `captures/`,
 `/debug/testwin` opens test windows she can sit on, one per name, `/debug/mouse` moves and clicks a stand-in pointer
-over Capri's window, without touching the real one, `/debug/type` types in her chat).
+over Capri's window, without touching the real one, `/debug/type` types in her chat, `/debug/command` with
+`{"name":"heard","text":"…"}` acts as if she had heard it out loud, `{"name":"glance"}` makes her glance at the screen now).
+If an installed Capri is already running, run the dev one next to it with its own data folder and port:
+`CAPRI_PORT=47899 npx electron . --dev --user-data-dir=<a folder>`.
 `npm run dist` builds the Windows installer in `dist/`.
 
 ## Credits and rights
@@ -424,4 +523,10 @@ the show, a fan-made cut-out and fan art (her intro's close-ups); they are **not
 If a rights holder wants them removed, open an issue.
 
 Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fontsource.
+
+Her voice (downloaded when you ask, never bundled with Capri): the [Piper](https://github.com/rhasspy/piper) voices
+*siwis* (French, CC-BY 4.0, SIWIS, University of Edinburgh), *amy* (English, Mycroft's Mimic 3 voices), *sharvard*
+(Spanish, CC-BY 3.0, University of Edinburgh) and *irina* (Russian, RHVoice, licence not stated), and
+[eSpeak-NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0). Her voice is designed from what's known of the
+character, not copied from an actress's.
 

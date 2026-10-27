@@ -737,6 +737,27 @@ html[data-motion='reduced'] .panel__bar {
   padding-inline: 10px;
 }
 
+/* a spoken conversation: the mic button lit, the badge blinking green while she listens */
+.panel__mic {
+  padding-inline: 9px;
+  letter-spacing: 0.08em;
+}
+
+.panel__mic[aria-pressed='true'] {
+  background: var(--green);
+  color: var(--ink);
+}
+
+.panel[data-voice='listening'] .panel__state {
+  background: var(--green);
+  animation: blink 900ms steps(2, jump-none) infinite;
+}
+
+.panel[data-voice='hearing'] .panel__state,
+.panel[data-voice='speaking'] .panel__state {
+  background: var(--paper);
+}
+
 /* it's an AI, and it's not her voice from the show: said on every chat, plainly */
 .panel__note {
   margin: 9px 0 0;
@@ -862,6 +883,7 @@ html[data-motion='reduced'] .ticker.is-flash .ticker__plate,
 html[data-motion='reduced'] .ticker__dot,
 html[data-motion='reduced'] .panel__line.is-streaming::after,
 html[data-motion='reduced'] .panel__line.is-glitching,
-html[data-motion='reduced'] .panel[data-kind='alert'] .panel__state {
+html[data-motion='reduced'] .panel[data-kind='alert'] .panel__state,
+html[data-motion='reduced'] .panel[data-voice='listening'] .panel__state {
   animation: none !important;
 }

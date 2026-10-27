@@ -37,7 +37,8 @@
   },
   "dependencies": {
     "@fontsource/chakra-petch": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0"
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@huggingface/transformers": "4.3.1"
   },
   "build": {
     "appId": "capri.desktop",
@@ -48,11 +49,20 @@
       "hooks/**",
       "scripts/**",
       "package.json",
-      "LICENSE"
+      "LICENSE",
+      "!node_modules/onnxruntime-node/**",
+      "!node_modules/sharp/**",
+      "!node_modules/@img/**",
+      "!node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{jsep,jspi}.*",
+      "!node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{wasm,mjs}",
+      "!node_modules/onnxruntime-web/dist/*.map",
+      "!node_modules/@huggingface/transformers/dist/transformers.{node,web,min}*",
+      "!node_modules/@huggingface/transformers/{src,types}/**"
     ],
     "asarUnpack": [
       "hooks/**",
-      "src/main/windows.ps1"
+      "src/main/windows.ps1",
+      "src/main/system.ps1"
     ],
     "win": {
       "target": "nsis",

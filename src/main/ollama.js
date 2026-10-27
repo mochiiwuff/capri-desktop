@@ -22,10 +22,29 @@ async function failure(res) {
 
 // The models installed, by name ("llama3.2:latest"...).
 async function models() {
+  return (await catalog()).map((m) => m.name);
+}
+
+// Families that see pictures, for an Ollama too old to say so itself.
+const SEES = /llava|vision|gemma3|qwen2\.5vl|qwen\d*-?vl|minicpm-v|moondream|mistral-small3|llama4/i;
+
+// The models installed, and which of them can look at a picture (her look at your screen):
+// [{ name, vision }]. Recent Ollamas list their capabilities; older ones are asked one by one.
+async function catalog() {
   const res = await fetch(`${base()}/api/tags`, { signal: AbortSignal.timeout(2500) });
   if (!res.ok) throw await failure(res);
   const { models: list = [] } = await res.json();
-  return list.map((m) => m.name);
+  return Promise.all(list.map(async (m) => {
+    if (Array.isArray(m.capabilities)) return { name: m.name, vision: m.capabilities.includes('vision') };
+    const shown = await fetch(`${base()}/api/show`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: m.name }),
+      signal: AbortSignal.timeout(2500),
+    }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const caps = shown?.capabilities;
+    return { name: m.name, vision: Array.isArray(caps) ? caps.includes('vision') : SEES.test(m.name) };
+  }));
 }
 
 // Loads the model into memory ahead of the first message (the first answer after a fresh start
@@ -38,8 +57,9 @@ function warm(model) {
   }).catch(() => {});
 }
 
-// Her answer, streamed: onDelta(piece) as it comes, resolves with all of it.
-async function chat({ model, messages }, onDelta, signal) {
+// Her answer, streamed: onDelta(piece) as it comes, resolves with all of it. A message can carry
+// `images` (base64): her look at your screen, for a model that sees.
+async function chat({ model, messages, long = false }, onDelta, signal) {
   const res = await fetch(`${base()}/api/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -48,7 +68,7 @@ async function chat({ model, messages }, onDelta, signal) {
       messages,
       stream: true,
       keep_alive: '15m', // she stays loaded while you chat
-      options: { temperature: 0.85, num_predict: 240 },
+      options: { temperature: 0.85, num_predict: long ? 400 : 240 }, // long: telling you what she sees
     }),
     signal,
   });
@@ -76,4 +96,4 @@ async function chat({ model, messages }, onDelta, signal) {
   return text;
 }
 
-module.exports = { base, models, warm, chat };
+module.exports = { base, models, catalog, warm, chat };

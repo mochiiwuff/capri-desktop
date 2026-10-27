@@ -7,6 +7,7 @@ import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
 import { Chat } from './chat.js';
+import { Powers } from './powers.js';
 import { Setup } from './setup.js';
 import { Custom } from './custom.js';
 import { linesFor } from './lines.js';
@@ -206,8 +207,19 @@ async function boot() {
   // Her guide (guide.js): her welcome on first launch, and "How does it work?" in her menu,
   // where she takes you to things and points at them.
   const guide = new Guide({ capri, panel, voice, host, brain });
-  // Talking to her (chat.js): "Talk to her" in her menu, or the button when you click her idle.
-  const chat = new Chat({ capri, panel, voice, host, brain });
+  // Her hands on the PC (powers.js): the music, the volume, apps, the web, when you ask. The wheel
+  // over her turns the volume, a middle click plays / pauses, and she moves to your music.
+  const powers = new Powers({ capri, panel, voice, host, brain });
+  capri.groove = config.groove !== false;
+  powers.mailService = config.mail || 'gmail';
+  capri.onWheel = (steps) => powers.nudge(steps);
+  capri.onMiddle = () => powers.toggle();
+  powers.watch(capri.groove);
+  // Talking to her (chat.js): "Talk to her" in her menu, or the button when you click her idle;
+  // out loud: "Talk to her out loud" in her menu, or Ctrl+Alt+V.
+  const chat = new Chat({ capri, panel, voice, host, brain, powers });
+  chat.configure(config);
+  chat.watchScreen(Boolean(config.peek)); // her menu: "Comment on my screen now and then"
   brain.onTalk = () => chat.start();
   // Getting her chat going with buttons (setup.js): Ollama and a model, a key, or an address
   const setup = new Setup({ guide, panel, host, brain, capri, voice });
@@ -329,6 +341,10 @@ async function boot() {
     capri.wander = cfg.wander;
     capri.possessWindows = cfg.possess;
     capri.restOn = cfg.rest || 'corner';
+    if ((cfg.groove !== false) !== capri.groove) {
+      capri.groove = cfg.groove !== false;
+      powers.watch(capri.groove);
+    }
     applyMotion(cfg.motion);
     if ((cfg.claude === false && brain.watching) || cfg.assistant !== brain.assistant) {
       guide.answer(null);
@@ -351,6 +367,9 @@ async function boot() {
       panel.labels = linesFor(cfg.lang, cfg.assistant);
       document.documentElement.lang = cfg.lang;
     }
+    if (Boolean(cfg.peek) !== Boolean(chat.cfg.peek)) chat.watchScreen(Boolean(cfg.peek));
+    chat.configure(cfg); // her voice, her ears, whether she may look at your screen
+    powers.mailService = cfg.mail || 'gmail';
   });
 
   host.onCommand(async (cmd) => {
@@ -407,6 +426,22 @@ async function boot() {
         break;
       case 'chat': // "Talk to her" in her menu
         chat.start();
+        break;
+      case 'voice': // "Talk to her out loud" in her menu, Ctrl+Alt+V: on, or off again
+        if (chat.spoken) chat.stopVoice({ bye: true });
+        else chat.startVoice();
+        break;
+      case 'capriVoice': // her menu › Her voice › Capri's voice: fetched once with your yes, then on
+        chat.setupVoice();
+        break;
+      case 'look': // "Look at my screen" in her menu: as if you'd asked her in her chat
+        if (await chat.start()) chat.send(t.sight.prompt);
+        break;
+      case 'glance': // --dev: a glance of her own at your screen, now (her menu's option must be on)
+        chat.glance({ force: true });
+        break;
+      case 'heard': // --dev: as if she had heard `text` out loud (no microphone needed)
+        if (chat.open) chat.send(cmd.text || '');
         break;
       case 'report': // "Mission report" in her menu
         if (capri.stowed) {
