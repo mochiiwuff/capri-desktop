@@ -64,7 +64,19 @@ export class Panel {
     this.chatSend = panel.querySelector('.panel__send');
     this.chatClose = panel.querySelector('.panel__close');
     this.note = panel.querySelector('.panel__note');
-    this.chatForm.addEventListener('click', (e) => e.stopPropagation());
+    this.chatForm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.host?.focusOverlay?.(true);
+      if (this.current?.chat && document.activeElement !== this.chatInput) {
+        this.chatInput.focus();
+      }
+    });
+    this.chatInput.addEventListener('pointerdown', () => {
+      window.host?.focusOverlay?.(true);
+    });
+    this.chatInput.addEventListener('focus', () => {
+      window.host?.focusOverlay?.(true);
+    });
     this.chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = this.chatInput.value.trim();
@@ -78,8 +90,12 @@ export class Panel {
     this.chatClose.addEventListener('click', () => this.hide());
 
     this.el.addEventListener('click', () => {
-      if (this.current?.chat) this.chatInput.focus(); // a chat stays until you close it
-      else this.hide();
+      if (this.current?.chat) {
+        window.host?.focusOverlay?.(true);
+        this.chatInput.focus(); // a chat stays until you close it
+      } else {
+        this.hide();
+      }
     });
     this.portrait.addEventListener('animationend', (e) => {
       if (e.animationName === 'face-swap') this.portrait.classList.remove('is-swapping');
@@ -292,7 +308,10 @@ export class Panel {
       tag.textContent = chat.noteTag || '';
       this.note.replaceChildren(...(chat.noteTag ? [tag, ' '] : []), chat.note);
     }
-    requestAnimationFrame(() => this.chatInput.focus());
+    requestAnimationFrame(() => {
+      window.host?.focusOverlay?.(true);
+      this.chatInput.focus();
+    });
   }
 
   // A chat turn: what you said goes up top, her answer starts coming in under it (stream), without
@@ -370,7 +389,10 @@ export class Panel {
   setChatBusy(busy) {
     this.chatInput.disabled = busy;
     this.chatSend.disabled = busy;
-    if (!busy && this.current?.chat) this.chatInput.focus();
+    if (!busy && this.current?.chat) {
+      window.host?.focusOverlay?.(true);
+      this.chatInput.focus();
+    }
   }
 
   // A button of the message on screen says something else now ("Copied").
@@ -578,7 +600,7 @@ export class Panel {
   }
 
   rect() {
-    if (this.el.hidden || this.suspended) return null;
+    if (this.el.hidden || this.suspended || this.leaving) return null;
     return this.el.getBoundingClientRect();
   }
 }

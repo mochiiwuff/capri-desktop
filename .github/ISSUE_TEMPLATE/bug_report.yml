@@ -1,0 +1,39 @@
+name: Bug report
+description: Create a report to help us improve Capri
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+  - type: input
+    id: os
+    attributes:
+      label: Operating System & Environment
+      description: e.g. Ubuntu 24.04 (X11 / GNOME), Windows 11 23H2, Arch Linux (X11 / i3)
+      placeholder: e.g. Linux (X11), Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe what bug occurred.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please copy and paste any console or terminal output.
+      render: shell

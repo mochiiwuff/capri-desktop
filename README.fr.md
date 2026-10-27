@@ -85,8 +85,8 @@ glitche, commente chaque action, vient te chercher quand elle attend ta permissi
 
 ![Elle s'endort jusqu'à son masque, se réveille, et rangée en bas à gauche](docs/sleep.png)
 
-Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, pas leurs titres ni leur contenu).
-Sur macOS et Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
+Le suivi des fenêtres est pris en charge sous Windows (via un script PowerShell) et sous Linux X11 (via un helper X11 natif ou wmctrl/xprop). Le contenu des fenêtres n'est jamais lu.
+Sur macOS, elle flotte, dépasse des bords, tombe et se balade.
 
 ### Elle te fait visiter
 
@@ -226,21 +226,29 @@ Capri ne fait que le regarder : pas de clé d'API, et rien à payer pour Capri e
 Sans Claude Code, elle vit quand même sur ton bureau : elle flotte, s'assoit sur tes fenêtres, regarde le satellite,
 s'endort. Tu peux juste la laisser là.
 
-### Depuis le code (macOS, Linux, développeurs)
+### Depuis le code (Linux, macOS, développeurs)
 
 Il faut [Node.js](https://nodejs.org) 20 ou plus.
 
+Sous Linux (Ubuntu/Debian/Mint/Arch), installe les bibliothèques X11 requises :
 ```bash
-git clone https://github.com/mochiiwuff/capri-desktop.git
+sudo apt-get install gcc libx11-dev wmctrl
+```
+
+Clone et lance :
+```bash
+git clone https://github.com/barrrliebert/capri-desktop.git
 cd capri-desktop
 npm install
+npm run build:linux   # Compile le helper X11 (auto-compilé au démarrage si gcc est présent)
 npm start
 ```
 
-Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS ni Linux : elle devrait démarrer, mais les tours
-avec les fenêtres (s'asseoir dessus, les posséder, t'afficher la réponse de Claude quand tu es ailleurs) ne marchent que
-sous Windows, et sous Linux le calque transparent marche mieux sous X11 (Wayland a du mal avec les fenêtres qui laissent
-passer les clics).
+**Notes Linux** : La fenêtre transparente passe-clic, le suivi des fenêtres, la possession et la fermeture d'applications sont pleinement pris en charge sous X11 (GNOME, KDE Plasma, XFCE, i3, etc.).
+Tu peux compiler des paquets Linux (`AppImage` et `.tar.gz`) avec :
+```bash
+npm run dist:linux
+```
 
 ### La brancher sur Claude Code à la main
 

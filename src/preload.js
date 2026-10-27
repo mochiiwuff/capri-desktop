@@ -9,6 +9,7 @@ const on = (channel) => (fn) => {
 };
 
 contextBridge.exposeInMainWorld('host', {
+  platform: process.platform,
   onClaudeEvent: on('claude:event'),
   onCommand: on('capri:command'),
   onConfig: on('capri:config'),

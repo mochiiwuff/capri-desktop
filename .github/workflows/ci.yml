@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/*, release/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-syntax:
+    name: Syntax & Lint Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify JavaScript syntax
+        run: npm test
+
+  build-linux:
+    name: Build & Verify (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libx11-dev wmctrl x11-utils
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux native X11 helper
+        run: npm run build:linux
+
+      - name: Verify helper binary
+        run: |
+          test -x src/main/windows-linux
+          ./src/main/windows-linux --help 2>&1 || true
+
+  build-windows:
+    name: Build & Verify (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify syntax on Windows
+        run: npm test

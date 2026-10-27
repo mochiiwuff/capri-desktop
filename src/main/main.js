@@ -21,6 +21,7 @@ const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
+const cursor = require('./cursor');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const DEV = process.argv.includes('--dev');
@@ -142,10 +143,10 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    focusable: true,
     hasShadow: false,
     alwaysOnTop: true,
-    type: process.platform === 'win32' ? 'toolbar' : undefined,
+    type: process.platform === 'win32' ? 'toolbar' : 'utility',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -158,12 +159,13 @@ function createOverlay() {
   });
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
-  overlay.setIgnoreMouseEvents(true, { forward: true });
+  overlay.setIgnoreMouseEvents(true, { forward: process.platform !== 'linux' });
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
   overlay.once('ready-to-show', () => {
     fitOverlay();
+    overlay.setFocusable(false);
     overlay.showInactive();
   });
   overlay.webContents.on('render-process-gone', (_e, details) => {
@@ -171,8 +173,7 @@ function createOverlay() {
   });
   if (DEV) {
     overlay.webContents.on('console-message', (e) => {
-      const { level, message, lineNumber, sourceId } = e;
-      console.log(`[renderer:${level}] ${message} (${String(sourceId).split('/').pop()}:${lineNumber})`);
+      console.log(`[renderer:${e.level}] ${e.message}`);
     });
     if (process.env.CAPRI_DEVTOOLS) overlay.webContents.openDevTools({ mode: 'detach' });
   }
@@ -217,7 +218,7 @@ const DEMO_TERMINAL = `<body style="margin:0;background:#14101c;color:#8f8aa3;fo
 function demoWindow(open) {
   demoWin?.destroy();
   demoWin = null;
-  if (!open || process.platform !== 'win32') return false;
+  if (!open || (process.platform !== 'win32' && process.platform !== 'linux')) return false;
   const b = overlay.getBounds();
   demoWin = new BrowserWindow({
     x: Math.round(b.x + b.width * 0.5 - 310), y: Math.round(b.y + b.height * 0.42), width: 620, height: 300,
@@ -388,7 +389,7 @@ function rebuildTray() {
       })),
     },
     {
-      label: t.startup,
+      label: process.platform === 'linux' ? 'Start at login' : t.startup,
       type: 'checkbox',
       checked: app.getLoginItemSettings(loginItemOptions()).openAtLogin,
       click: (item) => app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: item.checked }),
@@ -503,11 +504,17 @@ function createTray() {
 
 function registerIpc() {
   ipcMain.on('overlay:interactive', (_e, on) => {
-    overlay?.setIgnoreMouseEvents(!on, { forward: true });
+    if (!overlay || overlay.isDestroyed()) return;
+    if (on) {
+      overlay.setIgnoreMouseEvents(false);
+    } else {
+      overlay.setIgnoreMouseEvents(true, { forward: process.platform !== 'linux' });
+    }
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
   ipcMain.handle('overlay:cursor', () => {
-    const p = screen.getCursorScreenPoint();
+    if (!overlay || overlay.isDestroyed()) return { x: 0, y: 0, inside: false };
+    const p = cursor.getCursorScreenPoint();
     const b = overlay.getBounds();
     return { x: p.x - b.x, y: p.y - b.y, inside: p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height };
   });
@@ -616,10 +623,14 @@ function registerIpc() {
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
-    if (!overlay) return;
+    if (!overlay || overlay.isDestroyed()) return;
     overlay.setFocusable(Boolean(on));
-    if (on) overlay.focus();
-    else overlay.blur();
+    if (on) {
+      overlay.focus();
+      overlay.webContents.focus();
+    } else {
+      overlay.blur();
+    }
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
   ipcMain.handle('panel:copy', async (_e, rect) => {
@@ -797,6 +808,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
+    cursor.cleanup();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

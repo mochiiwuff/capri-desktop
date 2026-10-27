@@ -1,24 +1,30 @@
 {
   "name": "capri-desktop",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Capri, the Project Capricorn construct, living on your desktop and narrating what Claude Code is doing.",
   "author": "mochiiwuff",
-  "repository": "github:mochiiwuff/capri-desktop",
+  "repository": "github:barrrliebert/capri-desktop",
   "main": "src/main/main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "demo": "node scripts/demo.js",
+    "build": "node scripts/build-linux.js",
+    "build:linux": "node scripts/build-linux.js",
+    "test": "npm run test:syntax && npm run test:hooks",
+    "test:syntax": "node scripts/check-syntax.js",
+    "test:hooks": "node --test tests/hooks.test.js",
+    "check:llm": "node scripts/check-llm.js",
     "hooks:install": "node scripts/install-hooks.js",
     "hooks:uninstall": "node scripts/install-hooks.js --uninstall",
     "hooks:codex:install": "node scripts/install-codex-hooks.js",
     "hooks:codex:uninstall": "node scripts/install-codex-hooks.js --uninstall",
     "hooks:agy:install": "node scripts/install-hooks-agy.js",
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
-    "check:llm": "node scripts/check-llm.js",
-    "test:hooks": "node --test tests/hooks.test.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "node scripts/build-linux.js && electron-builder --linux"
   },
   "keywords": [
     "claude-code",
@@ -52,7 +58,8 @@
     ],
     "asarUnpack": [
       "hooks/**",
-      "src/main/windows.ps1"
+      "src/main/windows.ps1",
+      "src/main/windows-linux"
     ],
     "win": {
       "target": "nsis",
@@ -65,6 +72,15 @@
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
       "artifactName": "Capri-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Utility",
+      "icon": "assets/icons/capri.png",
+      "artifactName": "Capri-${version}.${ext}"
     }
   }
 }

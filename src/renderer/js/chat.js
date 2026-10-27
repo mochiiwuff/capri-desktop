@@ -164,7 +164,10 @@ export class Chat {
       return;
     }
     this.open = true;
-    setTimeout(() => this.panel.chatInput.focus(), 150); // once the overlay has the keyboard
+    setTimeout(() => {
+      host.focusOverlay(true);
+      this.panel.chatInput.focus();
+    }, 150); // once the overlay has the keyboard
     capri.perform('hop');
     capri.nextMove = capri.nextGaze = performance.now() + STAY_MS;
   }

@@ -7,3 +7,7 @@ Thumbs.db
 
 # local debug captures
 captures/
+
+# Native Linux build artifacts
+*.node
+src/main/windows-linux

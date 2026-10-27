@@ -38,7 +38,7 @@ glitches, comments on every action, comes to find you when it needs your permiss
   the summary (`12 actions · 3 files changed · 2m 14s`) and Claude's last sentence.
 - **When Claude answers and you're on another window**: she shows you its whole answer, in a wider panel that
   scrolls (paragraphs, lists and code kept). It goes away when you're back on Claude's window, or when you click it.
-  Claude's window is the one you typed your prompt in. Windows only, like the window tracking.
+  Claude's window is the one you typed your prompt in (supported on Windows and Linux X11).
 - **The rest of the time**: she floats, her mane sways and sheds shards, she drifts from one corner to another,
   turns around and cocks her head when your mouse comes near (or, little menace, zaps it with red lightning and a sly grin),
   looks up at the satellite, and falls asleep after 10 quiet minutes.
@@ -81,8 +81,8 @@ glitches, comments on every action, comes to find you when it needs your permiss
 
 ![Asleep down to her mask, waking up, and put away bottom left](docs/sleep.png)
 
-Window tracking is Windows-only for now (a tiny PowerShell helper reads window positions, no titles, no contents).
-On macOS and Linux she still floats, peeks, falls and wanders.
+Window tracking is supported on Windows (via a tiny PowerShell helper) and Linux (X11, via a native X11 helper or wmctrl/xprop fallback). No window contents are ever read.
+On macOS she still floats, peeks, falls and wanders.
 
 ### She shows you around
 
@@ -212,20 +212,29 @@ it: no API key, and nothing to pay for Capri herself.
 Without Claude Code she still lives on your desktop: she floats, sits on your windows, looks at the satellite, falls
 asleep. You can just leave her there.
 
-### From the source (macOS, Linux, developers)
+### From the source (Linux, macOS, developers)
 
 You need [Node.js](https://nodejs.org) 20 or newer.
 
+On Linux (Ubuntu/Debian/Mint/Arch), install the development libraries for native X11 window tracking:
 ```bash
-git clone https://github.com/mochiiwuff/capri-desktop.git
+sudo apt-get install gcc libx11-dev wmctrl
+```
+
+Clone and run:
+```bash
+git clone https://github.com/barrrliebert/capri-desktop.git
 cd capri-desktop
 npm install
+npm run build:linux   # Compiles native X11 helper (auto-compiled on first run if gcc is present)
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+**Linux notes**: Capri's transparent click-through window, window sitting, window possession, and app closing are fully supported on X11 desktop environments (GNOME, KDE Plasma, XFCE, i3, etc.). On Wayland, compositor support for click-through transparent overlays may vary.
+You can package Linux releases (`AppImage` and `.tar.gz`) with:
+```bash
+npm run dist:linux
+```
 
 ### Hook her up to Claude Code by hand
 
@@ -301,7 +310,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 ## FAQ
 
-- **Mac, Linux?** No installer yet, but you can run her from the source (see above).
+- **Linux, Mac?** Linux (X11) has full native support for window tracking, window sitting, window possession, and app closing! You can build `.AppImage` and `.tar.gz` with `npm run dist:linux` or run from source. On macOS, she floats, peeks, falls and wanders.
 - **Phone, Android?** No, she needs a desktop.
 - **Other assistants?** Claude Code, Codex and Antigravity: her menu › **Watch**. Cursor, Windsurf and Gemini CLI: not yet.
 - **Ollama?** Two ways. Claude Code running on a local model through Ollama (`ollama launch claude`): she sees it like
@@ -393,7 +402,8 @@ tools/build-sprite.py    rebuilds the sprite from the original cut-out (Python +
 tools/build-cutins.py    cuts the cut-ins and her faces out of frames of the show
 tools/build-intro.py     cuts her intro's close-ups out of their background, all the same way
 src/main/                Electron: full-screen transparent click-through window, tray, local HTTP bridge
-  windows.js / .ps1      where the other windows are (Windows only), so she can sit on them
+  windows.js / .ps1 / -linux.c  where the other windows are (Windows & Linux X11), so she can sit on them
+  cursor.js / -linux.c   high-precision global cursor tracking for Linux click-through hit testing
   ollama.js              her chat: the local model, through Ollama
   apps.js                closing an app you asked her to close (after your click)
 src/renderer/js/

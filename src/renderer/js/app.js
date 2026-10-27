@@ -103,9 +103,11 @@ async function boot() {
     if (capri.dragging) return setInteractive(true);
     if (!mouse) return setInteractive(false);
     const r = panel.rect();
-    const onPanel = r && mouse.x >= r.left && mouse.x <= r.right && mouse.y >= r.top && mouse.y <= r.bottom;
-    document.body.style.cursor = onChip() ? 'pointer' : '';
-    return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip()));
+    const onPanel = Boolean(r && mouse.x >= r.left - 8 && mouse.x <= r.right + 8 && mouse.y >= r.top - 8 && mouse.y <= r.bottom + 8);
+    const hitCapri = Boolean(capri.hit(mouse.x, mouse.y));
+    const hitChip = onChip();
+    document.body.style.cursor = hitChip ? 'pointer' : '';
+    return setInteractive(Boolean(onPanel || hitCapri || hitChip));
   };
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
   // (only then, so the pointer passing through that corner doesn't call her back).
@@ -156,6 +158,35 @@ async function boot() {
     rearmedAt = now;
     host.rearm();
   }, WATCH_MS);
+
+  // Cross-platform hit testing (essential on Linux):
+  // Electron on Linux does not support { forward: true } in BrowserWindow.setIgnoreMouseEvents,
+  // meaning Chromium receives zero mousemove events while the window is non-interactive.
+  // Polling the global cursor coordinates enables pixel-precise hit testing on Capri,
+  // the speech/options panel, and the biochip even when the window is in click-through mode.
+  let pollBusy = false;
+  const pollCursor = async () => {
+    if (pollBusy) return;
+    pollBusy = true;
+    try {
+      const cur = await host.cursor();
+      if (cur && cur.inside) {
+        mouse = { x: cur.x, y: cur.y };
+        refreshHit();
+        hoverChip();
+        if (!interactive) capri.notice(cur.x, cur.y);
+      } else if (interactive && !capri.dragging) {
+        mouse = null;
+        refreshHit();
+        hoverChip();
+      }
+    } catch {
+      // overlay may be closing/destroyed
+    } finally {
+      pollBusy = false;
+    }
+  };
+  setInterval(pollCursor, 30);
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();
