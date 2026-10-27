@@ -286,7 +286,8 @@ export class Brain {
     const done = (extra) => {
       if (reply) this.replyFor = s;
       if (reply) this.say('done', pick(this.t.reply), s, { ...extra, reply, hold: null });
-      else this.say('done', pick(this.t.done), s, { ...extra, quote: clip(quote, 150) });
+      // cut short: all of it once you make the panel bigger
+      else this.say('done', pick(this.t.done), s, { ...extra, quote: clip(quote, 150), full: quote.length > 150 ? readable(evt.last_assistant_message) : '' });
     };
     if (!wasWorking && !s.count) {
       // a Stop with nothing before it: just say it quietly

@@ -35,6 +35,20 @@ export class Panel {
     this.progress = panel.querySelector('.panel__progress');
     this.bar = panel.querySelector('.panel__bar');
     this.reply = panel.querySelector('.panel__reply');
+    // an answer or Claude's whole reply, bigger: most of the screen, to read all of it
+    this.maxButton = panel.querySelector('.panel__grow');
+    this.maxButton.addEventListener('click', (e) => {
+      e.stopPropagation(); // a click on the panel itself closes it
+      this.maximize(!this.el.classList.contains('is-max'));
+    });
+    // in a chat: everything said, here and on Telegram, in place of her answer until the next one
+    this.historyButton = panel.querySelector('.panel__hist');
+    this.history = panel.querySelector('.panel__history');
+    this.historyButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.history.hidden) this.showHistory();
+      else this.closeHistory();
+    });
     this.report = panel.querySelector('.panel__report');
     this.actions = panel.querySelector('.panel__actions');
     this.onAction = null; // (id) => void, a button of the message was clicked
@@ -64,16 +78,39 @@ export class Panel {
     this.chatSend = panel.querySelector('.panel__send');
     this.chatClose = panel.querySelector('.panel__close');
     this.note = panel.querySelector('.panel__note');
+    this.suggestList = panel.querySelector('.panel__suggest');
+    this.suggestions = []; // what "@…" could be, as offered under her answer: [{ value, label, hint }]
+    this.suggested = 0;    // the one Enter or Tab picks
     this.chatForm.addEventListener('click', (e) => e.stopPropagation());
     this.chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = this.chatInput.value.trim();
-      if (!text || this.chatInput.disabled) return;
+      if (this.chatInput.disabled) return;
+      // nothing typed: Enter is the button she's offering (send the task, close the app…)
+      if (!text) {
+        if (!this.actions.hidden) this.actions.querySelector('.is-primary')?.click();
+        return;
+      }
       this.chatInput.value = '';
+      this.hideSuggestions();
       this.current?.onSend?.(text);
     });
     this.chatInput.addEventListener('keydown', (e) => {
+      if (this.suggestions.length && ['ArrowDown', 'ArrowUp', 'Tab', 'Enter', 'Escape'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === 'Escape') this.hideSuggestions();
+        else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') this.markSuggestion(this.suggested + (e.key === 'ArrowDown' ? 1 : -1));
+        else this.pickSuggestion(this.suggested);
+        return;
+      }
       if (e.key === 'Escape') this.hide();
+    });
+    this.chatInput.addEventListener('input', () => this.suggest());
+    this.suggestList.addEventListener('mousedown', (e) => e.preventDefault()); // the input keeps the keyboard
+    this.suggestList.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = e.target.closest('[data-index]');
+      if (item) this.pickSuggestion(Number(item.dataset.index));
     });
     this.chatClose.addEventListener('click', () => this.hide());
 
@@ -93,6 +130,7 @@ export class Panel {
   // Message: { kind, line, tag, quote, reply, summary, log: [{verb, target, error}], actions, guide,
   //            hold (ms | null for sticky) }
   // reply: Claude's whole answer, in a block that scrolls
+  // full: Claude's whole answer when the quote cuts it short, shown once you make the panel bigger
   // actions: buttons, [{ id, label, primary }]; clicking one calls the message's onAction(id),
   //          or the panel's
   // guide: the quote is an explanation, shown whole
@@ -112,7 +150,7 @@ export class Panel {
       return false;
     }
     // nor on something you may be reading: an answer, her report (progress lines don't knock it off)
-    if (cur?.reply && this.visible && PRIORITY[msg.kind] < 2) return false;
+    if ((cur?.reply || this.el.classList.contains('is-max')) && this.visible && PRIORITY[msg.kind] < 2) return false;
     if (cur?.report && this.visible && PRIORITY[msg.kind] < 3) return false;
     // nor on a chat with her: only a permission prompt breaks in; Claude finishing waits until after
     // (even while she teleports and the panel is put aside for a moment). Her setup's panels with a
@@ -142,6 +180,10 @@ export class Panel {
     this.renderReport(msg.report);
     this.renderActions(msg.actions, msg.onAction);
     this.renderChat(msg.chat);
+    this.maxButton.hidden = !msg.chat && !msg.reply && !msg.full;
+    this.closeHistory();
+    this.historyButton.hidden = !msg.chat?.history;
+    if (!msg.chat || !cur?.chat) this.maximize(false); // a chat keeps its size from one answer to the next
     this.summary.textContent = msg.summary || '';
     this.summary.hidden = !msg.summary;
     this.renderLog(msg.log || []);
@@ -279,6 +321,7 @@ export class Panel {
     this.line.classList.remove('is-streaming');
     this.chatForm.hidden = !chat;
     this.note.hidden = !chat?.note;
+    this.hideSuggestions();
     if (!chat) return;
     this.chatInput.type = chat.secret ? 'password' : 'text';
     this.chatInput.placeholder = chat.placeholder;
@@ -287,6 +330,8 @@ export class Panel {
     this.chatSend.disabled = false;
     this.chatSend.textContent = chat.send;
     this.chatClose.setAttribute('aria-label', chat.close);
+    this.historyButton.title = chat.historyLabel || '';
+    this.historyButton.setAttribute('aria-label', chat.historyLabel || '');
     if (chat.note) {
       const tag = document.createElement('b');
       tag.textContent = chat.noteTag || '';
@@ -295,10 +340,121 @@ export class Panel {
     requestAnimationFrame(() => this.chatInput.focus());
   }
 
+  // "@" and the start of a name, first thing in the line: the names it could be, under her answer
+  // (the chat's suggest(prefix) says which), to pick with the arrows and Enter or Tab, or a click
+  async suggest() {
+    const typed = /^@([^\s"]*)$/.exec(this.chatInput.value);
+    const suggest = this.current?.chat?.suggest;
+    if (!typed || !suggest) return this.hideSuggestions();
+    const items = await suggest(typed[1]).catch(() => []);
+    if (this.chatInput.value !== typed[0]) return undefined; // typed on meanwhile: that one's on its way
+    if (!items.length) return this.hideSuggestions();
+    this.suggestions = items;
+    this.suggestList.replaceChildren(...items.map(({ label, hint }, i) => {
+      const item = document.createElement('li');
+      item.className = 'panel__suggestion';
+      item.setAttribute('role', 'option');
+      item.dataset.index = i;
+      const name = document.createElement('b');
+      name.textContent = `@${label}`;
+      item.append(name);
+      if (hint) {
+        const more = document.createElement('span');
+        more.textContent = hint;
+        item.append(more);
+      }
+      return item;
+    }));
+    this.suggestList.hidden = false;
+    this.markSuggestion(0);
+    this.place();
+    return undefined;
+  }
+
+  markSuggestion(index) {
+    const n = this.suggestions.length;
+    this.suggested = ((index % n) + n) % n;
+    [...this.suggestList.children].forEach((item, i) => item.setAttribute('aria-selected', String(i === this.suggested)));
+  }
+
+  pickSuggestion(index) {
+    const picked = this.suggestions[index];
+    if (!picked) return;
+    this.chatInput.value = `@${picked.value} `;
+    this.hideSuggestions();
+    this.chatInput.focus();
+  }
+
+  hideSuggestions() {
+    if (!this.suggestions.length && this.suggestList.hidden) return;
+    this.suggestions = [];
+    this.suggestList.hidden = true;
+    this.suggestList.replaceChildren();
+    this.place();
+  }
+
+  async showHistory() {
+    const chat = this.current?.chat;
+    if (!chat?.history) return;
+    const said = await chat.history().catch(() => []);
+    if (this.current?.chat !== chat) return; // gone meanwhile
+    const items = said.map(({ role, content }) => {
+      const item = document.createElement('li');
+      item.className = `panel__said ${role === 'user' ? 'is-you' : 'is-her'}`;
+      item.textContent = content;
+      return item;
+    });
+    if (!items.length) {
+      const none = document.createElement('li');
+      none.className = 'panel__said is-none';
+      none.textContent = chat.historyEmpty || '';
+      items.push(none);
+    }
+    this.history.replaceChildren(...items);
+    this.history.hidden = false;
+    this.line.hidden = true;
+    this.quote.hidden = true;
+    this.historyButton.classList.add('is-on');
+    this.historyButton.title = chat.historyBack || '';
+    this.place();
+    this.history.scrollTop = this.history.scrollHeight; // the latest at the bottom, in view
+  }
+
+  closeHistory() {
+    if (this.history.hidden) return;
+    this.history.hidden = true;
+    this.history.replaceChildren();
+    this.line.hidden = false;
+    this.quote.hidden = !this.quote.textContent;
+    this.historyButton.classList.remove('is-on');
+    this.historyButton.title = this.current?.chat?.historyLabel || '';
+    this.place();
+  }
+
+  // full: Claude's answer cut short in the quote, whole in the reply's block while it's bigger
+  maximize(on) {
+    this.el.classList.toggle('is-max', on);
+    const full = !this.current?.reply && this.current?.full;
+    if (full) {
+      this.reply.textContent = on ? full : '';
+      this.reply.hidden = !on;
+      this.reply.scrollTop = 0;
+      this.quote.hidden = on || !this.current.quote;
+      this.el.classList.toggle('has-reply', on);
+    }
+    if (on) clearTimeout(this.hideTimer); // you're reading it: it stays until you click it away
+    this.maxButton.textContent = on ? '⤡' : '⤢';
+    const label = this.labels.chat?.[on ? 'smaller' : 'bigger'] || '';
+    this.maxButton.title = label;
+    this.maxButton.setAttribute('aria-label', label);
+    this.place();
+  }
+
   // A chat turn: what you said goes up top, her answer starts coming in under it (stream), without
   // announcing the panel all over again.
   chatTurn({ quote, face }) {
     if (!this.current?.chat) return;
+    this.closeHistory();
     clearInterval(this.decodeTimer);
     this.stopStream();
     this.setFace(face);

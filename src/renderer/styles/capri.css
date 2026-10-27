@@ -280,6 +280,83 @@ body {
   clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
 }
 
+.panel__max {
+  appearance: none;
+  border: 0;
+  margin: -2px 0 -2px 6px;
+  padding: 1px 6px 0;
+  background: var(--ink-2);
+  color: var(--paper);
+  font: 600 13px/1 var(--font-mono);
+  cursor: pointer;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+.panel__max:hover,
+.panel__hist.is-on {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+/* made bigger: most of the screen, her answer (or Claude's) gets nearly all of its height */
+.panel.is-max {
+  width: min(calc(100vw - 28px), 1100px);
+}
+
+/* in a chat: everything said, you and her, the latest at the bottom */
+.panel__history {
+  order: -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 2px 6px 2px 0;
+  list-style: none;
+  max-height: min(44vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--violet) transparent;
+  font-family: var(--font-mono);
+  font-size: calc(var(--text-data) + 1px);
+  line-height: 1.5;
+}
+
+.panel__said {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.panel__said.is-you {
+  color: var(--paper-2);
+}
+
+.panel__said.is-you::before {
+  content: '> ';
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.panel__said.is-her {
+  padding-left: 9px;
+  border-left: 2px solid var(--accent);
+  color: var(--paper);
+}
+
+.panel__said.is-none {
+  color: var(--paper-3);
+}
+
+.panel.is-max .panel__line,
+.panel.is-max .panel__history,
+.panel.is-max .panel__reply {
+  max-height: calc(100vh - 260px);
+}
+
+.panel.is-max .panel__quote {
+  -webkit-line-clamp: unset;
+}
+
 .panel[data-kind='alert'] .panel__state {
   animation: blink 900ms steps(2, jump-none) infinite;
 }
@@ -725,6 +802,42 @@ html[data-motion='reduced'] .panel__bar {
 
 .panel__chat .panel__action {
   flex: none;
+}
+
+/* "@…" in her chat: the sessions it could be */
+.panel__suggest {
+  margin: 12px 0 -6px;
+  padding: 0;
+  list-style: none;
+  background: var(--ink-2);
+  clip-path: polygon(7px 0, 100% 0, 100% 100%, 0 100%, 0 7px);
+}
+
+.panel__suggestion {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 10px 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.panel__suggestion span {
+  color: var(--paper-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel__suggestion[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.panel__suggestion[aria-selected='true'] span {
+  color: var(--ink);
 }
 
 .panel__chat .panel__action:disabled {

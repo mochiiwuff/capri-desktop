@@ -27,6 +27,28 @@ export const reducedMotion = {
   },
 };
 
+// The window that came up since `before` (an earlier capri.windows): one that wasn't there, else the
+// one that took the focus, else the one now in front. Not always with the focus: GNOME keeps it
+// where you were.
+export function cameUp(before, now) {
+  const known = new Set(before.wins.map((w) => w.id));
+  return now.wins.find((w) => !known.has(w.id))
+    || (now.fg !== before.fg && now.wins.find((w) => w.id === now.fg))
+    || (now.wins[0] && now.wins[0].id !== before.wins[0]?.id && now.wins[0])
+    || null;
+}
+
+// Where `name` is in the file manager's window `win`, to point at it rather than at the whole window
+// (Linux): asked a few times while the window fills and scrolls to it. Else the window itself.
+export async function itemIn(host, win, name) {
+  for (let i = 0; i < 6; i++) {
+    const at = await host.locateFile(name).catch(() => null);
+    if (at && at.x >= win.x && at.y >= win.y && at.x + at.w <= win.x + win.w && at.y + at.h <= win.y + win.h) return at;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return win;
+}
+
 // "{project} a fini" + {project: 'x'} -> "x a fini"
 export const fmt = (str, vars = {}) => str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
 

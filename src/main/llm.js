@@ -30,6 +30,11 @@ const PROVIDERS = {
 
 // no bypassPermissions: a chat bubble on the desktop shouldn't run anything without asking
 const CLAUDE_MODES = ['default', 'acceptEdits'];
+// what Claude Code may run in her chat without asking (it can't ask there): opening things, the music,
+// a notification, a screenshot, the clipboard. Nothing else.
+const CLAUDE_ALLOWED = process.platform === 'linux'
+  ? ['Bash(xdg-open:*)', 'Bash(gio open:*)', 'Bash(playerctl:*)', 'Bash(notify-send:*)', 'Bash(gnome-screenshot:*)', 'Bash(xclip:*)']
+  : [];
 
 function endpoint(id, cfg) {
   const p = PROVIDERS[id];
@@ -136,12 +141,35 @@ function claudeVersion() {
   });
 }
 
+// Her chat's files, in a folder of her own made fresh (mkdtemp: hers only, 0700), not at a fixed name
+// in the shared /tmp, where someone else could have put a file or a link first: the MCP config says
+// what Claude Code runs. Gone when she quits.
+let chatDir = null;
+function chatFile(name) {
+  if (!chatDir) {
+    chatDir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-'));
+    process.on('exit', () => fs.rmSync(chatDir, { recursive: true, force: true }));
+  }
+  return path.join(chatDir, name);
+}
+
 function claudeChat(cfg, text, persona, onDelta, signal) {
   // her persona, from a file: too long and too full of quotes and newlines for cmd's command line
-  const personaFile = path.join(os.tmpdir(), 'capri-persona.txt');
-  fs.writeFileSync(personaFile, persona);
+  const personaFile = chatFile('persona.txt');
+  fs.writeFileSync(personaFile, persona, { mode: 0o600 });
+  // her one tool (capri-mcp.js): a task for your other sessions, through her. It can't message them
+  // itself: gone once it has answered, nothing could answer it back.
+  const mcpFile = chatFile('mcp.json');
+  fs.writeFileSync(mcpFile, JSON.stringify({ mcpServers: { capri: {
+    command: process.execPath,
+    args: [path.join(__dirname, 'capri-mcp.js')],
+    env: { ELECTRON_RUN_AS_NODE: '1', CAPRI_PORT: String(Number(process.env.CAPRI_PORT) || 47823) },
+  } } }));
   const args = ['-p', '--output-format', 'stream-json', '--verbose',
     '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'default',
+    '--allowedTools', ...[...CLAUDE_ALLOWED, 'mcp__capri__hand_off_task'].map(quote),
+    '--disallowedTools', 'SendMessage',
+    '--mcp-config', quote(mcpFile),
     '--append-system-prompt-file', quote(personaFile)];
   if (!claudeSession) claudeSession = randomUUID();
   args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);

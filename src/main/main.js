@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
-  clipboard, ClipboardItem, dialog, powerMonitor,
+  clipboard, ClipboardItem, dialog, powerMonitor, desktopCapturer,
 } = require('electron');
 
 const config = require('./config');
@@ -18,6 +18,10 @@ const setup = require('./setup');
 const apps = require('./apps');
 const launch = require('./launch');
 const { ASSISTANTS, assistant } = require('./assistants');
+const x11 = require('./x11');
+const { locate } = require('./locate');
+const agents = require('./agents');
+const telegram = require('./telegram');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
@@ -28,6 +32,13 @@ const PORT = Number(process.env.CAPRI_PORT) || 47823;
 const SOUND_EXT = /\.(mp3|wav|ogg|m4a)$/i;
 
 const OLLAMA_SITE = 'https://ollama.com';
+
+// Started from a Claude Code session (npm start in its terminal), she'd hand its marks on to all she
+// opens: an IDE opened by her, and the Claude Code in its terminal, would take itself for a session's
+// child, never list itself in ~/.claude/sessions nor take a task from her. Her own chat's too.
+for (const key of ['CLAUDECODE', 'CLAUDE_PID', 'CLAUDE_EFFORT', 'AI_AGENT', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_EXECPATH',
+  'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_SESSION_ATTENDED', 'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CODE_NEW_INIT',
+  'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_MESSAGING_TOKEN']) delete process.env[key];
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'capri', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -83,9 +94,21 @@ function serveProtocol() {
   });
 }
 
+// displayId 'all': one window over every screen at once, the box around them all
 function targetDisplay() {
   const { displayId } = config.load();
-  return screen.getAllDisplays().find((d) => d.id === displayId) || screen.getPrimaryDisplay();
+  const displays = screen.getAllDisplays();
+  if (displayId === 'all' && displays.length > 1) {
+    const box = (key) => {
+      const x = Math.min(...displays.map((d) => d[key].x));
+      const y = Math.min(...displays.map((d) => d[key].y));
+      const right = Math.max(...displays.map((d) => d[key].x + d[key].width));
+      const bottom = Math.max(...displays.map((d) => d[key].y + d[key].height));
+      return { x, y, width: right - x, height: bottom - y };
+    };
+    return { id: 'all', bounds: box('bounds'), workArea: box('workArea') };
+  }
+  return displays.find((d) => d.id === displayId) || screen.getPrimaryDisplay();
 }
 
 // Her window: the work area, or the whole screen while she rests on the taskbar (her legs hang
@@ -142,7 +165,9 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // Linux: a window made unfocusable can't take the keyboard later, even made focusable again;
+    // made focusable and then not, it can (her chat)
+    focusable: process.platform === 'linux',
     hasShadow: false,
     alwaysOnTop: true,
     type: process.platform === 'win32' ? 'toolbar' : undefined,
@@ -164,6 +189,7 @@ function createOverlay() {
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
   overlay.once('ready-to-show', () => {
     fitOverlay();
+    overlay.setFocusable(false);
     overlay.showInactive();
   });
   overlay.webContents.on('render-process-gone', (_e, details) => {
@@ -177,6 +203,61 @@ function createOverlay() {
     if (process.env.CAPRI_DEVTOOLS) overlay.webContents.openDevTools({ mode: 'detach' });
   }
 }
+
+// Her Telegram bot (telegram.js): what you write there goes to her chat in the overlay (chat.js, its
+// Telegram side), which answers through telegram:* below. token null: disconnected.
+function connectTelegram(token, owner = null, bot = '') {
+  const cfg = config.load();
+  updateConfig({ telegram: { ...cfg.telegram, token: token ? setup.sealKey(token) : '', owner, bot } });
+  startTelegram();
+}
+
+function startTelegram() {
+  const { telegram: tg } = config.load();
+  const token = tg?.token ? setup.openKeys({ t: tg.token }).t : '';
+  if (!token) return telegram.stop();
+  telegram.start(token, tg.owner ?? null, {
+    onMessage: (text) => overlay?.webContents.send('telegram:in', { text }),
+    onAction: (message, id) => overlay?.webContents.send('telegram:action', { message, id }),
+    onPaired: (owner) => {
+      const cfg = config.load();
+      updateConfig({ telegram: { ...cfg.telegram, owner } });
+      sendCommand('telegramPaired');
+      telegram.send(TRAY[resolveLang(cfg.lang)].tgPaired).catch(() => {});
+    },
+  });
+}
+
+// A session done, or one that needs you, while you're away from the PC (2 minutes without a key or
+// the mouse, or the screen locked): she tells you on Telegram, with the name to answer it by (@name).
+const AWAY_S = 120;
+const away = () => powerMonitor.getSystemIdleState(AWAY_S) !== 'active';
+function tellAway(evt) {
+  const cfg = config.load();
+  if (!telegram.paired() || !cfg.telegram.notify || !away()) return;
+  const t = TRAY[resolveLang(cfg.lang)];
+  const who = agents.list().find((s) => s.sessionId === evt.session_id)?.name || path.basename(evt.cwd || '') || 'Claude';
+  let text = null;
+  if (evt.hook_event_name === 'Stop') text = `✓ @${who} · ${t.tgDone}\n\n${evt.last_assistant_message || ''}`;
+  else if (evt.hook_event_name === 'Notification' && evt.notification_type === 'permission_prompt') text = `⚠ @${who} · ${t.tgNeeds}\n\n${evt.message || ''}`;
+  if (text) telegram.send(text.trim()).catch((err) => console.error('[capri] telegram:', err.message));
+}
+
+// A session's answer to a task she handed it (agents.js, her inbox): in her chat or her panel, and on
+// Telegram if that's where you asked for it, or you're away from the PC.
+const handedVia = new Map(); // pid of the session -> 'telegram' | 'desktop', where you handed it the task
+function onAgentReply({ from, name, text }) {
+  const pid = Number(/(\d+)\.sock$/.exec(from)?.[1]) || 0;
+  const via = handedVia.get(pid);
+  overlay?.webContents.send('agents:reply', { name, text });
+  const cfg = config.load();
+  if (telegram.paired() && (via === 'telegram' || (cfg.telegram.notify && away()))) {
+    telegram.send(`↩ @${name || 'Claude'}\n\n${text}`).catch((err) => console.error('[capri] telegram:', err.message));
+  }
+}
+
+// Your Claude Code sessions she can hand a task to (agents.js), not the one answering her own chat
+const otherSessions = () => agents.list({ skip: (id) => llm.isChatSession(id) });
 
 function sendCommand(name, payload = {}) {
   overlay?.webContents.send('capri:command', { name, ...payload });
@@ -241,9 +322,69 @@ function resolveLang(setting) {
 }
 
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
+// A screenshot of a window: the app `wanted`'s nearest the front, else the window `id`. Full size
+// where the window manager says how big it is (Linux), else as big as a large screen.
+async function windowShot(wanted, id) {
+  const found = wanted && (await apps.find(wanted).catch(() => null));
+  const ids = found?.wins || (id ? [id] : []);
+  const snap = process.platform === 'linux' ? await x11.windowSnapshot(0).catch(() => null) : null;
+  const geo = snap?.wins.find((w) => ids.includes(w.id)); // front first
+  const target = geo?.id ?? ids[0];
+  const sources = await desktopCapturer.getSources({
+    types: ['window'],
+    thumbnailSize: geo ? { width: geo.w, height: geo.h } : { width: 3840, height: 2160 },
+  }).catch(() => []);
+  const source = (target && sources.find((src) => src.id.startsWith(`window:${target}:`)))
+    || (wanted && sources.find((src) => src.name.toLowerCase().includes(String(wanted).toLowerCase())));
+  return source ? savePicture(source.thumbnail, found?.label || source.name) : null;
+}
+
+// "~/Pictures/Capri Slack 2026-10-27 11-30-00.png", or null
+async function savePicture(image, what = '') {
+  if (image.isEmpty()) return null;
+  const now = new Date();
+  const stamp = new Date(now - now.getTimezoneOffset() * 60e3).toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '-'); // local time
+  const label = String(what).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+  const file = path.join(app.getPath('pictures'), `Capri ${label ? `${label} ` : ''}${stamp}.png`);
+  try {
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    await fs.promises.writeFile(file, image.toPNG());
+  } catch {
+    return null;
+  }
+  return file;
+}
+
+// A file or a folder by its name ("my-project"), a few levels down `roots`, skipping hidden
+// folders and dependencies: the one named just so first, else the shortest path with it in its name.
+async function findByName(roots, name, { depth = 4, max = 20000 } = {}) {
+  const wanted = name.toLowerCase();
+  let seen = 0;
+  let partial = null;
+  let level = roots.map((dir) => ({ dir, d: 0 }));
+  while (level.length && seen < max) {
+    const next = [];
+    for (const { dir, d } of level) {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true }).catch(() => []);
+      for (const e of entries) {
+        if (++seen > max) break;
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+        const full = path.join(dir, e.name);
+        const lower = e.name.toLowerCase();
+        if (lower === wanted) return full;
+        if (lower.includes(wanted) && (!partial || full.length < partial.length)) partial = full;
+        if (e.isDirectory() && d + 1 < depth) next.push({ dir: full, d: d + 1 });
+      }
+    }
+    if (partial) return partial; // the nearest level that has one
+    level = next;
+  }
+  return partial;
+}
+
 function rendererConfig() {
-  const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  const { apiKeys, telegram: tg, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
+  return { ...cfg, keys: Object.keys(apiKeys || {}), telegram: { bot: tg?.bot || '', paired: telegram.paired() }, assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
 }
 
 function updateConfig(patch) {
@@ -265,6 +406,7 @@ function rebuildTray() {
 
   const displays = screen.getAllDisplays();
   const current = targetDisplay().id;
+  const sessions = otherSessions();
 
   const menu = Menu.buildFromTemplate([
     { label: t.online(PORT), enabled: false },
@@ -274,8 +416,28 @@ function rebuildTray() {
     { label: t.demo, click: playDemo },
     { label: t.help, click: () => sendCommand('welcome') },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
-    { label: t.talk, click: () => sendCommand('chat') },
+    { label: t.talk, accelerator: 'Alt+C', click: () => sendCommand('chat') },
+    {
+      // your other Claude Code sessions: one picked opens her chat, ready to hand it a task
+      label: t.agents,
+      submenu: sessions.length
+        ? sessions.map((s) => ({
+          label: `${s.status === 'busy' ? '◉' : '○'} ${s.name}${s.project && s.project !== s.name ? ` · ${s.project}` : ''}`,
+          click: () => sendCommand('chat', { to: s.name }),
+        }))
+        : [{ label: t.agentsNone, enabled: false }],
+    },
     { label: t.custom, click: () => sendCommand('customize') },
+    {
+      label: t.telegram,
+      submenu: telegram.paired()
+        ? [
+          { label: `@${cfg.telegram.bot}`, enabled: false },
+          { label: t.tgNotify, type: 'checkbox', checked: cfg.telegram.notify, click: (item) => updateConfig({ telegram: { ...cfg.telegram, notify: item.checked } }) },
+          { label: t.tgDisconnect, click: () => connectTelegram(null) },
+        ]
+        : [{ label: t.tgConnect, click: () => sendCommand('telegram') }],
+    },
     { label: cfg.visible ? t.hide : t.show, accelerator: 'Ctrl+Alt+C', click: () => toggleVisible() },
     { type: 'separator' },
     {
@@ -301,12 +463,20 @@ function rebuildTray() {
     {
       label: t.screen,
       enabled: displays.length > 1,
-      submenu: displays.map((d, i) => ({
-        label: `${i + 1} — ${d.size.width}×${d.size.height}`,
-        type: 'radio',
-        checked: d.id === current,
-        click: () => { config.save({ displayId: d.id }); fitOverlay(); rebuildTray(); },
-      })),
+      submenu: [
+        ...displays.map((d, i) => ({
+          label: `${i + 1} — ${d.size.width}×${d.size.height}`,
+          type: 'radio',
+          checked: d.id === current,
+          click: () => { config.save({ displayId: d.id }); fitOverlay(); rebuildTray(); },
+        })),
+        {
+          label: t.allScreens,
+          type: 'radio',
+          checked: current === 'all',
+          click: () => { config.save({ displayId: 'all' }); fitOverlay(); rebuildTray(); },
+        },
+      ],
     },
     {
       label: t.chatModel,
@@ -506,8 +676,10 @@ function registerIpc() {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
-  ipcMain.handle('overlay:cursor', () => {
-    const p = screen.getCursorScreenPoint();
+  ipcMain.handle('overlay:cursor', async () => {
+    const px = process.platform === 'linux' && (await x11.cursorPoint());
+    const scale = screen.getPrimaryDisplay().scaleFactor;
+    const p = px ? { x: px.x / scale, y: px.y / scale } : screen.getCursorScreenPoint();
     const b = overlay.getBounds();
     return { x: p.x - b.x, y: p.y - b.y, inside: p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height };
   });
@@ -614,12 +786,90 @@ function registerIpc() {
   ipcMain.handle('apps:media', (_e, action) => launch.media(action));
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
+  // handing a task to one of your other Claude Code sessions (agents.js), once you've clicked to send it
+  ipcMain.handle('agents:list', () => otherSessions());
+  ipcMain.handle('agents:find', (_e, wanted) => agents.find(String(wanted || ''), { skip: (id) => llm.isChatSession(id) }));
+  ipcMain.handle('agents:send', (_e, { pid, text, via }) => {
+    handedVia.set(pid, via === 'telegram' ? 'telegram' : 'desktop');
+    return agents.send(pid, text).then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message }));
+  });
+  ipcMain.handle('agents:status', (_e, pid) => agents.status(pid));
+  // her Telegram bot: the token checked, then a code for you to send it (whoever sends it is who she answers)
+  ipcMain.handle('telegram:connect', async (_e, token) => {
+    const res = await telegram.check(String(token || '').trim());
+    if (!res.ok) return res;
+    connectTelegram(String(token).trim(), null, res.bot);
+    return { ok: true, bot: res.bot, code: telegram.pairingCode() };
+  });
+  ipcMain.handle('telegram:send', (_e, { text, buttons }) => telegram.send(text, buttons));
+  ipcMain.handle('telegram:edit', (_e, { id, text, buttons }) => telegram.edit(id, text, buttons));
+  ipcMain.handle('telegram:photo', (_e, { file, caption }) => telegram.photo(file, caption));
+  ipcMain.on('telegram:typing', () => telegram.typing());
+  // her chat: the file you downloaded last (not one still downloading), or null
+  ipcMain.handle('files:latest', async () => {
+    const dir = app.getPath('downloads');
+    const names = await fs.promises.readdir(dir).catch(() => []);
+    const files = await Promise.all(names
+      .filter((n) => !n.startsWith('.') && !/\.(part|crdownload|download|tmp)$/i.test(n))
+      .map((n) => fs.promises.stat(path.join(dir, n)).then((st) => ({ file: path.join(dir, n), at: st.mtimeMs }), () => null)));
+    return files.filter(Boolean).sort((a, b) => b.at - a.at)[0]?.file || null;
+  });
+  // her chat: a screenshot saved in your pictures, its path or null. A window's (an app named `app`,
+  // else the window `id`), even covered; else the screen your pointer is on.
+  ipcMain.handle('files:screenshot', async (_e, what) => {
+    if (what?.app || what?.id) return windowShot(what.app, what.id);
+    const px = process.platform === 'linux' && (await x11.cursorPoint());
+    const scale = screen.getPrimaryDisplay().scaleFactor;
+    const display = screen.getDisplayNearestPoint(px ? { x: Math.round(px.x / scale), y: Math.round(px.y / scale) } : screen.getCursorScreenPoint());
+    const { width, height } = display.size;
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: Math.round(width * display.scaleFactor), height: Math.round(height * display.scaleFactor) },
+    }).catch(() => []);
+    const source = sources.find((src) => src.display_id === String(display.id)) || sources[0];
+    return source ? savePicture(source.thumbnail) : null;
+  });
+  // where the file manager shows it, in overlay coordinates (Linux), or null
+  ipcMain.handle('files:locate', async (_e, name) => {
+    const at = await locate(name);
+    if (!at || !overlay) return null;
+    const b = overlay.getBounds();
+    const scale = screen.getPrimaryDisplay().scaleFactor; // X11: one scale for every screen
+    return { x: at.x / scale - b.x, y: at.y / scale - b.y, w: at.w / scale, h: at.h / scale };
+  });
+  // her chat: a file or a folder you asked to see, selected in the file manager. A relative name is
+  // looked for in Claude Code's folder, then in your home, then a few levels down them.
+  // Opened (open: true), in the app it goes with; a folder in the file manager.
+  ipcMain.handle('files:show', async (_e, wanted, { open = false } = {}) => {
+    const home = app.getPath('home');
+    const name = String(wanted || '').trim().replace(/^~(?=$|[\\/])/, home);
+    const roots = [...new Set([config.load().claudeCwd || home, home])];
+    const file = name && (roots.map((dir) => path.resolve(dir, name)).find((f) => fs.existsSync(f))
+      || (!/[\\/]/.test(name) && (await findByName(roots, name))));
+    if (!file) return { found: false };
+    if (!open) shell.showItemInFolder(file);
+    else if (await shell.openPath(file)) return { found: false }; // an error message: nothing opens it
+    return { found: true, name: path.basename(file), path: file };
+  });
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
-  ipcMain.on('overlay:focus', (_e, on) => {
+  // (Linux: blur() leaves it with her, so the window that had it gets it back from the window manager)
+  let hadKeyboard = null;
+  ipcMain.on('overlay:focus', async (_e, on) => {
     if (!overlay) return;
+    const self = process.platform === 'linux' && overlay.getNativeWindowHandle().readUInt32LE(0);
+    if (self && on) {
+      const active = await x11.activeWindow();
+      if (active !== self) hadKeyboard = active; // the window to give it back to: not hers
+    }
     overlay.setFocusable(Boolean(on));
     if (on) overlay.focus();
     else overlay.blur();
+    // Linux: focus() alone doesn't take the keyboard from the window you're in; the window manager does
+    if (self && on) x11.activateWindow(self);
+    if (process.platform === 'linux' && !on && hadKeyboard) {
+      x11.activateWindow(hadKeyboard);
+      hadKeyboard = null;
+    }
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
   ipcMain.handle('panel:copy', async (_e, rect) => {
@@ -666,6 +916,11 @@ async function debugHandler(route, body) {
   if (!DEV) throw new Error('debug routes need --dev');
   if (route === 'command') {
     sendCommand(body.name, body);
+    return { ok: true };
+  }
+  if (route === 'telegram') {
+    // as if you'd written it to her bot: { text }
+    overlay?.webContents.send('telegram:in', { text: String(body.text || '') });
     return { ok: true };
   }
   if (route === 'reload') {
@@ -779,12 +1034,38 @@ function main() {
     createBridge({
       port: PORT,
       // her own Claude Code chat's hooks would cover its answer with theirs
-      onEvent: (evt) => !llm.isChatSession(evt.session_id) && overlay?.webContents.send('claude:event', evt),
+      onEvent: (evt) => {
+        if (llm.isChatSession(evt.session_id)) return;
+        overlay?.webContents.send('claude:event', evt);
+        tellAway(evt);
+      },
+      onHandoff: ({ session, task }) => {
+        if (!task?.trim()) return { ok: false, error: 'no task' };
+        const found = agents.find(String(session || ''), { skip: (id) => llm.isChatSession(id) });
+        if (!found.length) {
+          const names = otherSessions().map((s) => s.name).join(', ') || 'none';
+          return { ok: false, error: `no session called "${session}" (running: ${names})` };
+        }
+        overlay?.webContents.send('agents:handoff', { name: found.length === 1 ? found[0].name : session, task: task.trim() });
+        return { ok: true, name: found[0].name };
+      },
       onDebug: DEV ? debugHandler : null,
     });
+    // --dev: the overlay's console in this terminal, for what goes wrong in there (her Telegram chat…)
+    if (DEV) overlay?.webContents.on('console-message', (e) => e.level !== 'debug' && e.level !== 'info' && console.log(`[overlay ${e.level}] ${e.message}`));
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    if (!globalShortcut.register('Alt+C', () => sendCommand('chat'))) console.error('[capri] Alt+C is taken: her chat has no shortcut'); // her chat, from anywhere
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
+    // her menu's list of your sessions, as they come and go (their files change at every turn: only then)
+    let shownSessions = '';
+    startTelegram();
+    agents.inbox(onAgentReply); // what your sessions answer, about the tasks she handed them
+    agents.watch(() => {
+      const now = JSON.stringify(otherSessions().map((s) => [s.pid, s.name, s.status]));
+      if (now !== shownSessions) rebuildTray();
+      shownSessions = now;
+    });
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     screen.on('display-metrics-changed', fitOverlay);
     screen.on('display-added', () => { fitOverlay(); rebuildTray(); });

@@ -62,6 +62,50 @@ export class Setup {
     if (ready) this.onReady?.();
   }
 
+  // Her Telegram bot: its token pasted here, then a code for you to send it from your phone
+  // (telegram.js answers only the chat that sent it). telegramPaired() once it came back.
+  async telegram() {
+    await this.guide.scene(() => this.telegramToken());
+  }
+
+  async telegramToken(error = '') {
+    const t = this.t.telegram;
+    const got = await this.guide.askText({
+      face: error ? 'wide' : 'look',
+      line: t.token,
+      quote: error ? `${this.t.failed} ${error}` : t.tokenHow,
+      secret: true,
+      placeholder: '123456789:ABC…',
+      tag: 'BOT',
+      actions: [{ id: 'page', label: t.botFather }],
+      onAction: (id) => id === 'page' && (this.host.openSite('https://t.me/BotFather'), true),
+    });
+    if (!got?.text) return;
+    this.working(this.t.checking);
+    const res = await this.host.connectTelegram(got.text);
+    if (!res.ok) return this.telegramToken(res.error);
+    this.voice.play('hello');
+    for (;;) {
+      const id = await this.guide.ask({
+        face: 'smug',
+        line: t.code,
+        quote: fmt(t.codeHow, { bot: res.bot, code: res.code }),
+        actions: [{ id: 'open', label: fmt(t.openBot, { bot: res.bot }), primary: true }, { id: 'later', label: this.t.later }],
+      });
+      if (id !== 'open') return;
+      this.host.openSite(`https://t.me/${res.bot}`);
+    }
+  }
+
+  async telegramPaired() {
+    const t = this.t.telegram;
+    await this.guide.scene(async () => {
+      this.voice.play('hello');
+      this.capri.perform('hop');
+      await this.guide.ask({ kind: 'done', face: 'laugh', line: t.paired, quote: t.pairedHow, actions: [{ id: 'ok', label: this.t.ok, primary: true }] });
+    });
+  }
+
   // Claude Code or Codex for free (the one she watches), run through Ollama in a window of its own.
   async free() {
     await this.guide.scene(() => this.freeNow());

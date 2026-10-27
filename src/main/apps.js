@@ -2,16 +2,28 @@
 
 // Closing an app when you ask her to (chat.js), after you've confirmed with a click. The apps with
 // a window, by name; closing one the way its own close button does (it can still ask you to save),
-// and only if you ask again, forcing it. Windows only.
+// and only if you ask again, forcing it. Windows, and Linux under X11.
 
+const fs = require('node:fs');
 const { execFile } = require('node:child_process');
+const x11 = require('./x11');
 
 // never these: the desktop itself, Windows' own pieces, her (Capri), Claude (she watches it) and
 // Ollama (she talks through it)
 const KEEP = new Set([
   'explorer', 'applicationframehost', 'textinputhost', 'shellexperiencehost', 'startmenuexperiencehost',
   'searchhost', 'searchapp', 'lockapp', 'dwm', 'capri', 'electron', 'claude', 'codex', 'ollama', 'ollama app',
+  'capri-desktop', 'gnome-shell', 'plasmashell', 'nautilus-desktop',
 ]);
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err.code === 'EPERM';
+  }
+};
+
 
 function powershell(script, timeout = 15000) {
   return new Promise((resolve, reject) => {
@@ -24,6 +36,7 @@ function powershell(script, timeout = 15000) {
 
 // [{ name, process, ids }]: one per program with a window open ("AM Music", "Discord"...)
 async function list() {
+  if (process.platform === 'linux') return linuxList();
   if (process.platform !== 'win32') return [];
   const out = await powershell(
     'Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } | '
@@ -59,11 +72,46 @@ async function find(wanted) {
   return best ? best[1] : null;
 }
 
+// Linux: by window class ("Spotify", "jetbrains-idea"), as the process is often only "java" or
+// "electron"; its process name to find it by too
+async function linuxList() {
+  const apps = new Map();
+  for (const { id, pid, wmClass } of (await x11.appWindows()) || []) {
+    let name = '';
+    try {
+      name = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim();
+    } catch {
+      continue; // gone already
+    }
+    if (pid === process.pid || !wmClass || KEEP.has(name.toLowerCase()) || KEEP.has(wmClass.toLowerCase())) continue;
+    // a snap's class is its name twice ("teams-for-linux_teams-for-linux")
+    const app = apps.get(wmClass) || { name, process: wmClass, label: wmClass.split('_')[0], ids: [], wins: [] };
+    if (!app.ids.includes(pid)) app.ids.push(pid);
+    app.wins.push(id);
+    apps.set(wmClass, app);
+  }
+  return [...apps.values()];
+}
+
 // Closes it like its close button would; `force` ends it outright (unsaved work is lost).
 // Resolves with what's left: { running } (true when it stayed open, or hid in the tray).
 async function close(name, { force = false } = {}) {
   const app = (await list()).find((a) => a.process === name);
   if (!app) return { running: false };
+  if (process.platform === 'linux') {
+    if (!force) for (const win of app.wins) await x11.closeWindow(win);
+    else {
+      for (const pid of app.ids) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // gone already, or not ours to end
+        }
+      }
+    }
+    await new Promise((r) => setTimeout(r, force ? 600 : 2500));
+    return { running: app.ids.some(alive) };
+  }
   const ids = app.ids.join(',');
   const out = await powershell(force
     ? `Stop-Process -Id ${ids} -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 600; `

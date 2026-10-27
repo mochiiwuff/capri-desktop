@@ -3,7 +3,7 @@
 // points at, and the buttons that move it on. Anything else coming up (Claude doing something,
 // you closing the panel) ends it.
 
-import { fmt } from './util.js';
+import { fmt, cameUp, itemIn } from './util.js';
 
 const IDLE_FOR = 10 * 60 * 1000; // no wandering off while she's showing you something
 
@@ -253,17 +253,18 @@ export class Guide {
   async folder() {
     const t = this.t.folder;
     const { capri } = this;
-    const before = capri.windows.fg;
+    const before = capri.windows;
     const opened = await this.host.openClaudeFolder();
     if (!opened.found) {
       await this.ask({ face: 'wide', line: t.missing, quote: t.missingHow, actions: this.ok() });
       return;
     }
-    // Explorer comes up in front: a new window, or the one already showing that folder, brought back
-    const front = () => capri.windows.wins.find((w) => w.id === capri.windows.fg) || null;
-    const win = (await this.until(() => (capri.windows.fg !== before ? front() : null), 2500)) || front();
+    // the file manager comes up: a new window, or the one already showing that folder, brought back
+    const win = (await this.until(() => cameUp(before, capri.windows), 2500))
+      || capri.windows.wins.find((w) => w.id === capri.windows.fg) || null;
     const scene = this.sceneId;
-    if (win && capri.canPoint(win)) await capri.pointAt(win, { label: opened.label || (this.brain.assistant === 'claude' ? 'settings.json' : 'hooks.json') });
+    const label = opened.label || (this.brain.assistant === 'claude' ? 'settings.json' : 'hooks.json');
+    if (win && capri.canPoint(win)) await capri.pointAt(opened.file ? await itemIn(this.host, win, label) : win, { label });
     if (scene !== this.sceneId) return; // another scene took over meanwhile
     const id = await this.ask({
       face: 'smug',

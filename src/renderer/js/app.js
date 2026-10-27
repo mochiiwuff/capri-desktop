@@ -6,7 +6,7 @@ import { Voice } from './voice.js';
 import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
-import { Chat } from './chat.js';
+import { Chat, TelegramChat } from './chat.js';
 import { Setup } from './setup.js';
 import { Custom } from './custom.js';
 import { linesFor } from './lines.js';
@@ -130,12 +130,31 @@ async function boot() {
     }
   };
   let lastMove = 0;
-  window.addEventListener('mousemove', (e) => {
+  const pointerAt = (x, y) => {
     lastMove = performance.now();
-    mouse = { x: e.clientX, y: e.clientY };
+    mouse = { x, y };
     refreshHit();
     hoverChip();
-  });
+  };
+  window.addEventListener('mousemove', (e) => pointerAt(e.clientX, e.clientY));
+  // Linux: a click-through window gets no mousemove at all (Electron only forwards them on Windows
+  // and macOS), so while it lets the pointer through she asks where it is herself.
+  if (host.platform === 'linux') {
+    setInterval(async () => {
+      if (interactive || capri.dragging) return; // the window has the pointer: real events come in
+      const at = await host.cursor().catch(() => null);
+      if (at?.inside && (at.x !== mouse?.x || at.y !== mouse?.y)) {
+        pointerAt(at.x, at.y);
+        // what her own mousemove would have done: watch it, turn to it, zap it now and then
+        capri.mouse = { x: at.x, y: at.y };
+        capri.notice(at.x, at.y);
+      } else if (!at?.inside && mouse) {
+        mouse = null;
+        refreshHit();
+        hoverChip();
+      }
+    }, 50);
+  }
   document.addEventListener('mouseleave', () => {
     mouse = null;
     refreshHit();
@@ -208,6 +227,11 @@ async function boot() {
   const guide = new Guide({ capri, panel, voice, host, brain });
   // Talking to her (chat.js): "Talk to her" in her menu, or the button when you click her idle.
   const chat = new Chat({ capri, panel, voice, host, brain });
+  chat.arm(config.reminders); // what she has to remind you of, set before a restart
+  const telegramChat = new TelegramChat({ capri, panel, voice, host, brain }); // the same chat, from your phone (her menu › Telegram)
+  // her Claude Code passing on a task (capri-mcp.js): offered in the chat it's answering, once it's done
+  host.onAgentHandoff(({ name, task }) => (telegramChat.turn ? telegramChat : chat).queueHandoff(name, task));
+  host.onAgentReply(({ name, text }) => chat.agentReply(name, text)); // a session's answer to a task she handed it
   brain.onTalk = () => chat.start();
   // Getting her chat going with buttons (setup.js): Ollama and a model, a key, or an address
   const setup = new Setup({ guide, panel, host, brain, capri, voice });
@@ -405,8 +429,14 @@ async function boot() {
       case 'forget': // "Forget our conversations" in her menu, maybe with her chat open
         chat.history = [];
         break;
-      case 'chat': // "Talk to her" in her menu
-        chat.start();
+      case 'telegram': // her menu › Telegram › Connect
+        setup.telegram();
+        break;
+      case 'telegramPaired': // the code you sent her bot came back (main.js)
+        setup.telegramPaired();
+        break;
+      case 'chat': // "Talk to her" in her menu, or Alt+C; a session picked in her menu's "Hand off a task"
+        chat.start(cmd.to);
         break;
       case 'report': // "Mission report" in her menu
         if (capri.stowed) {
@@ -474,6 +504,11 @@ async function boot() {
       case 'freeze':
         capri.hidden = Boolean(cmd.on);
         break;
+      case 'zap': { // her jolt at the pointer, on demand (or at cmd.at)
+        const at = cmd.at || (await host.cursor().catch(() => null));
+        if (at) capri.zap(at.x, at.y);
+        break;
+      }
       case 'act':
         // behaviours by method name (gaze, celebrate, hurt, shed, peek, fall, wanderStep...) or acts by name
         if (cmd.act === 'sit') {

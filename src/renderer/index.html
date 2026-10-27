@@ -28,7 +28,10 @@
             <span class="panel__who">Capri</span>
             <span class="panel__tag"></span>
             <span class="panel__state"></span>
+            <button class="panel__max panel__hist" type="button" hidden>≡</button>
+            <button class="panel__max panel__grow" type="button" hidden></button>
           </header>
+          <ol class="panel__history" hidden></ol>
           <p class="panel__line"></p>
           <p class="panel__quote" hidden></p>
           <div class="panel__progress" hidden><span class="panel__bar"></span></div>
@@ -37,6 +40,7 @@
           <p class="panel__summary" hidden></p>
           <ol class="panel__log" hidden></ol>
           <div class="panel__actions" hidden></div>
+          <ul class="panel__suggest" role="listbox" hidden></ul>
           <form class="panel__chat" hidden autocomplete="off">
             <input class="panel__input" type="text" maxlength="500" spellcheck="false">
             <button class="panel__action is-primary panel__send" type="submit"></button>

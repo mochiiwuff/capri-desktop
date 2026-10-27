@@ -72,6 +72,8 @@ export const LINES = {
       loading: 'Le modèle se réveille… la première réponse prend un moment.',
       tiny: 'Je tourne sur {model} : il est tout petit, je risque de dire n’importe quoi. On en prend un plus gros ?', better: 'Un meilleur modèle',
       working: 'Je m’en occupe… (Claude Code bosse)',
+      // confier une tâche à une autre de tes sessions Claude (« @nom la tâche »), après ton clic
+      agentAsk: 'Je le passe à {name} ?', agentPick: 'Plusieurs sessions répondent à ce nom. Laquelle ?', agentUnknown: 'Pas de session « {name} ». Une de celles-là ?', agentNone: 'Aucune session Claude ouverte où me brancher.', agentSend: 'Envoyer à {name}', bigger: 'Agrandir', smaller: 'Réduire', history: 'Historique de la conversation', historyBack: 'Revenir à sa réponse', historyEmpty: 'On ne s’est encore rien dit.', agentReplied: '{name} fait son rapport :', tgNoChat: 'Je ne peux pas encore parler : choisis d’abord mon IA sur le PC (clic droit sur moi › Modèle IA).', agentSent: '{name} : transmis. Le job est lancé.', agentHeld: 'Rien n’a démarré : là-bas, on attend peut-être que tu laisses passer mon message.',
       // fermer une appli que tu lui demandes de fermer, après ton clic
       closeIt: 'Fermer {app}', no: 'Non',
       closed: '{app} : flatliné. C’est fait.',
@@ -82,7 +84,7 @@ export const LINES = {
       notFound: 'Je ne vois pas « {app} » ouvert sur ton PC.',
       // ouvrir une appli ou un jeu, la musique, un site
       openIt: 'Ouvrir {app}', opened: '{app} : c’est parti.', notInstalled: 'Je ne trouve pas « {app} » sur ton PC.',
-      music: 'Je cherche « {song} » sur Spotify.', siteIt: 'Ouvrir {site}', siteOpened: '{site} : ouvert.',
+      music: 'Je cherche « {song} » sur Spotify.', siteIt: 'Ouvrir {site}', siteOpened: '{site} : ouvert.', zapped: 'Bzzt. Tu l’as demandé.', shown: '{name} : juste là.', remindSet: 'C’est noté : dans {when}.', remindDue: 'Hé, c’est l’heure.', reminderBadge: 'RAPPEL', screenshot: '{name} : capturé.', noDownloads: 'Ton dossier Téléchargements est vide.',
       media: { pause: 'Pause.', play: 'Ça repart.', next: 'Suivante.', previous: 'Précédente.', volup: 'Plus fort.', voldown: 'Moins fort.', mute: 'J’ai appuyé sur muet.' },
     },
     // sa carte de rapport : ce que Claude a abattu aujourd'hui (son menu, ou d'elle-même le soir)
@@ -152,6 +154,7 @@ export const LINES = {
     },
     // la mettre en route avec des boutons (setup.js) : Ollama, un modèle, une clé
     setup: {
+      telegram: { token: 'Colle le token de ton bot.', tokenHow: 'Sur Telegram, ouvre @BotFather, envoie /newbot, choisis un nom, puis un identifiant qui finit par « bot ». Il te donne un token (123456:ABC…) : colle-le ici. Là-bas, je ne répondrai qu’à toi.', botFather: 'Ouvrir BotFather', code: 'Maintenant, envoie-moi ce code depuis Telegram.', codeHow: 'À @{bot} : {code}\nCelui qui l’envoie est le seul à qui je répondrai là-bas. Valable 15 minutes.', openBot: 'Ouvrir @{bot}', paired: 'Connectées. Écris-moi sur Telegram quand tu veux.', pairedHow: 'Là-bas, je suis la même qu’ici : j’ouvre tes applis, je mets ta musique, je fais des captures, et je confie des tâches à tes sessions (@nom la tâche). Quand une session a fini ou a besoin de toi pendant ton absence, je te le dis là-bas.' },
       who: 'Pour te parler, il me faut une IA.',
       why: { noOllama: 'Ollama n’est pas installé sur ce PC.', asleep: 'Ollama est installé, mais il dort.', noModel: 'Ollama n’a pas encore de modèle.' },
       whoHow: 'Le plus simple : sur ton PC, avec Ollama. C’est gratuit, et rien ne sort de chez toi.\nSinon : en ligne sans compte, ou avec la clé d’un service.',
@@ -307,6 +310,8 @@ export const LINES = {
       loading: 'Waking the model up… the first answer takes a moment.',
       tiny: 'I’m running on {model}: it’s tiny, I might talk nonsense. Want a bigger one?', better: 'A better model',
       working: 'On it… (Claude Code is working)',
+      // handing a task to another of your Claude sessions ("@name the task"), after your click
+      agentAsk: 'Hand it to {name}?', agentPick: 'Several sessions answer to that. Which one?', agentUnknown: 'No session called “{name}”. One of these?', agentNone: 'No Claude session running for me to jack into.', agentSend: 'Send to {name}', bigger: 'Make it bigger', smaller: 'Make it smaller', history: 'Conversation history', historyBack: 'Back to her answer', historyEmpty: 'Nothing said yet.', agentReplied: '{name} reports back:', tgNoChat: 'I can’t talk yet: set up my AI on the PC first (right-click me › AI model).', agentSent: '{name}: jacked in. It’s on the gig.', agentHeld: 'It hasn’t started: it may be waiting for you to let my message in, over there.',
       // closing an app you ask her to close, after your click
       closeIt: 'Close {app}', no: 'No',
       closed: '{app}: flatlined. Done.',
@@ -317,7 +322,7 @@ export const LINES = {
       notFound: 'I don’t see “{app}” open on your PC.',
       // opening an app or a game, the music, a website
       openIt: 'Open {app}', opened: '{app}: on it.', notInstalled: 'I can’t find “{app}” on your PC.',
-      music: 'Looking up “{song}” on Spotify.', siteIt: 'Open {site}', siteOpened: '{site}: open.',
+      music: 'Looking up “{song}” on Spotify.', siteIt: 'Open {site}', siteOpened: '{site}: open.', zapped: 'Bzzt. You asked for it.', shown: '{name}: right there.', remindSet: 'Got it: in {when}.', remindDue: 'Hey, it’s time.', reminderBadge: 'REMINDER', screenshot: '{name}: captured.', noDownloads: 'Your downloads folder is empty.',
       media: { pause: 'Paused.', play: 'Playing.', next: 'Next one.', previous: 'Previous one.', volup: 'Louder.', voldown: 'Quieter.', mute: 'Hit mute.' },
     },
     // her report card: what Claude got through today (her menu, or on her own in the evening)
@@ -387,6 +392,7 @@ export const LINES = {
     },
     // setting her up with buttons (setup.js): Ollama, a model, a key
     setup: {
+      telegram: { token: 'Paste your bot’s token.', tokenHow: 'On Telegram, open @BotFather, send /newbot, pick a name, then a username ending in “bot”. It gives you a token (123456:ABC…): paste it here. Over there, I only answer you.', botFather: 'Open BotFather', code: 'Now send me this code from Telegram.', codeHow: 'To @{bot}: {code}\nWhoever sends it is the only one I answer there. Good for 15 minutes.', openBot: 'Open @{bot}', paired: 'Linked. Write to me on Telegram whenever.', pairedHow: 'Same me as here: I open your apps, play your music, take screenshots, and hand tasks to your sessions (@name the task). When a session is done or needs you while you’re away, I tell you there.' },
       who: 'To talk with you, I need an AI.',
       why: { noOllama: 'Ollama isn’t installed on this PC.', asleep: 'Ollama is installed, but it’s asleep.', noModel: 'Ollama has no model yet.' },
       whoHow: 'Easiest: on your PC, with Ollama. It’s free, and nothing leaves your machine.\nOr online with no account, or with a key from a service.',
@@ -541,6 +547,8 @@ export const LINES = {
       loading: 'Despertando el modelo… la primera respuesta tarda un poco.',
       tiny: 'Funciono con {model}: es muy pequeño, puedo decir tonterías. ¿Cogemos uno más grande?', better: 'Un modelo mejor',
       working: 'En ello… (Claude Code está trabajando)',
+      // pasarle una tarea a otra de tus sesiones de Claude («@nombre la tarea»), tras tu clic
+      agentAsk: '¿Se lo paso a {name}?', agentPick: 'Varias sesiones responden a ese nombre. ¿Cuál?', agentUnknown: 'No hay ninguna sesión «{name}». ¿Alguna de estas?', agentNone: 'No hay ninguna sesión de Claude abierta donde conectarme.', agentSend: 'Enviar a {name}', bigger: 'Ampliar', smaller: 'Reducir', history: 'Historial de la conversación', historyBack: 'Volver a su respuesta', historyEmpty: 'Aún no nos hemos dicho nada.', agentReplied: '{name} informa:', tgNoChat: 'Aún no puedo hablar: primero elige mi IA en el PC (clic derecho sobre mí › Modelo de IA).', agentSent: '{name}: transmitido. Ya está en ello.', agentHeld: 'No ha empezado: quizá allí espera que dejes pasar mi mensaje.',
       // cerrar una app que le pides cerrar, tras tu clic
       closeIt: 'Cerrar {app}', no: 'No',
       closed: '{app}: flatline. Hecho.',
@@ -551,7 +559,7 @@ export const LINES = {
       notFound: 'No veo «{app}» abierta en tu PC.',
       // abrir una app o un juego, la música, una web
       openIt: 'Abrir {app}', opened: '{app}: en marcha.', notInstalled: 'No encuentro «{app}» en tu PC.',
-      music: 'Busco «{song}» en Spotify.', siteIt: 'Abrir {site}', siteOpened: '{site}: abierta.',
+      music: 'Busco «{song}» en Spotify.', siteIt: 'Abrir {site}', siteOpened: '{site}: abierta.', zapped: 'Bzzt. Tú lo pediste.', shown: '{name}: ahí lo tienes.', remindSet: 'Hecho: en {when}.', remindDue: 'Oye, ya es la hora.', reminderBadge: 'RECORDATORIO', screenshot: '{name}: capturada.', noDownloads: 'Tu carpeta de descargas está vacía.',
       media: { pause: 'Pausa.', play: 'Sigue sonando.', next: 'Siguiente.', previous: 'Anterior.', volup: 'Más alto.', voldown: 'Más bajo.', mute: 'Le di a silenciar.' },
     },
     // su informe: lo que Claude sacó hoy (su menú, o ella sola por la tarde)
@@ -618,6 +626,7 @@ export const LINES = {
     },
     // ponerla en marcha con botones (setup.js): Ollama, un modelo, una clave
     setup: {
+      telegram: { token: 'Pega el token de tu bot.', tokenHow: 'En Telegram, abre @BotFather, envía /newbot, elige un nombre y luego un usuario que termine en «bot». Te da un token (123456:ABC…): pégalo aquí. Allí solo te responderé a ti.', botFather: 'Abrir BotFather', code: 'Ahora envíame este código desde Telegram.', codeHow: 'A @{bot}: {code}\nQuien lo envíe es el único al que responderé allí. Vale 15 minutos.', openBot: 'Abrir @{bot}', paired: 'Conectadas. Escríbeme en Telegram cuando quieras.', pairedHow: 'Allí soy la misma que aquí: abro tus apps, pongo tu música, hago capturas y le paso tareas a tus sesiones (@nombre la tarea). Cuando una sesión termina o te necesita mientras no estás, te lo digo allí.' },
       who: 'Para hablar contigo, necesito una IA.',
       why: { noOllama: 'Ollama no está instalado en este PC.', asleep: 'Ollama está instalado, pero dormido.', noModel: 'Ollama aún no tiene ningún modelo.' },
       whoHow: 'Lo más fácil: en tu PC, con Ollama. Es gratis y nada sale de tu equipo.\nSi no: en línea sin cuenta, o con la clave de un servicio.',
@@ -774,6 +783,8 @@ export const LINES = {
       loading: 'Acordando o modelo… a primeira resposta demora um pouco.',
       tiny: 'Tô rodando no {model}: ele é bem pequeno, posso falar besteira. Pega um maior?', better: 'Um modelo melhor',
       working: 'Tô nessa… (o Claude Code está trabalhando)',
+      // passar uma tarefa para outra sessão sua do Claude (“@nome a tarefa”), depois do seu clique
+      agentAsk: 'Passo para {name}?', agentPick: 'Várias sessões respondem a esse nome. Qual?', agentUnknown: 'Nenhuma sessão “{name}”. Alguma destas?', agentNone: 'Nenhuma sessão do Claude aberta para eu me conectar.', agentSend: 'Enviar para {name}', bigger: 'Ampliar', smaller: 'Reduzir', history: 'Histórico da conversa', historyBack: 'Voltar à resposta dela', historyEmpty: 'Ainda não falamos nada.', agentReplied: '{name} deu retorno:', tgNoChat: 'Ainda não posso falar: escolha primeiro a minha IA no PC (clique direito em mim › Modelo de IA).', agentSent: '{name}: transmitido. Já está nessa.', agentHeld: 'Não começou: talvez lá esteja esperando você liberar minha mensagem.',
       // fechar um app que você pede para fechar, depois do seu clique
       closeIt: 'Fechar {app}', no: 'Não',
       closed: '{app}: flatline. Feito.',
@@ -784,7 +795,7 @@ export const LINES = {
       notFound: 'Não vejo “{app}” aberto no seu PC.',
       // abrir um app ou um jogo, a música, um site
       openIt: 'Abrir {app}', opened: '{app}: abrindo.', notInstalled: 'Não acho “{app}” no seu PC.',
-      music: 'Procurando “{song}” no Spotify.', siteIt: 'Abrir {site}', siteOpened: '{site}: aberto.',
+      music: 'Procurando “{song}” no Spotify.', siteIt: 'Abrir {site}', siteOpened: '{site}: aberto.', zapped: 'Bzzt. Você pediu.', shown: '{name}: bem aqui.', remindSet: 'Feito: em {when}.', remindDue: 'Ei, chegou a hora.', reminderBadge: 'LEMBRETE', screenshot: '{name}: capturada.', noDownloads: 'Sua pasta de downloads está vazia.',
       media: { pause: 'Pausado.', play: 'Tocando.', next: 'Próxima.', previous: 'Anterior.', volup: 'Mais alto.', voldown: 'Mais baixo.', mute: 'Apertei o mudo.' },
     },
     // o relatório dela: o que o Claude fez hoje (o menu dela, ou sozinha à noite)
@@ -851,6 +862,7 @@ export const LINES = {
     },
     // deixar ela pronta com botões (setup.js): Ollama, um modelo, uma chave
     setup: {
+      telegram: { token: 'Cole o token do seu bot.', tokenHow: 'No Telegram, abra o @BotFather, envie /newbot, escolha um nome e depois um usuário que termine em “bot”. Ele te dá um token (123456:ABC…): cole aqui. Lá, só respondo a você.', botFather: 'Abrir BotFather', code: 'Agora me envie este código pelo Telegram.', codeHow: 'Para @{bot}: {code}\nQuem enviar é o único a quem vou responder lá. Vale por 15 minutos.', openBot: 'Abrir @{bot}', paired: 'Conectadas. Me escreva no Telegram quando quiser.', pairedHow: 'Lá eu sou a mesma daqui: abro seus apps, coloco sua música, tiro capturas e passo tarefas para as suas sessões (@nome a tarefa). Quando uma sessão termina ou precisa de você enquanto está fora, eu aviso lá.' },
       who: 'Pra falar com você, eu preciso de uma IA.',
       why: { noOllama: 'O Ollama não está instalado neste PC.', asleep: 'O Ollama está instalado, mas dormindo.', noModel: 'O Ollama ainda não tem nenhum modelo.' },
       whoHow: 'O mais fácil: no seu PC, com o Ollama. É grátis e nada sai da sua máquina.\nSe não: online sem conta, ou com a chave de um serviço.',
@@ -1007,6 +1019,8 @@ export const LINES = {
       loading: 'Модель просыпается… первый ответ займёт немного времени.',
       tiny: 'Я работаю на {model}: она совсем маленькая, могу нести чушь. Возьмём побольше?', better: 'Модель получше',
       working: 'Уже занимаюсь… (Claude Code работает)',
+      // поручить задачу другой твоей сессии Claude («@имя задача»), после твоего клика
+      agentAsk: 'Передать {name}?', agentPick: 'На это имя отзываются несколько сессий. Какой?', agentUnknown: 'Сессии «{name}» нет. Может, одной из этих?', agentNone: 'Нет открытых сессий Claude, куда подключиться.', agentSend: 'Отправить: {name}', bigger: 'Развернуть', smaller: 'Свернуть', history: 'История разговора', historyBack: 'Назад к её ответу', historyEmpty: 'Мы ещё ничего не сказали друг другу.', agentReplied: '{name} докладывает:', tgNoChat: 'Я пока не могу говорить: сначала выбери мою ИИ на ПК (правый клик по мне › ИИ-модель).', agentSent: '{name}: передано. Уже в работе.', agentHeld: 'Там ничего не началось: возможно, ждут, пока ты пропустишь моё сообщение.',
       // закрыть приложение, которое ты просишь закрыть, после твоего клика
       closeIt: 'Закрыть {app}', no: 'Нет',
       closed: '{app}: флэтлайн. Готово.',
@@ -1017,7 +1031,7 @@ export const LINES = {
       notFound: 'Не вижу «{app}» среди открытых на твоём ПК.',
       // открыть приложение или игру, музыка, сайт
       openIt: 'Открыть {app}', opened: '{app}: запускаю.', notInstalled: 'Не нахожу «{app}» на твоём ПК.',
-      music: 'Ищу «{song}» в Spotify.', siteIt: 'Открыть {site}', siteOpened: '{site}: открыт.',
+      music: 'Ищу «{song}» в Spotify.', siteIt: 'Открыть {site}', siteOpened: '{site}: открыт.', zapped: 'Бзз. Сам попросил.', shown: '{name}: вот здесь.', remindSet: 'Готово: через {when}.', remindDue: 'Эй, пора.', reminderBadge: 'НАПОМИНАНИЕ', screenshot: '{name}: снято.', noDownloads: 'Папка загрузок пуста.',
       media: { pause: 'Пауза.', play: 'Играет.', next: 'Следующий.', previous: 'Предыдущий.', volup: 'Громче.', voldown: 'Тише.', mute: 'Нажала «без звука».' },
     },
     // её отчёт: что Claude сделал за день (её меню, или сама вечером)
@@ -1086,6 +1100,7 @@ export const LINES = {
     },
     // запустить её кнопками (setup.js): Ollama, модель, ключ
     setup: {
+      telegram: { token: 'Вставь токен своего бота.', tokenHow: 'В Telegram открой @BotFather, отправь /newbot, выбери имя, затем юзернейм, который заканчивается на «bot». Он выдаст токен (123456:ABC…): вставь его сюда. Там я буду отвечать только тебе.', botFather: 'Открыть BotFather', code: 'Теперь отправь мне этот код из Telegram.', codeHow: 'Для @{bot}: {code}\nКто его отправит, тому одному я и буду там отвечать. Действует 15 минут.', openBot: 'Открыть @{bot}', paired: 'Мы на связи. Пиши мне в Telegram когда угодно.', pairedHow: 'Там я такая же, как здесь: открываю твои приложения, включаю музыку, делаю скриншоты и поручаю задачи твоим сессиям (@имя задача). Когда сессия закончила или ждёт тебя, пока тебя нет, я пишу тебе туда.' },
       who: 'Чтобы говорить с тобой, мне нужен ИИ.',
       why: { noOllama: 'Ollama не установлена на этом ПК.', asleep: 'Ollama установлена, но спит.', noModel: 'В Ollama пока нет ни одной модели.' },
       whoHow: 'Проще всего: у тебя на ПК, через Ollama. Бесплатно, и ничего не уходит наружу.\nИли онлайн без аккаунта, или с ключом какого-нибудь сервиса.',

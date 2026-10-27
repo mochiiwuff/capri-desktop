@@ -9,6 +9,7 @@ const on = (channel) => (fn) => {
 };
 
 contextBridge.exposeInMainWorld('host', {
+  platform: process.platform,
   onClaudeEvent: on('claude:event'),
   onCommand: on('capri:command'),
   onConfig: on('capri:config'),
@@ -55,5 +56,22 @@ contextBridge.exposeInMainWorld('host', {
   media: (action) => ipcRenderer.invoke('apps:media', action),
   music: (query) => ipcRenderer.invoke('apps:music', query),
   openSite: (address) => ipcRenderer.invoke('apps:site', address),
+  agentSessions: () => ipcRenderer.invoke('agents:list'),
+  findAgent: (wanted) => ipcRenderer.invoke('agents:find', wanted),
+  sendAgent: (pid, text, via) => ipcRenderer.invoke('agents:send', { pid, text, via }),
+  onAgentReply: on('agents:reply'),
+  onAgentHandoff: on('agents:handoff'),
+  agentStatus: (pid) => ipcRenderer.invoke('agents:status', pid),
+  connectTelegram: (token) => ipcRenderer.invoke('telegram:connect', token),
+  telegramSend: (text, buttons) => ipcRenderer.invoke('telegram:send', { text, buttons }),
+  telegramEdit: (id, text, buttons) => ipcRenderer.invoke('telegram:edit', { id, text, buttons }),
+  telegramPhoto: (file, caption) => ipcRenderer.invoke('telegram:photo', { file, caption }),
+  telegramTyping: () => ipcRenderer.send('telegram:typing'),
+  onTelegram: on('telegram:in'),
+  onTelegramAction: on('telegram:action'),
+  showFile: (name, opts) => ipcRenderer.invoke('files:show', name, opts),
+  locateFile: (name) => ipcRenderer.invoke('files:locate', name),
+  latestDownload: () => ipcRenderer.invoke('files:latest'),
+  screenshot: (what) => ipcRenderer.invoke('files:screenshot', what),
   focusOverlay: (on) => ipcRenderer.send('overlay:focus', Boolean(on)),
 });
