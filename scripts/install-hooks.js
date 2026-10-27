@@ -76,7 +76,11 @@ function strip(settings) {
   for (const event of Object.keys(settings.hooks)) {
     const groups = settings.hooks[event];
     if (!Array.isArray(groups)) continue;
-    settings.hooks[event] = groups.filter((g) => !isCapriGroup(g));
+    settings.hooks[event] = groups.flatMap((g) => {
+      if (!isCapriGroup(g)) return [g];
+      const hooks = g.hooks.filter((h) => !String(h.command || '').includes(MARK));
+      return hooks.length ? [{ ...g, hooks }] : [];
+    });
     if (settings.hooks[event].length === 0) delete settings.hooks[event];
   }
   if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
