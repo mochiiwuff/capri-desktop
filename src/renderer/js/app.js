@@ -650,9 +650,9 @@ async function boot() {
       case 'status':
         brain.status();
         break;
-      case 'talk': // `capri --talk`, from a keybind: her chat, or closing it
-        if (chat.open) panel.hide();
-        else chat.start();
+      case 'talk': // `capri --talk`, from a keybind: her chat, or closing it (`--ask-selection`: with it)
+        if (chat.open && !cmd.keep) panel.hide();
+        else chat.start({ text: cmd.text });
         break;
       case 'customize': // "Make her yours" in her menu
         custom.open();

@@ -149,6 +149,15 @@ const TINY = /[:-](0\.5b|1b|1\.5b|135m|270m|360m)\b/i;
 // her face when she greets you in a mood (bond.js)
 const MOOD_FACE = { angry: 'many', sulk: 'aside', dizzy: 'wide', thrown: 'wide', jealous: 'look', fun: 'laugh', happy: 'laugh', forgiven: 'smug' };
 
+// Text you had selected, in her field as a quote on one line, your question to type after it
+function quoteInto(input, text) {
+  const flat = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!flat) return;
+  const room = (input.maxLength > 0 ? input.maxLength : 500) - 40;
+  input.value = `« ${flat.length > room ? `${flat.slice(0, room - 1)}…` : flat} » `;
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
 export class Chat {
   constructor({ capri, panel, voice, host, brain }) {
     this.capri = capri;
@@ -177,10 +186,11 @@ export class Chat {
     return this.brain.t.chat;
   }
 
-  async start() {
+  async start({ text = '' } = {}) {
     const { capri, host, t } = this;
     if (this.open) {
       host.focusOverlay(true); // the keyboard back, if another window took it
+      quoteInto(this.panel.chatInput, text);
       this.panel.chatInput.focus();
       return;
     }
@@ -274,6 +284,7 @@ export class Chat {
       released();
       const input = this.panel.chatInput;
       if (early && !input.value) input.value = early;
+      quoteInto(input, text);
       input.focus(); // once the overlay has the keyboard
     }, 150);
     capri.perform('hop');

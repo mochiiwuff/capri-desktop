@@ -9,6 +9,7 @@ const {
   clipboard, ClipboardItem, dialog, powerMonitor, desktopCapturer,
 } = require('electron');
 const { randomUUID } = require('node:crypto');
+const { execFile } = require('node:child_process');
 
 const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
@@ -303,6 +304,13 @@ function createOverlay() {
 
 function sendCommand(name, payload = {}) {
   overlay?.webContents.send('capri:command', { name, ...payload });
+}
+
+// `capri --ask-selection` (a keybind): her chat, with the text you have selected already in it
+function askSelection() {
+  if (process.platform !== 'linux') return sendCommand('talk');
+  execFile('wl-paste', ['--primary', '--no-newline', '--type', 'text'], { timeout: 2000, maxBuffer: 1024 * 1024 },
+    (err, out) => sendCommand('talk', { text: err ? '' : String(out).slice(0, 4000), keep: true }));
 }
 
 // Ctrl+Alt+C: she folds herself away into her biochip in the corner, or comes back out of it.
@@ -1237,7 +1245,8 @@ function main() {
   }
   // `capri --talk` (a Hyprland keybind, say): her chat opens, or closes; `--toggle`: as Ctrl+Alt+C
   app.on('second-instance', (_e, argv) => {
-    if (argv.includes('--talk')) sendCommand('talk');
+    if (argv.includes('--ask-selection')) askSelection();
+    else if (argv.includes('--talk')) sendCommand('talk');
     else if (argv.includes('--toggle')) toggleVisible();
     else sendCommand('status');
   });
