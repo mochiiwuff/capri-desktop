@@ -390,12 +390,40 @@ function resolveLang(setting) {
 }
 
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
+// Your desktop's palette (the matugen colors your bar uses, Serpantinum's file): her panels' ink,
+// paper and accent from it. Her red and green stay hers: they mean alert, and working or done.
+const RICE_FILE = path.join(os.homedir(), '.local', 'state', 'serpantinum', 'qs_colors.json');
+const HEX = /^#[0-9a-f]{6}$/i;
+function ricePalette() {
+  if (process.platform !== 'linux') return null;
+  try {
+    const c = JSON.parse(fs.readFileSync(RICE_FILE, 'utf8'));
+    const vars = { '--ink': c.mantle, '--ink-2': c.surface1, '--paper': c.text, '--paper-2': c.subtext0,
+      '--paper-3': c.subtext1, '--violet': c.blue };
+    return Object.values(vars).every((v) => HEX.test(v || '')) ? vars : null;
+  } catch { return null; }
+}
+let riceWatch = null;
+function watchRice() {
+  if (riceWatch || process.platform !== 'linux') return;
+  let soon = null;
+  try {
+    // the folder, not the file: the palette is written anew (a new file) on a wallpaper change
+    riceWatch = fs.watch(path.dirname(RICE_FILE), (_type, name) => {
+      if (name !== path.basename(RICE_FILE)) return;
+      clearTimeout(soon);
+      soon = setTimeout(() => overlay?.webContents.send('capri:config', rendererConfig()), 300);
+    });
+  } catch { /* no Serpantinum: nothing to follow */ }
+}
+
 function rendererConfig() {
   const cfg = config.publicValues();
   const lang = resolveLang(cfg.lang);
   return { ...cfg, keys: config.keys.names(config.load().apiKeys).filter((id) => Object.hasOwn(llm.PROVIDERS, id)),
     keyStorage: config.keys.status(), storageText: storageText(lang),
     assistant: activeAssistant().id, lang, langSetting: cfg.lang,
+    rice: cfg.riceColors !== false ? ricePalette() : null,
     floorGap: overlayArea().gap, system: { features: platformInfo?.features || {}, session: platformInfo?.session || null, text: platformText(lang) } };
 }
 
@@ -580,6 +608,7 @@ function rebuildTray() {
     availableItem(t.possess, 'windowTracking', { type: 'checkbox', checked: cfg.possess && featureAvailable('windowTracking'), click: (item) => updateConfig({ possess: item.checked }) }),
     availableItem(t.jealous, 'aiDetection', { type: 'checkbox', checked: cfg.jealous !== false && featureAvailable('aiDetection'), click: (item) => updateConfig({ jealous: item.checked }) }),
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
+    ...(ricePalette() ? [{ label: t.riceColors, type: 'checkbox', checked: cfg.riceColors !== false, click: (item) => updateConfig({ riceColors: item.checked }) }] : []),
     {
       // she asks first (what she'll send where), then turns it on herself
       label: t.lookAuto, type: 'checkbox', checked: Boolean(cfg.watchScreen),
@@ -1302,6 +1331,7 @@ function main() {
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    watchRice();
     startPointer();
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list

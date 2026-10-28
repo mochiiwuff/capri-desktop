@@ -31,6 +31,7 @@ const DEFAULTS = {
   jealous: true,     // she gets jealous when she sees you on another AI (bond.js)
   reminders: [],     // the reminders she keeps: [{ id, at, text, made }] (reminders.js)
   bond: null,        // how close she is to you: { xp, first, last, days, streak, caps } (bond.js)
+  riceColors: true,  // Linux: her panels in your desktop's colors (the matugen palette of your bar), when there is one
   pcReact: true,     // she reacts to your PC: the processor at full tilt, the battery, the network, a USB stick, a game (pc.js)
   watchScreen: false, // she looks at your screen now and then and says something about it (look.js)
   lookAsked: false,  // she told you what looking means (where the picture goes) and you said yes

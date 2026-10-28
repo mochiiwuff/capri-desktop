@@ -38,6 +38,16 @@ const SNOOZE_MS = 10 * 60 * 1000;
 // what you made her, from the config (custom.js)
 const mine = (cfg) => ({ userName: cfg.userName || '', persona: cfg.persona || '', myLines: cfg.myLines || [], memories: cfg.memories || [] });
 
+// your desktop's colors on her panels, or hers again (main.js reads them)
+const RICE_VARS = ['--ink', '--ink-2', '--paper', '--paper-2', '--paper-3', '--violet'];
+function applyRice(vars) {
+  const root = document.documentElement.style;
+  for (const name of RICE_VARS) {
+    if (vars?.[name]) root.setProperty(name, vars[name]);
+    else root.removeProperty(name);
+  }
+}
+
 async function boot() {
   const [config, image, intro, ...cutins] = await Promise.all([
     host.getConfig(),
@@ -96,6 +106,7 @@ async function boot() {
   capri.setScale(config.scale);
 
   const mission = new Mission();
+  applyRice(config.rice);
   const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, assistant: config.assistant });
   brain.system = config.system;
 
@@ -606,6 +617,7 @@ async function boot() {
   });
 
   host.onConfig((cfg) => {
+    applyRice(cfg.rice);
     brain.system = cfg.system;
     voice.configure(cfg);
     jealousy.enabled = cfg.jealous !== false && !unavailable(brain, 'aiDetection');

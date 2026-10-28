@@ -23,6 +23,7 @@ const TRAY = {
     follow: 'Me suivre d’un écran à l’autre', jealous: 'Jalouse des autres IA',
     lookNow: 'Regarde mon écran', lookAuto: 'Regarder mon écran de temps en temps',
     pcReact: 'Réagir à mon PC',
+    riceColors: 'Couleurs de mon bureau',
     cloudFree: 'gratuit, en ligne', cloudSignin: 'Me connecter à Ollama (modèles cloud gratuits)…',
   },
   en: {
@@ -44,6 +45,7 @@ const TRAY = {
     follow: 'Follow me across screens', jealous: 'Jealous of other AIs',
     lookNow: 'Look at my screen', lookAuto: 'Look at my screen now and then',
     pcReact: 'React to my PC',
+    riceColors: 'My desktop’s colors',
     cloudFree: 'free, online', cloudSignin: 'Sign in to Ollama (free cloud models)…',
   },
   es: {
@@ -65,6 +67,7 @@ const TRAY = {
     follow: 'Seguirme de una pantalla a otra', jealous: 'Celosa de otras IA',
     lookNow: 'Mira mi pantalla', lookAuto: 'Mirar mi pantalla de vez en cuando',
     pcReact: 'Reaccionar a mi PC',
+    riceColors: 'Colores de mi escritorio',
     cloudFree: 'gratis, en línea', cloudSignin: 'Conectarme a Ollama (modelos en la nube gratis)…',
   },
   pt: {
@@ -86,6 +89,7 @@ const TRAY = {
     follow: 'Me seguir de uma tela pra outra', jealous: 'Com ciúmes de outras IAs',
     lookNow: 'Olha minha tela', lookAuto: 'Olhar minha tela de vez em quando',
     pcReact: 'Reagir ao meu PC',
+    riceColors: 'Cores da minha área de trabalho',
     cloudFree: 'grátis, online', cloudSignin: 'Entrar no Ollama (modelos na nuvem grátis)…',
   },
   ru: {
@@ -107,6 +111,7 @@ const TRAY = {
     follow: 'Следовать за мной с экрана на экран', jealous: 'Ревнует к другим ИИ',
     lookNow: 'Посмотри на мой экран', lookAuto: 'Иногда смотреть на мой экран',
     pcReact: 'Реагировать на мой ПК',
+    riceColors: 'Цвета моего рабочего стола',
     cloudFree: 'бесплатно, онлайн', cloudSignin: 'Войти в Ollama (бесплатные облачные модели)…',
   },
 };
