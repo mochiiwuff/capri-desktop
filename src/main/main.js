@@ -5,7 +5,7 @@ const os = require('node:os');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
-  app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
+  app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage, Notification,
   clipboard, ClipboardItem, dialog, powerMonitor, desktopCapturer,
 } = require('electron');
 const { randomUUID } = require('node:crypto');
@@ -1030,6 +1030,19 @@ function registerIpc() {
       }).catch((err) => console.error('[capri] Hyprland focus:', err.message));
     } else if (on) overlay.focus();
     else overlay.blur();
+  });
+  // a long task done while you were elsewhere: a desktop notification; clicked, Claude's window
+  ipcMain.on('desktop:notify', (_e, note) => {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({
+      title: String(note?.title || 'Capri').slice(0, 120),
+      body: String(note?.body || '').slice(0, 400),
+      icon: path.join(ROOT, 'assets', 'icons', 'tray.png'),
+      silent: true,
+    });
+    const address = String(note?.window || '');
+    if (hypr && address) n.on('click', () => hypr.focusWindow(address).catch(() => {}));
+    n.show();
   });
   // "Take me there": Claude's window, where it waits for you (Hyprland)
   ipcMain.handle('window:focus', (_e, address) => (hypr ? hypr.focusWindow(address).catch(() => false) : false));

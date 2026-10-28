@@ -71,4 +71,5 @@ contextBridge.exposeInMainWorld('host', {
   openSite: (address) => ipcRenderer.invoke('apps:site', address),
   focusOverlay: (on) => ipcRenderer.send('overlay:focus', Boolean(on)),
   focusWindow: (address) => ipcRenderer.invoke('window:focus', String(address || '')),
+  notify: (note) => ipcRenderer.send('desktop:notify', note),
 });

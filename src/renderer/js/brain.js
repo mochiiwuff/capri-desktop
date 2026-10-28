@@ -7,6 +7,7 @@ const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const HACKING_TOOLS = new Set(['Bash', 'PowerShell', 'WebFetch', 'WebSearch', 'Agent', 'Task']);
 const WORKING_EVERY = 20; // say something about progress every N tool calls
 const LONG_JOB_MS = 8 * 60 * 1000; // a job this long (or this busy) earns the whole satellite sequence
+const NOTIFY_AFTER_MS = 30000; // a task this long, done while you're elsewhere: a desktop notification
 const LONG_JOB_ACTIONS = 50;
 // mid-task with not a word from Claude: this long and the ticker starts counting (it's thinking),
 // this long and she says something about it, this long and she tells you nothing's stuck
@@ -295,6 +296,16 @@ export class Brain {
     if (!this.busySessions.length) {
       this.panel.setTicker(null);
       this.capri.setMode('idle');
+    }
+    // A long task done while you're elsewhere (another window, a game she stepped aside for): a
+    // desktop notification too, for your bar; clicking it takes you back to Claude's window.
+    const took = s.taskStart ? Date.now() - s.taskStart : 0;
+    if (!evt.demo && wasWorking && took >= NOTIFY_AFTER_MS && (this.away(s) || this.capri.stowed)) {
+      this.host.notify({
+        title: fmt(this.t.notifyDone, { project: s.title || s.project }),
+        body: [summary, clip(quote, 200)].filter(Boolean).join('\n'),
+        window: s.window || '',
+      });
     }
     // Not on Claude's window any more: you can't see the answer, so she brings it to you, whole,
     // and holds it up until you're back on Claude's window or click it away.
