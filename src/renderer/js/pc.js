@@ -203,8 +203,12 @@ export class Pc {
     const now = Date.now();
     // you're playing: a word about it, then she gets out of the way (she's always on top)
     if (!g.said && !g.gone && now - g.since >= GAME_AFTER) {
+      if (this.capri.stowed) {
+        g.said = true; // already out of the way
+        return;
+      }
+      if (this.capri.mode === 'alert') return; // busy with Claude: once she's done
       g.said = true;
-      if (this.capri.stowed || this.capri.mode === 'alert') return;
       this.capri.wake();
       this.say(fmt(pick(this.t.game), { game: g.name }), 'smug', 3000);
       setTimeout(() => {

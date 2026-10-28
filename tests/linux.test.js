@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { snapshot, startWindowWatch, createHyprland, monitorFor } = require('../src/main/hyprland');
+const { snapshot, startWindowWatch, createHyprland, monitorFor, gameOf } = require('../src/main/hyprland');
 
 const bounds = { x: -1920, y: 0, width: 1920, height: 1080 };
 const client = { address: '0x123', mapped: true, hidden: false, pid: 42, class: 'kitty',
@@ -301,4 +301,20 @@ test('Hyprland skips her window except under the pointer or with her chat open',
   const count = sent.filter((s) => s.includes('no_focus')).length;
   await hypr.hover(false); // unchanged: nothing sent
   assert.equal(sent.filter((s) => s.includes('no_focus')).length, count);
+});
+
+test('a game in front is named from its install folder or its Steam window, never its path', () => {
+  let pid = 1000;
+  const game = (cmd, extra = {}) => gameOf({ mapped: true, pid: pid++, class: 'x', ...extra }, () => cmd);
+  assert.equal(game('/home/a/.local/share/Steam/steamapps/common/ELDEN RING/Game/eldenring.exe'), 'ELDEN RING');
+  assert.equal(game('Z:\\home\\a\\.wine\\drive_c\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Ghost Recon Breakpoint\\GRB_vulkan.exe'), 'Ghost Recon Breakpoint');
+  assert.equal(game('/home/a/Games/Heroic/Hades/Hades.exe'), 'Hades');
+  assert.equal(game('/home/a/Games/Heroic/Prefixes/Title/setup.exe'), null);
+  assert.equal(game('', { class: 'steam_app_1245620', title: 'ELDEN RING™' }), 'ELDEN RING™');
+  assert.equal(game('C:\\Games\\x\\Game.exe'.replace('Games', 'Stuff'), { fullscreen: 2 }), 'Game'); // Wine, full screen
+  assert.equal(game('C:\\Stuff\\Game.exe'), null); // not full screen: an app, maybe
+  assert.equal(game('C:\\Ubisoft\\upc.exe', { fullscreen: 2 }), null); // a launcher
+  assert.equal(game('/usr/lib/firefox/firefox', { fullscreen: 2 }), null);
+  const result = snapshot([], monitors, { ...client, class: 'steam_app_1', title: 'Hades' }, bounds, 99, () => '');
+  assert.equal(result.game, 'Hades');
 });

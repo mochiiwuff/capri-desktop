@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const { execFile, execFileSync } = require('node:child_process');
@@ -97,9 +98,40 @@ function monitorFor(bounds, screens, monitors) {
   return mons[i] || (monitors.length === 1 && screens.length === 1 ? logical(monitors[0]) : null);
 }
 
+// A game in front: its name, from where its program sits (a launcher's library, a Wine prefix's
+// Program Files), as on Windows; or a Steam game's window. Its name only, never a path.
+const GAME_PATHS = [
+  /[\\/]steamapps[\\/]common[\\/]([^\\/]+)[\\/]/i,
+  /[\\/]Games[\\/]Heroic[\\/](?!Prefixes[\\/])([^\\/]+)[\\/]/i,
+  /[\\/]Ubisoft Game Launcher[\\/]games[\\/]([^\\/]+)[\\/]/i,
+  /[\\/](?:Epic Games|GOG Games|GOG Galaxy[\\/]Games|Riot Games|XboxGames)[\\/]([^\\/]+)[\\/]/i,
+  /[\\/]Games[\\/](?!Heroic[\\/])([^\\/]+)[\\/]/,
+];
+const NOT_GAME = /launcher|client|redistributable|steamworks|proton|steamlinuxruntime|prefixes|^common$|^(?:upc|uplay|steam|steamwebhelper|epicgameslauncher|galaxyclient)$/i;
+const readCmdline = (pid) => fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8');
+const cmdlines = new Map(); // pid → its command line, read once
+
+function gameOf(active, readCmd = readCmdline) {
+  if (!active?.mapped || !Number.isInteger(active.pid) || active.pid <= 0) return null;
+  if (/^steam_app_\d+$/.test(active.class || '') && active.title) return active.title.trim().slice(0, 60) || null;
+  let cmd = cmdlines.get(active.pid);
+  if (cmd === undefined) {
+    try { cmd = readCmd(active.pid).replace(/\0/g, ' '); } catch { cmd = ''; }
+    if (cmdlines.size > 200) cmdlines.clear();
+    cmdlines.set(active.pid, cmd);
+  }
+  for (const re of GAME_PATHS) {
+    const name = re.exec(cmd)?.[1];
+    if (name && !NOT_GAME.test(name)) return name.slice(0, 60);
+  }
+  // a Windows program run full screen through Wine or Proton: most likely a game
+  const exe = /([^\\/ ]+)\.exe\b/i.exec(cmd)?.[1];
+  return exe && active.fullscreen && !NOT_GAME.test(exe) ? exe.slice(0, 60) : null;
+}
+
 // Hyprland reports logical desktop coordinates. Exclude other workspaces and Capri;
 // never send window titles or process details to the renderer.
-function snapshot(clients, monitors, active, bounds, pid = process.pid) {
+function snapshot(clients, monitors, active, bounds, pid = process.pid, readCmd = readCmdline) {
   const own = ownWindow(clients, pid);
   // her window where Hyprland really put it, not where XWayland says it is
   if (own) bounds = { x: own.at[0], y: own.at[1], width: own.size[0], height: own.size[1] };
@@ -112,7 +144,8 @@ function snapshot(clients, monitors, active, bounds, pid = process.pid) {
     .map((c) => ({ id: c.address, x: c.at[0] - bounds.x, y: c.at[1] - bounds.y,
       w: c.size[0], h: c.size[1], max: Boolean(c.fullscreen) }))
     .filter((w) => w.x < bounds.width && w.x + w.w > 0 && w.y < bounds.height && w.y + w.h > 0);
-  return { fg: active?.address || null, taskbar: false, ai: [], game: null, usb: [], plug: null, wins };
+  const game = active?.pid !== pid ? gameOf(active, readCmd) : null;
+  return { fg: active?.address || null, taskbar: false, ai: [], game, usb: [], plug: null, wins };
 }
 
 function startWindowWatch({ overlay, onUpdate, read = query, events = read === query ? watchEvents : null, every = 1000 }) {
@@ -306,4 +339,4 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
   return { place, cursor, focus, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
 }
 
-module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath };
+module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };
