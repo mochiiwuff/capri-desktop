@@ -2,6 +2,8 @@
 
 # Capri
 
+**Linux / CachyOS / Hyprland:** [setup, compositor rules and limitations (French)](docs/linux/README.fr.md).
+
 Capri, the *Project Capricorn* construct from Cyberpunk: Edgerunners season 2, lives on your desktop
 and tells you what your coding AI is up to: **Claude Code**, **Codex** or **Antigravity**. She teleports,
 glitches, comments on every action, comes to find you when it needs your permission, and loses it when the job is done.

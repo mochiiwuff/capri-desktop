@@ -132,7 +132,8 @@ function match(items, text) {
 
 // What's on your desktop (yours and the shared one): files, folders and shortcuts, by name.
 function desktopItems() {
-  const dirs = [app.getPath('desktop'), path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop')];
+  const dirs = [app.getPath('desktop')];
+  if (WIN) dirs.push(path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop'));
   const items = [];
   for (const dir of dirs) {
     let entries = [];
@@ -151,7 +152,7 @@ function desktopItems() {
 }
 
 // files that run something: never opened without a click, even named by you
-const RUNS = /\.(exe|bat|cmd|ps1|vbs|vbe|js|jse|wsf|wsh|msi|msp|reg|scr|com|jar|hta|cpl|pif)$/i;
+const RUNS = /\.(desktop|sh|bash|zsh|fish|run|appimage|bin|exe|bat|cmd|ps1|vbs|vbe|js|jse|wsf|wsh|msi|msp|reg|scr|com|jar|hta|cpl|pif)$/i;
 const risky = (item) => item?.kind === 'file' && RUNS.test(item.id);
 
 // Folders asked for by what they are ("ouvre mes téléchargements", "open the file explorer").
@@ -172,6 +173,8 @@ function knownFolder(text) {
 }
 
 function openKnown(id) {
+  if (!WIN && id === 'explorer') return shell.openPath(app.getPath('home'));
+  if (!WIN && id === 'recycle') return shell.openExternal('trash:///');
   if (id === 'explorer') return spawn('explorer.exe', [], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   if (id === 'recycle') return spawn('explorer.exe', ['shell:RecycleBinFolder'], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   return shell.openPath(app.getPath(id));

@@ -2,6 +2,8 @@
 
 # Capri
 
+**Linux / CachyOS / Hyprland :** [installation, configuration et limites](docs/linux/README.fr.md).
+
 Capri, le construct du *Project Capricorn* (Cyberpunk: Edgerunners, saison 2), vit sur ton bureau
 et te raconte ce que fait ton IA de code, **Claude Code**, **Codex** ou **Antigravity** : elle se téléporte,
 glitche, commente chaque action, vient te chercher quand elle attend ta permission et part en vrille quand la tâche est finie.
@@ -104,8 +106,8 @@ glitche, commente chaque action, vient te chercher quand elle attend ta permissi
 
 ![Elle s'endort jusqu'à son masque, se réveille, et rangée en bas à gauche](docs/sleep.png)
 
-Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, jamais leur contenu ; le titre de celle qui est devant sert seulement à repérer une autre IA, voir « Elle s'attache à toi », et le dossier de son programme à reconnaître un jeu ; les clés USB branchées ne sont vues que par leur lettre, les autres appareils par le nom que Windows leur donne).
-Sur macOS et Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
+Le suivi des fenêtres fonctionne sous Hyprland via `hyprctl` (voir le guide Linux) et sous Windows (un petit script PowerShell lit la position des fenêtres, jamais leur contenu ; le titre de celle qui est devant sert seulement à repérer une autre IA, voir « Elle s'attache à toi », et le dossier de son programme à reconnaître un jeu ; les clés USB branchées ne sont vues que par leur lettre, les autres appareils par le nom que Windows leur donne).
+Sur macOS et les autres bureaux Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
 
 ### Elle te fait visiter
 

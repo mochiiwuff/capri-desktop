@@ -25,6 +25,13 @@ const activeAssistant = () => assistant(config.load().assistant); // Claude Code
 const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
 
+// Native Wayland cannot position this desktop overlay or forward pointer events.
+// Use XWayland until a layer-shell implementation is available.
+if (process.platform === 'linux' && !app.commandLine.hasSwitch('ozone-platform')) {
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
+}
+if (process.platform === 'linux') app.commandLine.appendSwitch('class', 'capri');
+
 const ROOT = path.resolve(__dirname, '..', '..');
 const DEV = process.argv.includes('--dev');
 const PORT = Number(process.env.CAPRI_PORT) || 47823;
@@ -171,6 +178,7 @@ function raiseOverlay() {
 function createOverlay() {
   overlay = new BrowserWindow({
     ...overlayArea().area,
+    title: 'Capri Overlay',
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
@@ -197,6 +205,8 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  // Keep a stable title for compositor rules even after the HTML title loads.
+  if (process.platform === 'linux') overlay.on('page-title-updated', (event) => event.preventDefault());
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.

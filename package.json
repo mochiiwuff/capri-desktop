@@ -18,7 +18,10 @@
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
     "test:hooks": "node --test tests/hooks.test.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "test:linux": "node --test tests/linux.test.js"
   },
   "keywords": [
     "claude-code",
@@ -65,6 +68,20 @@
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
       "artifactName": "Capri-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "icon": "assets/icons/capri.png",
+      "category": "Utility",
+      "executableName": "capri",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "capri"
+        }
+      }
     }
   }
 }
