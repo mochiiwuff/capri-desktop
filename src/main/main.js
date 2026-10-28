@@ -745,6 +745,11 @@ async function chatWithFallback(cfg, messages, send, signal, streamed) {
 const snaps = new Map(); // id -> the picture, base64 JPEG
 async function snapScreen() {
   const d = targetDisplay();
+  // Hyprland: straight from the compositor (grim), no portal asking each time
+  if (hypr) {
+    const jpeg = await hypr.snapshot(d.bounds, displays().map((x) => x.bounds), 1280).catch(() => null);
+    if (jpeg?.length) return jpeg.toString('base64');
+  }
   const k = d.scaleFactor || 1;
   const fit = Math.min(1, 1280 / (d.bounds.width * k));
   const size = { width: Math.round(d.bounds.width * k * fit), height: Math.round(d.bounds.height * k * fit) };
@@ -764,7 +769,23 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
-  if (cfg.provider === 'claude') return { ok: false, code: 'novision', model: 'Claude Code' };
+  // Claude Code reads pictures from files: the screen goes into a folder of its own, readable for
+  // that one question, and is deleted as soon as the answer is in
+  if (cfg.provider === 'claude') {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-look-'));
+    const file = path.join(dir, 'screen.jpg');
+    try {
+      fs.writeFileSync(file, Buffer.from(image, 'base64'), { mode: 0o600 });
+      const ask = `${prompt}\n\n(Your screenshot of the user's screen is the image file ${file}: open it with your Read tool and answer from what you see.)`;
+      const text = await llm.chat('claude', llmConfig(cfg), { model, addDir: dir, messages: [{ role: 'system', content: persona }, { role: 'user', content: ask }] },
+        () => {}, AbortSignal.timeout(180000));
+      return { ok: true, text, model: 'Claude Code' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
   if (cfg.provider === 'ollama' && !(await ollama.canSee(model))) return { ok: false, code: 'novision', model };
   const user = cfg.provider === 'ollama'
     ? { role: 'user', content: prompt, images: [image] }

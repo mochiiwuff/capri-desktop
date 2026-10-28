@@ -346,6 +346,16 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     } catch { /* Hyprland gone: nothing to restore */ }
   }
 
+  // a picture of the monitor showing that Electron screen, `width` px wide at most (grim, JPEG)
+  async function snapshot(bounds, all, width = 1280) {
+    const mons = await ask('monitors');
+    const mon = monitorFor(bounds, all, mons);
+    if (!mon || !/^[\w.-]+$/.test(mon.name)) return null;
+    const scale = Math.min(1, width / mon.width).toFixed(3);
+    return new Promise((resolve, reject) => execFile('grim', ['-o', mon.name, '-t', 'jpeg', '-q', '72', '-s', scale, '-'],
+      { encoding: 'buffer', timeout: 5000, maxBuffer: 32 * 1024 * 1024 }, (err, out) => (err ? reject(err) : resolve(out))));
+  }
+
   // another window to the front (its workspace with it), if it's still there
   async function focusWindow(address) {
     if (!/^0x[0-9a-f]{1,16}$/i.test(address)) return false;
@@ -354,7 +364,7 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     return dispatch(`hl.dsp.focus({ window = "address:${address}" })`, `focuswindow address:${address}`, call);
   }
 
-  return { place, cursor, focus, focusWindow, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
+  return { place, cursor, focus, focusWindow, snapshot, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
 }
 
 module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };

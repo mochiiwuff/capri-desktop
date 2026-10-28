@@ -42,7 +42,7 @@ test('headless and native Wayland sessions explain why the overlay is unavailabl
 
 test('Hyprland probes actual IPC while a running portal still needs capture permission', async () => {
   const calls = [];
-  const report = await inspectPlatform(hyprland({ exists: () => true, execute: async (command, args) => {
+  const report = await inspectPlatform(hyprland({ exists: (name) => name !== 'grim', execute: async (command, args) => {
     calls.push([command, args]);
     return command === 'hyprctl' ? '[{"id":0,"name":"private-monitor-name"}]' : '(true,)\n';
   } }));
@@ -71,7 +71,7 @@ test('missing, unreachable and malformed Hyprland responses do not imply readine
 
 test('portal absence and PipeWire tools do not prove screen capture will work or fail', async () => {
   for (const output of ['(false,)', 'unexpected output']) {
-    const report = await inspectPlatform(hyprland({ exists: () => true,
+    const report = await inspectPlatform(hyprland({ exists: (name) => name !== 'grim',
       execute: async (command) => command === 'hyprctl' ? '[{"id":0}]' : output }));
     assert.equal(report.features.screenCapture.status, 'conditional');
     assert.equal(report.features.screenCapture.reason, 'portalUnknown');
@@ -178,4 +178,9 @@ test('media controls are offered on Linux once playerctl and wpctl are installed
   const tools = new Set(['playerctl', 'wpctl']);
   assert.equal((await inspectPlatform(linux({ exists: (name) => tools.has(name) }))).features.media.status, 'supported');
   assert.equal((await inspectPlatform(linux({ exists: (name) => name === 'playerctl' }))).features.media.status, 'unavailable');
+});
+
+test('under Hyprland with grim, she captures the screen without the portal', async () => {
+  const report = await inspectPlatform(hyprland({ exists: (name) => ['grim', 'hyprctl'].includes(name) }));
+  assert.equal(report.features.screenCapture.status, 'supported');
 });

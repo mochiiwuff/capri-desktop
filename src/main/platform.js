@@ -77,7 +77,7 @@ async function inspectPlatform({ platform = process.platform, env = process.env,
     : overlay.status === 'unavailable' ? overlay
       : checks.hyprctl === 'missing' ? unavailable('noHyprctl')
         : checks.hyprctl !== 'responding' ? unavailable('hyprctlOffline') : supported();
-  const capture = linux && wayland ? conditional(checks.portal === 'running' ? 'portalPermission' : 'portalUnknown')
+  const capture = hyprland && exists('grim') ? supported() : linux && wayland ? conditional(checks.portal === 'running' ? 'portalPermission' : 'portalUnknown')
     : overlay.status === 'unavailable' ? overlay : supported();
   return {
     schemaVersion: 1, platform, distribution, session, backend: linux ? backend : 'native', checks,
