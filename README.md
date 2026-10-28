@@ -288,18 +288,21 @@ asleep. You can just leave her there.
 
 ### From the source (macOS, Linux, developers)
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+Development requires [Node.js](https://nodejs.org) 22.12 or newer.
 
 ```bash
-git clone https://github.com/mochiiwuff/capri-desktop.git
+git clone https://github.com/x3noux11/capri-desktop.git
 cd capri-desktop
-npm install
+npm ci
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+Keep that terminal open while she runs. Linux startup and rendering are checked on a virtual X11 display.
+Hyprland window tracking uses `hyprctl` with an XWayland overlay; validation in a real Hyprland session is still
+needed. See the [Linux guide (French)](docs/linux/README.fr.md). macOS has not been validated yet.
+
+Run `npm test` for the automated suites. The [development guide (French)](docs/DEVELOPMENT.fr.md) also covers
+the Electron startup test and Linux/Windows CI.
 
 ### Hook her up to Claude Code by hand
 

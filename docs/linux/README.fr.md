@@ -6,7 +6,7 @@ Les fenêtres Wayland des autres applications sont suivies par `hyprctl`.
 
 ## CachyOS / Arch
 
-Installer les paquets système (Node.js 20 minimum) :
+Installer les paquets système (Node.js 22.12 minimum) :
 
 ```sh
 sudo pacman -S --needed nodejs npm gtk3 nss alsa-lib libxss libxtst mesa xorg-xwayland

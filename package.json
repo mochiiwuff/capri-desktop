@@ -21,7 +21,9 @@
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
-    "test:linux": "node --test tests/linux.test.js"
+    "test:linux": "node --test tests/linux.test.js",
+    "test": "node --test tests/*.test.js",
+    "test:smoke": "node scripts/smoke-test.js"
   },
   "keywords": [
     "claude-code",
@@ -32,7 +34,7 @@
   ],
   "license": "PolyForm-Noncommercial-1.0.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
     "electron": "^44.9.3",

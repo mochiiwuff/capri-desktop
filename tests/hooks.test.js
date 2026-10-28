@@ -32,6 +32,19 @@ function moduleUrl(file) {
   return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 }
 
+// Only the first bond level has no announcement. Reject unexpected nulls elsewhere
+// so collecting the translated strings cannot hide a missing translation.
+function translatedStrings(value, location = '') {
+  if (value === null) {
+    assert.equal(location, 'bond.up.0', `missing translation: ${location}`);
+    return [];
+  }
+  if (typeof value === 'string') return [value];
+  assert.ok(value && typeof value === 'object', `invalid translation: ${location}`);
+  return Object.entries(value).flatMap(([key, child]) =>
+    translatedStrings(child, location ? `${location}.${key}` : key));
+}
+
 test('Codex activity, approval, completion travel through the real bridge and Brain; Claude still works', async (t) => {
   globalThis.matchMedia = () => ({ matches: false });
   t.after(() => { delete globalThis.matchMedia; });
@@ -110,10 +123,10 @@ test('Codex onboarding, guide, and chat use Codex in every language; Claude text
   const { LINES, linesFor } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { Guide } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/guide.js')));
   const { Chat } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/chat.js')));
-  const strings = (value) => typeof value === 'string' ? [value] : Object.values(value).flatMap(strings);
   for (const lang of Object.keys(LINES)) {
     const text = linesFor(lang, 'codex');
-    assert.doesNotMatch(strings(text).join('\n'), /Claude|settings\.json|\.claude/);
+    assert.equal(text.bond.up[0], null);
+    assert.doesNotMatch(translatedStrings(text).join('\n'), /Claude|settings\.json|\.claude/);
     assert.match(text.welcome.about, /Codex/);
     assert.match(text.guide.folder.what, /hooks\.json/);
     assert.equal(linesFor(lang, 'claude'), LINES[lang]);
@@ -217,6 +230,5 @@ test('Antigravity: its events reach her as its own sessions, and its hook never 
   assert.ok(brain.sessions.has('agy:c1'));
   assert.equal(brain.sessions.has('claude-session'), false);
   assert.match(brain.t.guide.claude.there, /Antigravity/);
-  const texts = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(texts) : []);
-  assert.doesNotMatch(texts(brain.t).join('\n'), /Claude|settings\.json/); // what she says, not the keys
+  assert.doesNotMatch(translatedStrings(brain.t).join('\n'), /Claude|settings\.json/); // what she says, not the keys
 });

@@ -45,3 +45,117 @@ test('poll publishes a snapshot, refreshes its origin and stops', async () => {
   watch.refresh();
   assert.equal(updates.length, 2);
 });
+
+const flushPoll = () => new Promise((resolve) => setImmediate(resolve));
+
+function watchHarness(t, read) {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const updates = [];
+  const errors = [];
+  const report = console.error.bind(console);
+  t.mock.method(console, 'error', (...args) => {
+    if (args[0] === '[capri] Hyprland window watch:') errors.push(args);
+    else report(...args); // Node 22 may also report experimental timer warnings.
+  });
+  const watch = startWindowWatch({
+    overlay: { isDestroyed: () => false, getBounds: () => bounds },
+    onUpdate: (data) => updates.push(data), read,
+  });
+  t.after(() => watch.stop());
+  const tick = async () => { t.mock.timers.tick(500); await flushPoll(); };
+  return { watch, updates, errors, tick };
+}
+
+const responses = () => ({ clients: [client], monitors, activewindow: client });
+
+test('IPC failure clears stale windows, warns once and recovers automatically', async (t) => {
+  let unavailable = false;
+  const { updates, errors, tick } = watchHarness(t, async (key) => {
+    if (unavailable) throw new Error('Hyprland is restarting');
+    return responses()[key];
+  });
+  await flushPoll();
+  assert.equal(updates[0].wins.length, 1);
+  unavailable = true;
+  await tick();
+  assert.deepEqual(updates[1].wins, []);
+  assert.equal(updates[1].fg, null);
+  await tick();
+  assert.equal(updates.length, 2, 'unchanged failure snapshots are not emitted again');
+  assert.equal(errors.length, 1, 'a persistent failure does not flood the logs');
+  unavailable = false;
+  await tick();
+  assert.deepEqual(updates[2], updates[0]);
+  unavailable = true;
+  await tick();
+  assert.equal(errors.length, 2, 'a new outage is reported after recovery');
+});
+
+test('invalid compositor responses clear the snapshot and allow a later valid poll', async (t) => {
+  let data = responses();
+  const { updates, tick } = watchHarness(t, async (key) => data[key]);
+  await flushPoll();
+  for (const invalid of [{ clients: null }, { monitors: {} }, { clients: [null] }]) {
+    data = { ...responses(), ...invalid };
+    await tick();
+    assert.deepEqual(updates.at(-1).wins, []);
+    data = responses();
+    await tick();
+    assert.equal(updates.at(-1).wins[0].id, client.address);
+  }
+});
+
+test('workspace switches remove old perches and track the newly visible windows', async (t) => {
+  const other = { ...client, address: '0x456', workspace: { id: 2 } };
+  let workspace = 1;
+  const { updates, tick } = watchHarness(t, async (key) => ({
+    clients: [client, other],
+    monitors: [{ activeWorkspace: { id: workspace }, specialWorkspace: { id: 0 } }],
+    activewindow: workspace === 1 ? client : other,
+  })[key]);
+  await flushPoll();
+  assert.deepEqual(updates[0].wins.map((w) => w.id), [client.address]);
+  workspace = 2;
+  await tick();
+  assert.deepEqual(updates[1].wins.map((w) => w.id), [other.address]);
+  assert.equal(updates[1].fg, other.address);
+});
+
+test('slow queries do not overlap and unchanged windows do not emit duplicate updates', async (t) => {
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  let calls = 0;
+  const { updates, tick } = watchHarness(t, async (key) => {
+    calls++;
+    await pending;
+    return responses()[key];
+  });
+  await tick();
+  await tick();
+  assert.equal(calls, 3, 'one batch stays in flight while the compositor is slow');
+  assert.equal(updates.length, 0);
+  finish();
+  await flushPoll();
+  assert.equal(updates.length, 1);
+  await tick();
+  assert.equal(calls, 6);
+  assert.equal(updates.length, 1);
+});
+
+test('stopping during an in-flight poll prevents late updates and further queries', async (t) => {
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  let calls = 0;
+  const { watch, updates, tick } = watchHarness(t, async (key) => {
+    calls++;
+    await pending;
+    return responses()[key];
+  });
+  watch.stop();
+  finish();
+  await flushPoll();
+  await tick();
+  watch.refresh();
+  assert.equal(calls, 3);
+  assert.deepEqual(updates, []);
+});

@@ -304,19 +304,21 @@ s'endort. Tu peux juste la laisser là.
 
 ### Depuis le code (macOS, Linux, développeurs)
 
-Il faut [Node.js](https://nodejs.org) 20 ou plus.
+Pour développer, il faut [Node.js](https://nodejs.org) 22.12 ou plus.
 
 ```bash
-git clone https://github.com/mochiiwuff/capri-desktop.git
+git clone https://github.com/x3noux11/capri-desktop.git
 cd capri-desktop
-npm install
+npm ci
 npm start
 ```
 
-Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS ni Linux : elle devrait démarrer, mais les tours
-avec les fenêtres (s'asseoir dessus, les posséder, t'afficher la réponse de Claude quand tu es ailleurs) ne marchent que
-sous Windows, et sous Linux le calque transparent marche mieux sous X11 (Wayland a du mal avec les fenêtres qui laissent
-passer les clics).
+Garde ce terminal ouvert tant qu'elle tourne. Sous Linux, le démarrage et le rendu sont vérifiés sous X11 virtuel ;
+le suivi des fenêtres Hyprland utilise `hyprctl`, avec un overlay XWayland. Les essais dans une session Hyprland réelle
+restent nécessaires : voir le [guide Linux](docs/linux/README.fr.md). macOS n’a pas encore été validé.
+
+`npm test` lance les tests automatisés. Le [guide de développement](docs/DEVELOPMENT.fr.md) décrit aussi le test
+de démarrage Electron et la CI Linux/Windows.
 
 ### La brancher sur Claude Code à la main
 
