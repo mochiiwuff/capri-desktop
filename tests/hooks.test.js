@@ -176,6 +176,98 @@ test('installer preserves other hooks, is idempotent, backs up, and uninstalls o
   }
 });
 
+for (const action of ['install', 'uninstall']) {
+  test(`Claude ${action} preserves unrelated hooks in shared groups`, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-claude-hooks-'));
+    const old = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = dir;
+    try {
+      const claude = require('../scripts/install-hooks');
+      const file = path.join(dir, 'settings.json');
+      const other = {
+        permissions: { allow: ['Read'] },
+        hooks: {
+          PreToolUse: [
+            { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo existing', timeout: 15 }] },
+            { matcher: 'Read', hooks: [{ type: 'command', command: 'echo separate' }] },
+            { matcher: 'Write', hooks: [] },
+          ],
+          Stop: [{ hooks: [{ type: 'prompt', prompt: 'Check whether the task is complete.' }] }],
+          FutureEvent: [{ matcher: '*', hooks: [{ type: 'command', command: 'echo future' }] }],
+        },
+      };
+      const original = structuredClone(other);
+      const capri = { type: 'command', command: 'node "/old install/capri-hook.js"', async: true };
+      original.hooks.PreToolUse[0].hooks.unshift(capri);
+      original.hooks.PreToolUse[0].hooks.push({ ...capri, command: 'node "/older/capri-hook.js"' });
+      original.hooks.Stop[0].hooks.push(capri);
+      original.hooks.FutureEvent[0].hooks.unshift(capri);
+      original.hooks.SessionEnd = [{ hooks: [capri] }];
+      const before = JSON.stringify(original, null, 2) + '\n';
+      fs.writeFileSync(file, before);
+
+      const result = claude[action]();
+      const expected = structuredClone(other);
+      if (action === 'install') {
+        for (const event of claude.EVENTS) {
+          expected.hooks[event] ||= [];
+          expected.hooks[event].push({ hooks: [{ type: 'command', command: result.command, async: true, timeout: 10 }] });
+        }
+      } else {
+        assert.equal(result.removed, true);
+      }
+      assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), expected);
+      assert.equal(claude.status().installed, action === 'install');
+      if (action === 'install') assert.deepEqual(claude.status().events.sort(), [...claude.EVENTS].sort());
+      const backups = fs.readdirSync(dir).filter((name) => name.includes('.capri-backup-'));
+      assert.equal(backups.length, 1);
+      assert.equal(fs.readFileSync(path.join(dir, backups[0]), 'utf8'), before);
+
+      const after = fs.readFileSync(file, 'utf8');
+      claude[action]();
+      assert.equal(fs.readFileSync(file, 'utf8'), after);
+      assert.deepEqual(fs.readdirSync(dir).filter((name) => name.includes('.capri-backup-')), backups);
+      if (action === 'install') {
+        claude.uninstall();
+        assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), other);
+        assert.equal(claude.status().installed, false);
+      }
+      assert.equal(claude.uninstall().removed, false);
+    } finally {
+      if (old === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = old;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
+
+test('Claude installer handles fresh profiles and leaves invalid JSON unchanged', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-claude-hooks-'));
+  const old = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try {
+    const claude = require('../scripts/install-hooks');
+    const file = path.join(dir, 'settings.json');
+    assert.equal(claude.uninstall().removed, false);
+    assert.equal(fs.existsSync(file), false);
+    claude.install();
+    assert.equal(claude.status().installed, true);
+    assert.equal(fs.readdirSync(dir).length, 1);
+    claude.uninstall();
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), {});
+
+    fs.writeFileSync(file, '{broken');
+    const files = fs.readdirSync(dir);
+    for (const action of ['install', 'uninstall']) {
+      assert.throws(() => claude[action](), /not valid JSON/);
+      assert.equal(fs.readFileSync(file, 'utf8'), '{broken');
+      assert.deepEqual(fs.readdirSync(dir), files);
+    }
+  } finally {
+    if (old === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = old;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('Antigravity: its events reach her as its own sessions, and its hook never decides for it', async (t) => {
   const events = [];
   const server = createBridge({ port: 0, onEvent(evt) { events.push(evt); } });
