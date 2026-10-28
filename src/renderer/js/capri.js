@@ -3,9 +3,7 @@
 // pose-to-pose acts (acting.js) drawn on twos, on ones for the action beats.
 //
 // Stances: floating ("stand"), perched on a window ("sit"), peeking in from a screen edge
-// ("peek"), falling ("fall") when the window under her goes away or you drop her, held up by the
-// pointer ("held"), flying through the air when you throw her or she jumps to another screen
-// ("fly"), and knocked down on the floor after a crash ("down").
+// ("peek"), and falling ("fall") when the window under her goes away or you drop her.
 
 import { SpriteRenderer, SPRITE } from './sprite.js';
 import { ACTS, NEUTRAL, Player } from './acting.js';
@@ -18,18 +16,6 @@ const SLEEP_AFTER = 10 * 60 * 1000;
 const DOZE_AFTER = 20 * 1000; // asleep this long, she comes apart down to her mask
 const GRAVITY = 2600; // px/s²
 const THIGH = 73;     // hip to knee, sprite px (see sprite.js)
-const DEG = Math.PI / 180;
-
-// Thrown (throwHer): her middle, where she spins and where she's held while she flies (sprite px),
-// how fast the pointer has to be going when you let go of her for her to fly instead of drop
-// (px/s), and as fast as she goes.
-const MID = { x: 118, y: 232 };
-const THROW_MIN = 650;
-const THROW_MAX = 4200;
-const THROW_GRAVITY = 2500;
-const LEAP_GRAVITY = 3000;
-// the stances where she's turned by her own spin (this.spin) instead of her acts' lean
-const SPUN = new Set(['held', 'fly', 'down']);
 
 const UPLINK_DAY = 'capri.uplinkDay'; // the last day she sent the red light up
 
@@ -63,17 +49,7 @@ export class Capri {
     this.restOn = 'corner'; // where she rests when nothing's going on: her corner, or 'taskbar' (her menu)
     this.nextHome = 0;
     this.dragging = false;
-    this.track = [];      // where the pointer was lately while it holds her: [{ x, y, t }]
-    this.spin = 0;        // degrees she's turned while held, flying or knocked down
-    this.held = null;     // { at: the sprite point you're holding her by, w: how fast she swings }
-    this.flight = null;   // thrown, or jumping to another screen (see throwHer)
-    this.lying = null;    // knocked down: { c: her middle on screen, side }
-    this.skid = null;     // sliding on her feet after landing a throw: { v, last }
-    this.squash = null;   // flattened against what she just hit, on screen
-    this.override = null; // a pose laid over her acts, drawing by drawing (getting back up)
-    this.throwId = 0;     // bumped by every throw and every grab: what was going on after a throw stops
-    this.refuseUntil = 0; // thrown once too often: she won't let you pick her up before then
-    this.fondness = 0;    // how close she is to you, 0 to 4 (bond.js stages)
+    this.grooving = false;
 
     this.p = {
       seed: 0, boil: 0.9, hair: 0, head: 0, mane: 0, armL: 0, armR: 0, longL: 1, longR: 1, sit: 0, kickL: 0, kickR: 0,
@@ -113,14 +89,8 @@ export class Capri {
     this.onUnstow = null; // she's coming out of it
     this.chipAt = null;   // () => the biochip's middle on screen
     this.onDoze = null;   // ('start', face) | 'waking' | 'end': down to her mask and back
-    this.onThrown = null; // ({ how: 'ko' | 'feet' | 'ledge' | 'leap', hard, hits }) once she's back to herself
-    this.onDodge = null;  // she got away from your pointer instead of letting you pick her up
-    this.canCross = null; // (side, y) => is there another screen past that side's edge, at that height
-    this.onCross = null;  // async (side, at) => moves her window over to it: { y } there, or null
-    this.onScreenOf = null; // async (cursor) => her window moved to the screen the pointer is on: the pointer there
 
     this.alphaMap = this.buildAlphaMap(image);
-    this.hull = buildHull(this.alphaMap);
     this.setScale(this.scale);
     this.bindPointer();
     this.loop = this.loop.bind(this);
@@ -148,6 +118,10 @@ export class Capri {
     return data;
   }
 
+  setGroove(on) {
+    this.grooving = Boolean(on);
+  }
+
   setScale(scale) {
     this.scale = scale;
     this.sprite.resize(scale);
@@ -155,76 +129,13 @@ export class Capri {
     this.place();
   }
 
-  // Flip, lean and squash all pivot on her feet, or on her seat when she sits on a ledge (so a
-  // squash presses her onto it instead of pulling her down through it), on where you hold her
-  // (she swings from it), or on her middle while she flies or lies on the floor.
-  pivotPoint() {
-    if (this.stance === 'held' && this.held) return this.held.at;
-    if (this.stance === 'fly' || this.stance === 'down') return MID;
-    if (this.stance === 'sit') return { x: SPRITE.feet.x, y: SPRITE.hip };
-    return SPRITE.feet;
-  }
-
+  // Flip, lean and squash all pivot on her feet, or on her seat when she sits on a ledge
+  // (so a squash presses her onto it instead of pulling her down through it).
   pivot() {
     const s = this.scale;
-    const P = this.pivotPoint();
-    this.canvas.style.transformOrigin = `${(SPRITE.pad + P.x) * s}px ${(SPRITE.pad + P.y) * s}px`;
-  }
-
-  // A point of the sprite on screen, as it's drawn before she's turned: from her feet, the way she faces.
-  flat(sx, sy) {
-    const s = this.scale;
-    return { x: this.pos.x + (sx - SPRITE.feet.x) * s * this.facing, y: this.pos.y + (sy - SPRITE.feet.y) * s + this.bob };
-  }
-
-  // How far she's turned on screen, degrees: her lean or spin, and upside down when she hangs from the top.
-  get turn() {
-    return (this.upside ? 180 : 0) + this.tilt;
-  }
-
-  // ...and where that point really is, once she's turned around her pivot.
-  screenPoint(sx, sy) {
-    const p = this.flat(sx, sy);
-    if (!this.turn) return p;
-    const P = this.pivotPoint();
-    return turnAround(p, this.flat(P.x, P.y), this.turn * DEG);
-  }
-
-  // The other way: the point of the sprite under screen point (x, y).
-  spritePoint(x, y) {
-    let at = { x, y };
-    if (this.turn) {
-      const P = this.pivotPoint();
-      at = turnAround(at, this.flat(P.x, P.y), -this.turn * DEG);
-    }
-    const s = this.scale;
-    return { x: SPRITE.feet.x + ((at.x - this.pos.x) / s) * this.facing, y: SPRITE.feet.y - (this.pos.y + this.bob - at.y) / s };
-  }
-
-  // How far her outline reaches from her middle on screen once turned `deg` (px): { minX, maxX,
-  // minY, maxY }, and `low`, the x of her lowest point (where she touches the floor). Her outline
-  // at rest, mane and all: she bounces off the edges of the screen with the tips of her mane.
-  reachAt(deg, facing = this.facing) {
-    const a = deg * DEG, c = Math.cos(a), sn = Math.sin(a), s = this.scale;
-    const r = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, low: 0 };
-    for (const [hx, hy] of this.hull) {
-      const x = hx * facing;
-      const X = (x * c - hy * sn) * s, Y = (x * sn + hy * c) * s;
-      if (X < r.minX) r.minX = X;
-      if (X > r.maxX) r.maxX = X;
-      if (Y < r.minY) r.minY = Y;
-      if (Y > r.maxY) {
-        r.maxY = Y;
-        r.low = X;
-      }
-    }
-    return r;
-  }
-
-  // Flying or lying there, she's placed by her middle: her feet follow from it.
-  setMid(c) {
-    const s = this.scale;
-    this.pos = { x: c.x - (MID.x - SPRITE.feet.x) * s * this.facing, y: c.y - (MID.y - SPRITE.feet.y) * s };
+    const fx = (SPRITE.pad + SPRITE.feet.x) * s;
+    const fy = (SPRITE.pad + (this.stance === 'sit' ? SPRITE.hip : SPRITE.feet.y)) * s;
+    this.canvas.style.transformOrigin = `${fx}px ${fy}px`;
   }
 
   setView(w, h, floor = h) {
@@ -242,19 +153,11 @@ export class Capri {
 
   place() {
     const s = this.scale;
-    const P = this.pivotPoint();
-    const o = this.flat(P.x, P.y);
-    const left = Math.round(o.x - (SPRITE.pad + P.x) * s);
-    const top = Math.round(o.y - (SPRITE.pad + P.y) * s);
-    let move = `translate3d(${left}px, ${top}px, 0)`;
-    // flattened against a wall or the floor: squashed on screen, around where she hit it
-    const sq = this.squashNow();
-    if (sq) {
-      const ox = (sq.at.x - left).toFixed(1), oy = (sq.at.y - top).toFixed(1);
-      move += ` translate(${ox}px, ${oy}px) scale(${sq.x.toFixed(3)}, ${sq.y.toFixed(3)}) translate(${-ox}px, ${-oy}px)`;
-    }
-    this.root.style.transform = move;
-    this.canvas.style.transform = `rotate(${this.turn.toFixed(2)}deg) scale(${(this.facing * this.sx).toFixed(3)}, ${this.sy.toFixed(3)})`;
+    const left = this.pos.x - (SPRITE.pad + SPRITE.feet.x) * s;
+    const top = this.pos.y - (SPRITE.pad + SPRITE.feet.y) * s + this.bob;
+    const turn = (this.upside ? 180 : 0) + this.tilt;
+    this.root.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+    this.canvas.style.transform = `rotate(${turn.toFixed(2)}deg) scale(${(this.facing * this.sx).toFixed(3)}, ${this.sy.toFixed(3)})`;
     this.onMove?.(this.head());
   }
 
@@ -268,11 +171,6 @@ export class Capri {
       const y = at.y + dy + bob;
       return { x: at.x - dx, y, top: y - 30 * s };
     }
-    if (at === this.pos && SPUN.has(this.stance) && this.tilt) {
-      // turned around (held, thrown, lying there): her face where it really is, the tips of her mane above it
-      const face = this.screenPoint(SPRITE.head.x, SPRITE.head.y);
-      return { ...face, top: face.y - 70 * s };
-    }
     return { x: at.x + dx, y: at.y - dy + bob, top: at.y - SPRITE.feet.y * s + bob };
   }
 
@@ -280,9 +178,14 @@ export class Capri {
   hit(x, y) {
     if (this.hidden || this.p.alpha < 0.5) return false;
     if (this.perch?.id === 'taskbar' && y > this.view.floor) return false; // the taskbar under her legs stays clickable
-    const at = this.spritePoint(x, y);
-    const sx = at.x;
-    let sy = at.y;
+    const s = this.scale;
+    const fy = this.pos.y + this.bob;
+    if (this.upside) {
+      x = 2 * this.pos.x - x;
+      y = 2 * fy - y;
+    }
+    const sx = SPRITE.feet.x + ((x - this.pos.x) / s) * this.facing;
+    let sy = SPRITE.feet.y - (fy - y) / s;
     if (this.p.sit > 0 && sy > SPRITE.hip) {
       // same fold as the shader: short thighs, legs ridden up
       const c = lerp(1, 0.3, this.p.sit);
@@ -412,7 +315,7 @@ export class Capri {
   // ---------- frame loop ----------
 
   interval() {
-    if (this.busy || this.stance === 'fall' || SPUN.has(this.stance) || this.skid || this.act?.player.act.fps === 24) return ON_ONES;
+    if (this.busy || this.stance === 'fall' || this.act?.player.act.fps === 24) return ON_ONES;
     return this.mode === 'sleep' ? ASLEEP : ON_TWOS;
   }
 
@@ -460,9 +363,6 @@ export class Capri {
     if (this.mode === 'sleep' && this.stance === 'sit' && !act) {
       Object.assign(pose, { head: 0.12, mane: -0.1, kickL: 0.03, kickR: 0.03, armL: -0.45, armR: -0.45 }); // dozing on the ledge
     }
-    if (this.stance === 'fly') this.flyPose(pose);
-    else if (this.stance === 'held') this.heldPose(pose);
-    if (this.override) Object.assign(pose, this.override);
 
     p.head = pose.head;
     p.mane = pose.mane;
@@ -475,11 +375,28 @@ export class Capri {
     p.kickR = pose.kickR;
     p.smear = pose.smear;
     p.echo = pose.echo;
+
+    if (this.grooving && !reducedMotion.matches && this.mode !== 'sleep' && !this.dormant && !this.stowed && this.stance !== 'fall' && !this.dragging) {
+      // Relaxed, slow music groove at ~68 BPM (1 beat every ~880ms)
+      const beat = (now / 880) * Math.PI * 2;
+      // Head nodding to the beat (positive rotates forward/down around neck)
+      p.head += Math.sin(beat) * 0.08;
+      // Mane sway with subtle lag
+      p.hair += Math.cos(beat) * 1.1;
+      // Gentle body bounce in time
+      const bounce = Math.abs(Math.sin(beat)) * 1.4;
+      pose.bob += bounce;
+      if (this.stance === 'sit') {
+        const leg = Math.sin(beat * 0.5) * 0.05;
+        p.kickL += leg;
+        p.kickR -= leg;
+      }
+    }
+
     // on a ledge she stays seated: no lifting off it, no sinking through it
     const bob = this.stance === 'sit' ? clamp(pose.bob, -3, 2) : pose.bob;
-    const spun = SPUN.has(this.stance);
-    this.bob = spun || this.dragging ? 0 : bob;
-    this.tilt = spun ? this.spin + pose.tilt : pose.tilt;
+    this.bob = this.dragging ? 0 : bob;
+    this.tilt = this.dragging ? 0 : pose.tilt;
     this.sx = pose.sx;
     this.sy = pose.sy;
     if (this.debug) Object.assign(p, this.debug); // --dev pose overrides
@@ -491,15 +408,6 @@ export class Capri {
       this.updateFall(now);
       return;
     }
-    if (this.stance === 'fly') {
-      this.updateFly(now);
-      return;
-    }
-    if (this.stance === 'held') {
-      this.swing(now);
-      return;
-    }
-    if (this.skid) this.updateSkid(now);
     if (this.busy || this.dragging) return;
 
     if (now > this.nextTwitch) {
@@ -555,14 +463,6 @@ export class Capri {
       if (this.stance !== 'peek') this.flourish();
       return;
     }
-    // attached to you (bond.js): now and then she just comes over to where your pointer is
-    if (this.fondness >= 3 && this.mouse && Math.random() < 0.2) {
-      const to = this.summonSpot(this.mouse);
-      if (Math.hypot(to.x - this.pos.x, to.y - this.pos.y) > 200) {
-        this.teleport(to, { face: this.mouse.x < to.x ? 1 : -1 }).then(() => this.perform('curious', this.mouse && this.mouse.x < this.pos.x ? -1 : 1));
-        return;
-      }
-    }
     if (this.stance === 'sit' && this.perch?.id === 'taskbar') {
       // nothing to hop off or take over down there: a flourish, or off for a bit (she comes back)
       if (Math.random() < 0.6) this.flourish();
@@ -595,7 +495,6 @@ export class Capri {
   // Play an act from acting.js. Resolves when it's over (or cut off by a stronger one).
   perform(name, dir = 0, { reach = 1 } = {}) {
     if (this.stowed || this.dormant) return Promise.resolve(); // nobody to act: she's in her biochip, or just her mask
-    if (SPUN.has(this.stance) && name !== 'grabbed') return Promise.resolve(); // held, flying or knocked down: not now
     const act = ACTS[name];
     if (reducedMotion.matches && act.fps === 24) {
       if (act.flip) this.facing *= -1;
@@ -622,9 +521,6 @@ export class Capri {
     this.perch = perch;
     this.peekSide = peekSide;
     this.p.sit = stance === 'sit' ? 1 : 0;
-    if (!SPUN.has(stance)) this.spin = 0;
-    if (stance !== 'held') this.held = null;
-    if (stance !== 'down') this.lying = null;
     this.base = this.restBase(dir);
     this.pivot();
   }
@@ -640,9 +536,6 @@ export class Capri {
     if (this.stance === 'sit') return 'sit';
     if (this.stance === 'peek') return 'peek';
     if (this.stance === 'fall') return 'fall';
-    if (this.stance === 'held') return 'held';
-    if (this.stance === 'fly') return this.flight?.kind === 'leap' ? 'leap' : 'tumble';
-    if (this.stance === 'down') return 'ko';
     return this.mode === 'sleep' ? 'sleep' : 'stand';
   }
 
@@ -978,24 +871,6 @@ export class Capri {
         this.twitch();
         this.voice.play('tick');
         break;
-      case 'dust': // shaking off a crash: her mane flares and the shards fly off it
-        this.fx.burst(mane.x, mane.y, { count: 16, power: 0.7, spread: 150 * s });
-        this.voice.play('tick');
-        break;
-      case 'steam': { // overheating: heat coming off her, and she flushes red for a drawing
-        this.fx.heat(h.x + rand(-30, 30) * s, h.top + 20 * s);
-        const p = this.p;
-        p.sil = RED;
-        p.silAmount = 0.32;
-        setTimeout(() => {
-          if (p.sil === RED && p.silAmount < 0.5) p.silAmount = 0;
-        }, ON_TWOS);
-        break;
-      }
-      case 'hiss': // jealous: sparks crawling over her, and a hiss
-        this.fx.crackle(() => this.head(), { life: 520, radius: 90 * s + 20, count: 3 });
-        this.voice.play('jealous');
-        break;
       default:
         if (this.sky) this.skyCue(cue);
         break;
@@ -1099,7 +974,7 @@ export class Capri {
   // comes back down (that's when the "done" panel comes in), or at the end if anything cut it short.
   async celebrate({ onSpeak } = {}) {
     this.onSpeak = onSpeak;
-    if (reducedMotion.matches || this.stowed || this.dormant || SPUN.has(this.stance)) {
+    if (reducedMotion.matches || this.stowed || this.dormant) {
       this.voice.play('done');
       this.fireSpeak();
       return;
@@ -1345,21 +1220,10 @@ export class Capri {
       && this.windows.wins.some((w) => w.id === this.perch?.id);
   }
 
-  // The windows in front of window `id` (nothing of hers is drawn over those).
-  coversOf(id) {
-    const front = [];
-    for (const o of this.windows.wins) {
-      if (o.id === id) break;
-      front.push(o);
-    }
-    return front;
-  }
-
   // Like in the show, she gets into things: she dives into the window she sits on and takes it
   // over (fx.possess: its frame crackles, it glitches, it looks at you with her eyes), then comes
-  // out of another window, or further along this one if there's no other. Jealous (`angry`), it
-  // glares at you, with `say` written across it.
-  async possess({ say = '', angry = false } = {}) {
+  // out of another window, or further along this one if there's no other.
+  async possess() {
     if (!this.canPossess()) return false;
     const s = this.scale;
     const id = this.perch.id;
@@ -1373,12 +1237,19 @@ export class Capri {
     this.fx.streak(head.x, head.y, this.pos.x, win.y + 40 * s);
 
     const rect = () => this.windows.wins.find((w) => w.id === id) || null;
-    const covers = () => this.coversOf(id);
-    const taken = this.fx.possess(rect, { covers, entry, look: () => this.mouse, say, angry });
+    const covers = () => {
+      const front = [];
+      for (const o of this.windows.wins) {
+        if (o.id === id) break;
+        front.push(o);
+      }
+      return front;
+    };
+    const taken = this.fx.possess(rect, { covers, entry, look: () => this.mouse });
     this.voice.play('bolt');
     await sleep(300);
-    this.voice.play(angry ? 'jealous' : 'possess');
-    await sleep(say ? 2600 : 1600); // a line written across it: time to read it
+    this.voice.play('possess');
+    await sleep(1600);
     taken.leave();
     await sleep(260);
 
@@ -1681,38 +1552,21 @@ export class Capri {
     return Boolean(win && !win.max && win.w > 120 && win.y > -10 && !this.covered(win, win.x + win.w / 2));
   }
 
-  // Where to stand next to the mouse pointer.
-  summonSpot(cursor) {
+  // Show up next to the mouse pointer (used when Claude needs you).
+  async summon(cursor) {
     const { w } = this.view;
     const s = this.scale;
     const side = 150 * s + 30;
     const dx = cursor.x > w / 2 ? -260 : 260;
-    return {
+    const to = {
       x: clamp(cursor.x + dx, side, w - side),
       y: clamp(cursor.y + SPRITE.height * s * 0.45, SPRITE.height * s + 120, this.floor),
     };
-  }
-
-  // Show up next to the mouse pointer (used when Claude needs you).
-  async summon(cursor) {
-    const to = this.summonSpot(cursor);
     if (this.stance === 'stand' && Math.hypot(to.x - this.pos.x, to.y - this.pos.y) < 160) {
       this.facing = cursor.x < this.pos.x ? 1 : -1;
       return;
     }
     await this.teleport(to, { face: cursor.x < to.x ? 1 : -1 });
-  }
-
-  // Next to the pointer wherever it is: on her screen, or on another one (she goes over to it
-  // first). Resolves with the pointer as seen from where she ends up, or null.
-  async toPointer(cursor) {
-    if (!cursor) return null;
-    if (cursor.inside) {
-      await this.summon(cursor);
-      return cursor;
-    }
-    if (cursor.display == null || !this.onScreenOf) return null;
-    return this.onScreenOf(cursor);
   }
 
   setHidden(hidden) {
@@ -1729,26 +1583,25 @@ export class Capri {
       if (this.hit(e.clientX, e.clientY)) this.onMenu?.(); // right-click: her menu
     });
     this.canvas.addEventListener('mousedown', (e) => {
-      if (e.button !== 0 || !this.hit(e.clientX, e.clientY)) return;
-      // thrown: you can catch her on the fly, or pick her up off the floor
-      const thrown = this.stance === 'fly' || this.stance === 'down';
-      if (this.busy && !thrown) return;
-      if (!thrown && performance.now() < this.refuseUntil) {
-        this.dodge(); // thrown around once too often: not again
-        return;
-      }
-      down = { x: e.clientX, y: e.clientY, pos: { ...this.pos }, at: this.spritePoint(e.clientX, e.clientY) };
-      this.track = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
-      if (thrown) this.pickUp(down);
+      if (e.button !== 0 || this.busy || !this.hit(e.clientX, e.clientY)) return;
+      down = { x: e.clientX, y: e.clientY, pos: { ...this.pos } };
     });
     window.addEventListener('mousemove', (e) => {
       this.mouse = { x: e.clientX, y: e.clientY }; // a window she's in watches it
       if (down) {
-        const now = performance.now();
-        this.track.push({ x: e.clientX, y: e.clientY, t: now });
-        while (this.track.length > 2 && now - this.track[0].t > 160) this.track.shift();
         const dx = e.clientX - down.x, dy = e.clientY - down.y;
-        if (!this.dragging && Math.hypot(dx, dy) > 5 && !this.busy) this.pickUp(down);
+        if (!this.dragging && Math.hypot(dx, dy) > 5 && !this.busy) {
+          this.dragging = true;
+          if (this.upside) {
+            // flip back upright under the pointer
+            down.pos = { x: down.pos.x, y: down.y + (SPRITE.feet.y - SPRITE.head.y) * this.scale };
+          }
+          this.endAct(false);
+          this.setStance('stand');
+          this.p.glitch = 0.18;
+          this.p.split = 2;
+          this.onTeleport?.('start');
+        }
         if (this.dragging) {
           this.pos = {
             x: clamp(down.pos.x + dx, 40, this.view.w - 40),
@@ -1766,647 +1619,14 @@ export class Capri {
       const wasDragging = this.dragging;
       down = null;
       this.dragging = false;
-      if (!wasDragging) {
+      if (wasDragging) {
+        tween(this.p, { glitch: 0, split: 0 }, 200, ease.out);
+        this.onTeleport?.('end');
+        this.drop();
+      } else {
         this.onClick?.();
-        return;
       }
-      tween(this.p, { glitch: 0, split: 0 }, 200, ease.out);
-      // let go while the pointer was still moving fast: she flies off with it
-      const v = this.pointerSpeed();
-      if (Math.hypot(v.x, v.y) >= THROW_MIN && !reducedMotion.matches) {
-        this.throwHer(v.x, v.y); // the panel stays away until she's back to herself
-        return;
-      }
-      this.setStance('stand'); // upright again, under where you held her
-      this.onTeleport?.('end');
-      this.drop();
     });
-  }
-
-  // How fast the pointer holding her was going just now (px/s): none if it had stopped.
-  pointerSpeed() {
-    const now = performance.now();
-    const pts = this.track.filter((p) => now - p.t < 80);
-    if (pts.length < 2 || now - pts.at(-1).t > 60) return { x: 0, y: 0 };
-    const a = pts[0], b = pts.at(-1);
-    const dt = Math.max(0.012, (b.t - a.t) / 1000);
-    return { x: (b.x - a.x) / dt, y: (b.y - a.y) / dt };
-  }
-
-  // Picked up, or caught in the air: she hangs from the point you hold her by, turned as she was.
-  pickUp(down) {
-    const was = this.stance;
-    const spin = SPUN.has(was) ? norm(this.spin) : 0;
-    this.throwId += 1; // whatever was going on after a throw is over
-    this.flight = null;
-    this.skid = null;
-    this.squash = null;
-    this.override = null;
-    this.busy = false;
-    this.dragging = true;
-    if (this.upside) down.at = { x: SPRITE.head.x, y: SPRITE.head.y }; // hanging from the top: upright again, by the head
-    this.endAct(false);
-    const at = { x: clamp(down.at.x, 24, SPRITE.width - 24), y: clamp(down.at.y, 24, SPRITE.height - 24) };
-    this.held = { at, w: 0, last: performance.now() };
-    this.setStance('held');
-    this.spin = spin;
-    // the point you hold stays right under the pointer, whatever she does around it
-    const s = this.scale;
-    this.pos = { x: down.x - (at.x - SPRITE.feet.x) * s * this.facing, y: down.y - (at.y - SPRITE.feet.y) * s };
-    down.pos = { ...this.pos };
-    this.perform('grabbed');
-    this.p.glitchSeed = Math.random() * 100;
-    this.p.glitch = 0.18;
-    this.p.split = 2;
-    this.onTeleport?.('start');
-    this.voice.play('tick');
-    this.place();
-  }
-
-  // Held: moving the pointer swings her the other way, like something hanging from it, and she
-  // swings back and forth a little once it stops. A spring, in degrees.
-  swing(now) {
-    const h = this.held;
-    if (!h) return;
-    const dt = Math.min(0.05, (now - h.last) / 1000);
-    h.last = now;
-    const v = this.pointerSpeed();
-    const target = clamp(v.x * 0.014, -40, 40);
-    h.w += ((target - this.spin) * 95 - h.w * 8.5) * dt;
-    this.spin += h.w * dt;
-  }
-
-  // Held: her mane trailing the way the pointer drags her, a smear when it goes fast.
-  heldPose(pose) {
-    const v = this.pointerSpeed();
-    const speed = Math.hypot(v.x, v.y);
-    if (speed < 80) return;
-    const [ux, uy] = this.inFrame(v.x / speed, v.y / speed);
-    const k = Math.min(1, speed / 2200);
-    pose.hair = clamp(-ux * 7 * k, -7, 7);
-    pose.mane += 0.25 * k;
-    if (k > 0.35) pose.smear = [-ux * 20 * k, -uy * 20 * k];
-  }
-
-  // A direction on screen in the frame of her drawing (turned and mirrored like it).
-  inFrame(x, y) {
-    const a = -this.spin * DEG;
-    return [(x * Math.cos(a) - y * Math.sin(a)) * this.facing, x * Math.sin(a) + y * Math.cos(a)];
-  }
-
-  // ---------- thrown ----------
-
-  // Let go of her while the pointer was moving: she flies off with its speed (px/s), tumbling.
-  // For the first two drawings she's one long streak along the throw, head first (or feet first,
-  // held by the legs), then she spins. She bounces off the edges of the screen (or goes through to
-  // the next screen, if there's one there), catches a window ledge if she comes down on it slowly
-  // enough or bounces off it, lands on her feet if she comes down upright, or crashes, slides along
-  // the floor and lies there a moment, seeing stars, before she gets back up and shakes it off.
-  // onThrown tells app.js how it went, for what she says about it.
-  throwHer(vx, vy) {
-    if (reducedMotion.matches || this.stowed || this.dormant) {
-      this.setStance('stand');
-      this.onTeleport?.('end');
-      this.drop();
-      return;
-    }
-    const s = this.scale;
-    const speed = Math.hypot(vx, vy);
-    if (speed > THROW_MAX) {
-      vx *= THROW_MAX / speed;
-      vy *= THROW_MAX / speed;
-    }
-    // where her middle is right now (held, she turns on where you held her)
-    const c = this.screenPoint(MID.x, MID.y);
-    const feetFirst = this.held && this.held.at.y > MID.y;
-    this.throwId += 1;
-    this.busy = true;
-    this.setStance('fly');
-    // her body along the throw, for the streak
-    const along = Math.atan2(vx, -vy) / DEG + (feetFirst ? 180 : 0);
-    // the faster sideways, the faster she spins; thrown straight up or down she spins anyway
-    const w = clamp(vx * 0.32, -900, 900) + rand(-80, 80) + (Math.abs(vx) < 300 ? pick([-1, 1]) * rand(220, 420) : 0);
-    this.flight = {
-      kind: 'throw', id: this.throwId, c, v: { x: vx, y: vy }, a: along, w,
-      last: performance.now(), freezeUntil: 0, release: 2, frame: 0, phase: 'air', lie: 0, hits: 0, hard: 0,
-    };
-    this.spin = along;
-    this.setMid(c);
-    this.voice.play('throw', { power: Math.min(1, Math.hypot(vx, vy) / THROW_MAX) });
-    this.fx.burst(c.x, c.y, { count: 8, power: 0.45, spread: 50 * s });
-    this.p.glitchSeed = Math.random() * 100;
-    this.p.glitch = 0.22;
-    this.p.split = 3;
-    tween(this.p, { glitch: 0, split: 0 }, 260, ease.out);
-    this.place();
-  }
-
-  // Flying: her trail and her mane follow where she's going, in her own (turned, mirrored) frame.
-  flyPose(pose) {
-    const f = this.flight;
-    if (!f) return;
-    const speed = Math.hypot(f.v.x, f.v.y);
-    if (speed < 1) return;
-    const [ux, uy] = this.inFrame(f.v.x / speed, f.v.y / speed);
-    const k = Math.min(1, speed / 2400);
-    pose.hair = clamp(-ux * 9 * k, -8, 8);
-    pose.mane = Math.max(pose.mane, 0.28 + 0.4 * k);
-    pose.smear = [-ux * 24 * k, -uy * 24 * k];
-    pose.echo = f.kind === 'throw' && k > 0.5 ? [ux * 12 * k, uy * 12 * k] : [0, 0];
-    if (f.release > 0) {
-      // the drawings right as she leaves: one long streak, her other minds pulled out along it
-      Object.assign(pose, { sy: 1.32, sx: 0.76, mane: 0.7, smear: [-ux * 34, -uy * 34], echo: [ux * 16, uy * 16] });
-    }
-  }
-
-  // One drawing of her flight: gravity, a little air, her spin; then whatever she runs into.
-  updateFly(now) {
-    const f = this.flight;
-    if (!f || f.crossing) return;
-    const dt = Math.min(0.05, Math.max(0.001, (now - f.last) / 1000));
-    f.last = now;
-    if (now < f.freezeUntil) {
-      this.place(); // the hit stop: stuck to what she hit for a few drawings
-      return;
-    }
-    f.frame += 1;
-    if (f.release > 0) f.release -= 1;
-    const { w } = this.view;
-    const ground = this.view.floor - 2;
-    const before = this.reachAt(f.a);
-    const prev = { ...f.c };
-    if (f.phase === 'air') {
-      f.v.y += (f.kind === 'leap' ? LEAP_GRAVITY : THROW_GRAVITY) * dt;
-      f.v.x *= Math.pow(0.8, dt);
-      f.a += f.w * dt;
-      f.c.x += f.v.x * dt;
-      f.c.y += f.v.y * dt;
-    } else {
-      // down on the floor: sliding on her side, slowing down, settling flat
-      f.a += clamp(f.lie - f.a, -540 * dt, 540 * dt);
-      const brake = 2800 * dt;
-      f.v.x = Math.abs(f.v.x) <= brake ? 0 : f.v.x - Math.sign(f.v.x) * brake;
-      f.c.x += f.v.x * dt;
-    }
-    const r = this.reachAt(f.a);
-
-    // the sides of the screen: through to the next screen if there's one there, else she hits them
-    for (const side of [-1, 1]) {
-      const out = side < 0 ? f.c.x + r.minX < 0 : f.c.x + r.maxX > w;
-      if (!out || Math.sign(f.v.x) !== side) continue;
-      if (f.phase === 'air' && this.canCross?.(side, f.c.y)) {
-        if (side < 0 ? f.c.x + r.maxX < -6 : f.c.x + r.minX > w + 6) {
-          this.crossOver(side);
-          return;
-        }
-        continue;
-      }
-      f.c.x = side < 0 ? -r.minX : w - r.maxX;
-      this.impact({ x: -side, y: 0 }, Math.abs(f.v.x), { x: side < 0 ? 0 : w, y: f.c.y });
-      f.v.x = -f.v.x * 0.42;
-      f.v.y *= 0.85;
-      f.w = -f.w * 0.55 + rand(-90, 90);
-    }
-
-    if (f.phase === 'air') {
-      // the top of the screen
-      if (f.c.y + r.minY < 0 && f.v.y < 0) {
-        f.c.y = -r.minY;
-        this.impact({ x: 0, y: 1 }, -f.v.y, { x: f.c.x, y: 0 });
-        f.v.y = -f.v.y * 0.35;
-        f.w *= 0.7;
-      }
-      // the top edge of a window, on her way down
-      if (f.v.y > 0) {
-        const win = this.ledgeUnder(prev.y + before.maxY, f.c.y + r.maxY, f.c.x);
-        if (win && this.onLedge(f, win, r)) return;
-      }
-      if (f.c.y + r.maxY >= ground) {
-        f.c.y = ground - r.maxY;
-        if (this.onFloor(f, r)) return;
-      }
-      // her trail: shards of her mane left hanging in the air behind her
-      if (f.frame % 3 === 0 && Math.hypot(f.v.x, f.v.y) > 900) {
-        const h = this.screenPoint(SPRITE.head.x, SPRITE.head.y - 30);
-        this.fx.drift(h.x, h.y, Math.atan2(-f.v.y, -f.v.x) + rand(-0.5, 0.5));
-      }
-    } else {
-      f.c.y = ground - r.maxY;
-      if (Math.abs(f.v.x) > 140 && f.frame % 2 === 0) this.fx.sparks(f.c.x + r.low, ground, -Math.sign(f.v.x));
-      if (!f.v.x && Math.abs(f.lie - f.a) < 0.5) {
-        this.knockedDown();
-        return;
-      }
-    }
-    this.spin = f.a;
-    this.setMid(f.c);
-    this.place();
-  }
-
-  // She hits something at `speed` px/s, at screen point `at`, `n` pointing away from what she hit:
-  // the harder, the longer she sticks to it (the hit stop), the flatter she gets against it, the
-  // bigger the shockwave and the cracks it leaves. A window she hits shakes under her.
-  impact(n, speed, at, win = null) {
-    const f = this.flight;
-    const s = this.scale;
-    const hard = clamp((speed - 250) / 2300, 0, 1);
-    const now = performance.now();
-    f.hits += 1;
-    f.hard = Math.max(f.hard, hard);
-    const hold = Math.round(lerp(1, 4, hard)); // drawings she stays stuck to it
-    if (hard > 0.12) f.freezeUntil = now + hold * ON_ONES;
-    const mid = this.flat(MID.x, MID.y);
-    this.squash = { n, k: lerp(0.84, 0.56, hard), t: now, hold, rel: { x: at.x - mid.x, y: at.y - mid.y } };
-    this.voice.play('crash', { power: hard });
-    this.fx.ring(at.x, at.y, { size: lerp(0.18, 0.7, hard) });
-    this.fx.burst(at.x, at.y, { count: Math.round(lerp(5, 20, hard)), power: lerp(0.3, 0.95, hard), spread: 30 });
-    const rect = win ? () => this.windows.wins.find((o) => o.id === win.id) || null : null;
-    const covers = win ? () => this.coversOf(win.id) : null;
-    if (hard > 0.22) this.fx.crack(at, n, { size: lerp(50, 180, hard), rect, covers });
-    if (win) this.fx.jolt(rect, { covers, power: Math.max(0.3, hard) });
-    if (hard > 0.62) this.fx.lines(mid.x, mid.y, { inner: 110 * s + 50, life: 360 });
-    if (hard > 0.3) this.flash(hard > 0.65 ? [INK, RED] : [INK]);
-    const p = this.p;
-    p.glitchSeed = Math.random() * 100;
-    p.glitch = 0.2 + hard * 0.45;
-    p.split = 2 + hard * 6;
-    tween(p, { glitch: 0, split: 0 }, 300, ease.out);
-  }
-
-  // Flattened against what she just hit, on screen (whichever way she's turned), around where she
-  // hit it: held while the hit stop lasts, then back through an overshoot, a drawing each.
-  squashNow() {
-    const q = this.squash;
-    if (!q) return null;
-    const frame = Math.floor((performance.now() - q.t) / ON_ONES);
-    const k = frame < q.hold ? q.k : [1 + (1 - q.k) * 0.5, 0.95, 1.02][frame - q.hold];
-    if (k === undefined) {
-      this.squash = null;
-      return null;
-    }
-    const across = 1 + (1 - k) * 0.6;
-    const mid = this.flat(MID.x, MID.y);
-    const at = { x: mid.x + q.rel.x, y: mid.y + q.rel.y };
-    return Math.abs(q.n.x) > Math.abs(q.n.y) ? { x: k, y: across, at } : { x: across, y: k, at };
-  }
-
-  // Coming down on the floor: on her feet if she's upright, a bounce if she comes down hard, else
-  // she's down: she slides along it and settles on her side. True when she's done flying.
-  onFloor(f, r) {
-    const n = norm(f.a);
-    const at = { x: f.c.x + r.low, y: this.view.floor - 2 };
-    if (Math.abs(n) < 30) {
-      this.landOnFeet(f);
-      return true;
-    }
-    if (f.v.y > 420) {
-      this.impact({ x: 0, y: -1 }, f.v.y, at);
-      f.v.y = -f.v.y * 0.36;
-      f.v.x *= 0.72;
-      f.w = f.w * 0.5 - f.v.x * 0.12;
-      return false;
-    }
-    f.phase = 'slide';
-    f.v.y = 0;
-    f.lie = f.a + ((n >= 0 ? 90 : -90) - n); // the nearest way to lie on her side, without spinning round
-    this.voice.play('land');
-    return false;
-  }
-
-  // The window ledge she's coming down onto this drawing (her lowest point went from fromY to toY), if any.
-  ledgeUnder(fromY, toY, x) {
-    for (const win of this.windows.wins) {
-      if (!this.canSit(win) || fromY > win.y + 2 || toY < win.y) continue;
-      if (x < win.x + 30 || x > win.x + win.w - 30 || this.covered(win, x)) continue;
-      return win;
-    }
-    return null;
-  }
-
-  // Coming down on a window ledge: she catches it and sits there if she's about upright or slow
-  // enough, else she bounces off it and it shakes. True when she's done flying.
-  onLedge(f, win, r) {
-    const n = norm(f.a);
-    if (Math.abs(n) < 45 || f.v.y < 600) {
-      this.catchLedge(f, win);
-      return true;
-    }
-    f.c.y = win.y - r.maxY;
-    this.impact({ x: 0, y: -1 }, f.v.y, { x: f.c.x + r.low, y: win.y }, win);
-    f.v.y = -f.v.y * 0.38;
-    f.v.x *= 0.8;
-    f.w = f.w * 0.6 + rand(-120, 120);
-    return false;
-  }
-
-  catchLedge(f, win) {
-    const id = f.id;
-    this.flight = null;
-    const dx = clamp(f.c.x - win.x, 50, win.w - 60);
-    this.pos = this.seat(win, dx);
-    this.setStance('sit', { perch: { id: win.id, dx } });
-    this.voice.play('land');
-    this.fx.burst(this.pos.x, win.y, { count: 8, power: 0.4, spread: 40 });
-    this.place();
-    this.perform('plop').then(async () => {
-      if (id !== this.throwId) return;
-      await this.settle();
-      this.onThrown?.({ how: 'ledge', hard: f.hard, hits: f.hits });
-    });
-  }
-
-  // Down on her feet: the hard landing, sliding on along the floor if she was going sideways.
-  landOnFeet(f) {
-    const id = f.id;
-    const s = this.scale;
-    this.flight = null;
-    this.setStance('stand');
-    this.pos = { x: clamp(f.c.x - (MID.x - SPRITE.feet.x) * s * this.facing, 40, this.view.w - 40), y: this.floor };
-    this.skid = Math.abs(f.v.x) > 150 ? { v: f.v.x * 0.8, last: performance.now() } : null;
-    const hard = clamp((f.v.y - 250) / 2300, 0, 1);
-    this.voice.play(hard > 0.3 ? 'crash' : 'land', { power: hard * 0.7 });
-    this.fx.ring(this.pos.x, this.pos.y, { size: 0.25 + hard * 0.4 });
-    this.fx.burst(this.pos.x, this.pos.y - 10 * s, { count: 10 + Math.round(hard * 10), power: 0.5 + hard * 0.5, spread: 70 * s });
-    this.place();
-    this.perform('touchdown').then(async () => {
-      if (id !== this.throwId) return;
-      this.skid = null;
-      await this.settle();
-      this.onThrown?.({ how: f.kind === 'leap' ? 'leap' : 'feet', hard: f.hard, hits: f.hits });
-    });
-  }
-
-  // Sliding on along the floor on her feet after a landing, sparks under them.
-  updateSkid(now) {
-    const k = this.skid;
-    const dt = Math.min(0.05, (now - k.last) / 1000);
-    k.last = now;
-    const brake = 3200 * dt;
-    k.v = Math.abs(k.v) <= brake ? 0 : k.v - Math.sign(k.v) * brake;
-    this.pos.x = clamp(this.pos.x + k.v * dt, 40, this.view.w - 40);
-    if (Math.abs(k.v) > 120) this.fx.sparks(this.pos.x, this.view.floor - 2, -Math.sign(k.v), { count: 2 });
-    if (!k.v) this.skid = null;
-    this.place();
-  }
-
-  // Knocked down: on her side on the floor, seeing stars, until she gets back up (or you pick her
-  // up). Just tossed onto it (nothing hit hard), she's back up in a moment, no stars.
-  knockedDown() {
-    const f = this.flight;
-    const side = norm(f.a) >= 0 ? 1 : -1;
-    const soft = f.hard < 0.15;
-    this.flight = null;
-    this.setStance('down');
-    this.spin = side * 90;
-    this.lying = { c: { ...f.c }, side };
-    this.layDown();
-    this.place();
-    if (!soft) this.fx.dizzy(() => this.screenPoint(SPRITE.head.x, SPRITE.head.y - 20), { life: 2400 });
-    this.koSequence(f.id, side, { hard: f.hard, hits: f.hits, soft });
-  }
-
-  // Lying there (or getting up): her middle just high enough for her outline to rest on the floor.
-  layDown() {
-    const r = this.reachAt(this.spin);
-    const c = this.lying.c;
-    c.y = this.view.floor - 2 - r.maxY;
-    c.x = clamp(c.x, -r.minX, this.view.w - r.maxX);
-    this.setMid(c);
-  }
-
-  async koSequence(id, side, outcome) {
-    // a moment on the floor, a twitch now and then
-    const until = performance.now() + (outcome.soft ? rand(400, 700) : rand(1500, 2100));
-    while (performance.now() < until) {
-      await sleep(ON_TWOS * 4);
-      if (id !== this.throwId) return;
-      if (Math.random() < 0.3) this.twitch();
-    }
-    // back up: she curls up a little further first, springs up past upright, lands on her feet
-    const steps = [
-      [3, 97, { mane: -0.28, armL: -0.45, armR: -0.4, kickL: 0.3, kickR: 0.3, sy: 0.93, sx: 1.05 }],
-      [1, 62, { mane: 0.3, armL: 0.55, armR: 0.45, sy: 1.15, sx: 0.9, smear: [0, 16] }],
-      [1, 28, { mane: 0.4, armL: 0.38, armR: 0.32, sy: 1.08, sx: 0.94, smear: [0, 10] }],
-      [2, -8, { mane: 0.22, armL: 0.06, armR: 0.06, sy: 0.86, sx: 1.12 }],
-      [2, 3, { mane: 0.14, sy: 1.03, sx: 0.98 }],
-    ];
-    this.voice.play('rise');
-    for (const [hold, deg, pose] of steps) {
-      this.spin = side * deg;
-      this.override = pose;
-      this.layDown();
-      this.drawFrame();
-      await sleep(hold * ON_ONES);
-      if (id !== this.throwId) return;
-    }
-    this.override = null;
-    this.setStance('stand');
-    this.pos = { x: clamp(this.pos.x, 60, this.view.w - 60), y: this.floor };
-    this.place();
-    this.voice.play('land');
-    await this.perform('shake');
-    if (id !== this.throwId) return;
-    await this.settle();
-    this.onThrown?.({ how: 'ko', ...outcome });
-  }
-
-  // Thrown around once too often: she won't be picked up, and goes somewhere else instead.
-  dodge() {
-    if (this.busy) return;
-    this.onDodge?.();
-    this.teleport(this.spot('random'));
-  }
-
-  // ---------- other screens ----------
-
-  // Through the edge of her screen to the next one (thrown, or jumping over): her window moves
-  // there (onCross), and she comes in through the matching edge, going on the same way.
-  async crossOver(side) {
-    const f = this.flight;
-    f.crossing = true;
-    this.root.hidden = true; // past the edge: nothing of her left here while her window moves
-    this.fx.clear();
-    const there = this.onCross ? await this.onCross(side, { ...f.c }).catch(() => null) : null;
-    if (this.flight !== f) return;
-    this.root.hidden = this.hidden;
-    const r = this.reachAt(f.a);
-    f.crossing = false;
-    f.last = performance.now();
-    if (!there) {
-      // nowhere to go after all: back in through the edge she left by
-      f.c.x = side > 0 ? this.view.w - r.maxX : -r.minX;
-      f.v.x = -f.v.x * 0.4;
-      return;
-    }
-    // just outside the edge she comes in by, on the other screen
-    f.c = { x: side > 0 ? -r.maxX - 4 : this.view.w - r.minX + 4, y: clamp(there.y, 80, this.view.floor - 80) };
-    this.fx.rift(side > 0 ? 0 : this.view.w, f.c.y, { h: 260 * this.scale + 60, side });
-    this.voice.play('teleport-in');
-    this.setMid(f.c);
-    this.place();
-  }
-
-  // Over to the screen next to this one, through their shared edge (`side`: -1 left, 1 right): she
-  // turns to it, crouches, and jumps, leading with her arm. She goes through the edge like a throw
-  // would (canCross / onCross), and lands on her feet over there.
-  async leapTo(side) {
-    if (this.busy || this.stowed || this.dormant || this.hidden || this.dragging || reducedMotion.matches) return false;
-    if (this.stance !== 'stand' && this.stance !== 'sit') return false;
-    this.busy = true;
-    this.wake();
-    this.onTeleport?.('start');
-    this.stopPointing();
-    this.endAct(false);
-    this.facing = side > 0 ? -1 : 1;
-    await this.perform('crouch', side);
-    const s = this.scale;
-    const c = this.flat(MID.x, MID.y);
-    const dist = Math.max(80, side > 0 ? this.view.w - c.x : c.x) + 160 * s;
-    const T = clamp(dist / 1700, 0.32, 0.85); // seconds to the edge
-    const through = clamp(c.y - 140, 120, c.y); // she goes through it a bit higher than she leaves from
-    this.throwId += 1;
-    this.flight = {
-      kind: 'leap', id: this.throwId, c, v: { x: (side * dist) / T, y: (through - c.y - 0.5 * LEAP_GRAVITY * T * T) / T },
-      a: side * 10, w: 0, last: performance.now(), freezeUntil: 0, release: 1, frame: 0, phase: 'air', lie: 0, hits: 0, hard: 0,
-    };
-    this.setStance('fly', { dir: side });
-    this.spin = side * 10;
-    this.setMid(c);
-    this.voice.play('rise');
-    this.fx.burst(this.pos.x, this.pos.y, { count: 10, power: 0.5, spread: 50 * s });
-    this.place();
-    return true;
-  }
-
-  // To a screen that isn't right next to hers (or picked in her menu): she leaves in her column of
-  // light, `go` moves her window (and resolves with the pointer, as seen from there), and she comes
-  // down over there: next to the pointer if it's there, else in her corner.
-  async jumpScreen(go, { toPointer = false } = {}) {
-    if (this.stowed) {
-      await go(); // put away: her biochip just goes along with her window
-      return;
-    }
-    if (this.dormant) await this.rouse();
-    for (let i = 0; (this.busy || this.dragging) && i < 40; i++) await sleep(100);
-    this.busy = true;
-    this.wake();
-    this.onTeleport?.('start');
-    await this.vanish();
-    this.root.hidden = true;
-    this.fx.clear();
-    this.setStance('stand');
-    const cursor = await go().catch(() => null);
-    this.root.hidden = this.hidden;
-    const near = toPointer && cursor?.inside;
-    const to = near ? this.summonSpot(cursor) : this.spot('post');
-    await this.arrive(to, { face: near ? (cursor.x < to.x ? 1 : -1) : null });
-    await this.settle();
-    return cursor;
-  }
-
-  // ---------- your PC (pc.js) ----------
-
-  // Is she out and free to act, with nothing else going on?
-  get free() {
-    return !this.busy && !this.stowed && !this.dormant && !this.hidden && !this.dragging && !this.act
-      && (this.stance === 'stand' || this.stance === 'sit');
-  }
-
-  // The battery running out: she sags and flickers, fading, then holds on.
-  async drain() {
-    if (!this.free) return false;
-    this.perform('drained');
-    if (reducedMotion.matches) return true;
-    const p = this.p;
-    for (const [alpha, ms] of [[0.45, 120], [1, 90], [0.3, 160], [0.85, 110], [0.5, 140], [1, 0]]) {
-      p.alpha = alpha;
-      p.glitchSeed = Math.random() * 100;
-      p.glitch = alpha < 0.6 ? 0.25 : 0;
-      await sleep(ms);
-    }
-    p.glitch = 0;
-    return true;
-  }
-
-  // Plugged back in: the power rushes into her, her specks light up, a hop.
-  recharge() {
-    if (this.stowed || this.dormant || this.hidden) return;
-    const h = this.head();
-    if (!reducedMotion.matches) {
-      this.fx.burst(h.x, h.y + 60 * this.scale, { count: 16, inward: true, power: 0.6, spread: 140 * this.scale });
-      tween(this.p, { sparkle: 1.9 }, 300, ease.out).then(() => tween(this.p, { sparkle: 1 }, 700, ease.inOut));
-    }
-    this.voice.play('rise');
-    if (this.free) this.perform('hop');
-  }
-
-  // A USB stick plugged in: she dives down into it (by the clock, where Windows shows it), has a
-  // look around in there, and comes back out to her spot.
-  async visit(at) {
-    if (!this.free || reducedMotion.matches) return false;
-    this.busy = true;
-    this.wake();
-    this.onTeleport?.('start');
-    await this.perform('dive');
-    const head = await this.vanish({ beam: false });
-    this.fx.streak(head.x, head.y, at.x, at.y);
-    this.fx.burst(at.x, at.y, { count: 12, inward: true, power: 0.5, spread: 30 });
-    this.fx.ring(at.x, at.y, { size: 0.3 });
-    this.voice.play('bolt');
-    for (let i = 0; i < 3; i++) {
-      await sleep(650);
-      this.fx.crackle(at, { life: 380, radius: 40, count: 2 }); // her, rummaging in there
-    }
-    await sleep(300);
-    const to = this.spot('post');
-    const toHead = this.head(to);
-    this.fx.ring(at.x, at.y, { size: 0.35 });
-    this.fx.burst(at.x, at.y, { count: 12, power: 0.6, spread: 30 });
-    this.fx.streak(at.x, at.y, toHead.x, toHead.y);
-    await sleep(60);
-    await this.arrive(to);
-    await this.settle();
-    return true;
-  }
-
-  // ---------- jealous ----------
-
-  // You're on another AI: she goes and sits on its window and glares at you, then takes it over
-  // for a moment, `say` written across it. When it fills the screen (nothing to sit on), she stands
-  // in front of it instead and gets into it with a bolt. False if she couldn't.
-  async jealous(win, { say = '', takeOver = true } = {}) {
-    if (this.busy || this.stowed || this.dormant || this.hidden || this.dragging || SPUN.has(this.stance) || this.stance === 'fall') return false;
-    const take = takeOver && this.possessWindows && !reducedMotion.matches;
-    if (this.canSit(win) && win.id !== 'taskbar' && !this.covered(win, win.x + win.w * 0.5)) {
-      if (!(this.stance === 'sit' && this.perch?.id === win.id)) {
-        await this.sitOn({ win, dx: clamp(win.w * 0.5, 60, Math.max(60, win.w - 190)) });
-      }
-      if (this.stance !== 'sit' || this.perch?.id !== win.id) return false;
-      await this.perform('glare', this.mouse && this.mouse.x < this.pos.x ? -1 : 1);
-      if (take) await this.possess({ say, angry: true });
-      return true;
-    }
-    if (this.stance !== 'stand' || Math.abs(this.pos.y - this.floor) > 8) await this.teleport(this.spot('stage'));
-    if (this.busy || this.stance !== 'stand') return false;
-    await this.perform('glare', this.towardCenter());
-    if (!take) return true;
-    // a bolt off her hand into it, and it's hers for a moment
-    this.busy = true;
-    const dir = win.x + win.w / 2 < this.pos.x ? -1 : 1;
-    const side = this.armToward(dir);
-    const into = { x: clamp(win.x + win.w / 2, 40, this.view.w - 40), y: clamp(win.y + win.h * 0.46, 40, this.view.floor - 40) };
-    this.zapAt = null;
-    this.fx.bolt(this.limb(side).hand, into, { life: 320, forks: 3, width: 3 });
-    this.voice.play('bolt');
-    const rect = () => this.windows.wins.find((o) => o.id === win.id) || null;
-    const taken = this.fx.possess(rect, { covers: () => this.coversOf(win.id), entry: win.w / 2, look: () => this.mouse, say, angry: true });
-    await sleep(300);
-    this.voice.play('jealous');
-    await sleep(say ? 2600 : 1600);
-    taken.leave();
-    await sleep(260);
-    this.busy = false;
-    return true;
   }
 
   // Let go of her: onto a ledge if her hips are right at one, otherwise she falls.
@@ -2451,45 +1671,4 @@ export class Capri {
     if (Math.random() < 0.3 && this.zap(x, y)) return;
     this.perform('curious', x < h.x ? -1 : 1);
   }
-}
-
-// p turned by `a` radians around o, the way CSS rotate() turns things (clockwise on screen).
-function turnAround(p, o, a) {
-  const c = Math.cos(a), s = Math.sin(a), dx = p.x - o.x, dy = p.y - o.y;
-  return { x: o.x + dx * c - dy * s, y: o.y + dx * s + dy * c };
-}
-
-// An angle in degrees, brought back between -180 and 180.
-function norm(deg) {
-  return ((((deg + 180) % 360) + 360) % 360) - 180;
-}
-
-// Her outline at rest (the alpha map), as a convex hull around her middle, in sprite px: how far
-// she reaches in any direction once she's turned (reachAt). Her mane is most of it.
-function buildHull(alpha) {
-  const { width: w, height: h } = SPRITE;
-  const pts = [];
-  for (let y = 0; y < h; y += 3) {
-    let a = -1, b = -1;
-    for (let x = 0; x < w; x++) {
-      if (alpha[(y * w + x) * 4 + 3] > 40) {
-        if (a < 0) a = x;
-        b = x;
-      }
-    }
-    if (a >= 0) pts.push([a - MID.x, y - MID.y], [b - MID.x, y - MID.y]);
-  }
-  // Andrew's monotone chain
-  pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-  const cross = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
-  const half = (list) => {
-    const out = [];
-    for (const p of list) {
-      while (out.length >= 2 && cross(out.at(-2), out.at(-1), p) <= 0) out.pop();
-      out.push(p);
-    }
-    out.pop();
-    return out;
-  };
-  return [...half(pts), ...half([...pts].reverse())];
 }

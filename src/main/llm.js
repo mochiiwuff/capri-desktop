@@ -40,8 +40,45 @@ function endpoint(id, cfg) {
 
 const headers = (key) => ({ 'content-type': 'application/json', ...(key && { authorization: `Bearer ${key}` }) });
 
-// Why a server said no, in a sentence (Gemini sends its error inside an array), with a code when it's
-// worth another try: 'busy' (too many people on it right now), 'gone' (that model isn't served anymore).
+// Keep cloud and local chat requests inside a predictable context budget. The visible
+// transcript remains untouched; only the copy sent to the model is compacted.
+function boundMessages(messages, maxChars = 18000) {
+  const input = Array.isArray(messages) ? messages : [];
+  const system = input.find((message) => message?.role === 'system');
+  const latest = input.at(-1);
+  const systemMessage = system
+    ? { role: 'system', content: String(system.content || '').slice(0, 6000) }
+    : null;
+  const systemSize = systemMessage ? systemMessage.content.length : 0;
+  const latestBudget = Math.max(2000, maxChars - systemSize - 32);
+  const latestContent = String(latest?.content || '');
+  const boundedLatest = latestContent.length > latestBudget
+    ? `${latestContent.slice(0, Math.floor(latestBudget * 0.55))}\n[…contexto reduzido…]\n${latestContent.slice(-Math.floor(latestBudget * 0.45))}`
+    : latestContent;
+  const latestMessage = latest ? { ...latest, content: boundedLatest } : null;
+  const reserved = (systemMessage?.content.length || 0) + (latestMessage?.content.length || 0);
+  let remaining = Math.max(0, maxChars - reserved);
+  const middle = [];
+  for (let i = input.length - 2; i >= 0; i--) {
+    const message = input[i];
+    if (!message || message === system || message.role === 'system') continue;
+    const content = String(message.content || '');
+    const cost = content.length + 16;
+    if (cost > remaining) continue;
+    middle.unshift({ ...message, content });
+    remaining -= cost;
+  }
+  return [...(systemMessage ? [systemMessage] : []), ...middle, ...(latestMessage ? [latestMessage] : [])];
+}
+
+function classifyFailure(status, message) {
+  if (/tokens per day|\bTPD\b|daily token|insufficient_quota|quota (?:exceeded|reached)/i.test(message)) return 'quota';
+  if (status === 429 || status === 503 || /overloaded|high demand|unavailable/i.test(message)) return 'busy';
+  if (status === 404) return 'gone';
+  return null;
+}
+
+// Why a server said no (Gemini sends its error inside an array), and whether retrying makes sense.
 async function failure(res) {
   const body = await res.text().catch(() => '');
   let message = body.slice(0, 200) || `answered ${res.status}`;
@@ -52,8 +89,7 @@ async function failure(res) {
   } catch {
     // not JSON: the start of the body says it
   }
-  const code = res.status === 429 || res.status === 503 || /overloaded|high demand|unavailable/i.test(message) ? 'busy'
-    : res.status === 404 ? 'gone' : null;
+  const code = classifyFailure(res.status, message);
   return Object.assign(new Error(message), { status: res.status, code });
 }
 
@@ -65,6 +101,12 @@ function geminiModels(names) {
   return names
     .filter((n) => /gemini/.test(n) && !/embed|tts|image|audio|live|veo|imagen|computer-use|robotics|aqa/.test(n))
     .sort((a, b) => rank(a) - rank(b) || version(b) - version(a));
+}
+
+function chatCompletionModels(names) {
+  // OpenAI-compatible providers can list speech, embedding and moderation models
+  // alongside chat models. Never let fallback select those as a chat model.
+  return names.filter((name) => !/(?:whisper|\btts\b|text-to-speech|speech-to-text|transcri(?:be|ption)|embed(?:ding)?|moderation|prompt-guard|rerank)/i.test(name));
 }
 
 // The provider's models by name; null when it can't be reached (Ollama only), throws with why otherwise.
@@ -80,7 +122,7 @@ async function models(id, cfg) {
   const body = await res.json();
   const list = Array.isArray(body) ? body : body.data || body.models || [];
   const names = list.map((m) => (typeof m === 'string' ? m : m.id || m.name)).filter(Boolean);
-  return id === 'gemini' ? geminiModels(names) : names;
+  return id === 'gemini' ? geminiModels(names) : chatCompletionModels(names);
 }
 
 function warm(id, model) {
@@ -88,11 +130,26 @@ function warm(id, model) {
 }
 
 // OpenAI-style streaming (server-sent events): onDelta(piece) as it comes, resolves with all of it.
-async function openaiChat(p, { model, messages }, onDelta, signal) {
+function openaiMessages(messages, image) {
+  if (!image) return messages;
+  const copy = messages.map((message) => ({ ...message }));
+  const last = copy.at(-1);
+  if (last?.role === 'user') {
+    last.content = [
+      { type: 'text', text: String(last.content || '') },
+      { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${image}` } },
+    ];
+  }
+  return copy;
+}
+
+async function openaiChat(p, { model, messages, image }, onDelta, signal) {
   const res = await fetch(`${p.url}/chat/completions`, {
     method: 'POST',
     headers: headers(p.key),
-    body: JSON.stringify({ model, messages, stream: true }),
+    // Let each provider apply its model-specific completion limit. A fixed max_tokens
+    // breaks otherwise valid models (for example, some Groq routes allow only 512).
+    body: JSON.stringify({ model, messages: openaiMessages(messages, image), stream: true }),
     signal,
   });
   if (!res.ok) throw await failure(res);
@@ -171,6 +228,9 @@ function claudeChat(cfg, text, persona, onDelta, signal) {
         claudeStarted = true;
         if (msg.type === 'assistant') {
           for (const block of msg.message?.content || []) {
+            if (block.type === 'tool_use') {
+              console.warn('[capri:agent-tool]', JSON.stringify({ name: block.name || 'unknown', session: claudeSession }));
+            }
             if (block.type !== 'text' || !block.text) continue;
             const piece = (all ? '\n' : '') + block.text;
             all += piece;
@@ -207,21 +267,60 @@ function restoreClaude(saved) {
 
 const isChatSession = (id) => Boolean(id) && id === claudeSession;
 
-async function chat(id, cfg, { model, messages }, onDelta, signal) {
+async function chat(id, cfg, { model, messages, image }, onDelta, signal) {
   const p = endpoint(id, cfg);
-  if (p.kind === 'ollama') return ollama.chat({ model, messages }, onDelta, signal);
+  messages = boundMessages(messages);
+  if (p.kind === 'ollama') return ollama.chat({ model, messages, image }, onDelta, signal);
   // Claude Code keeps its own memory of the conversation: only her persona and your last message go
   if (p.kind === 'claude') return claudeChat(cfg, messages.at(-1).content, messages[0].content, onDelta, signal);
-  return openaiChat(p, { model, messages }, onDelta, signal);
+  return openaiChat(p, { model, messages, image }, onDelta, signal);
 }
 
-// Whether her answers stay on this PC: a server on this machine (and with Ollama, not a cloud model).
-function isLocal(id, cfg, model) {
-  if (id === 'ollama') {
-    return !ollama.isCloud(model) && /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/.test(process.env.OLLAMA_HOST || '127.0.0.1');
-  }
+// Whether her answers stay on this PC: a server on this machine.
+function isLocal(id, cfg) {
+  if (id === 'ollama') return /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/.test(process.env.OLLAMA_HOST || '127.0.0.1');
   if (id === 'custom') return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(cfg.customUrl || '');
   return Boolean(PROVIDERS[id].local);
 }
 
-module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession, claudeMemory, restoreClaude };
+
+// Models that are known to support vision (image input) per provider.
+// For Ollama, we check the model name heuristically (any model with 'llava', 'vision', 'minicpm', 'moondream').
+// For cloud providers, we list known vision-capable model name substrings.
+const VISION_MODELS = {
+  groq: ['llava', 'vision', 'llama-3.2-11b', 'llama-3.2-90b'],
+  openai: ['gpt-4o', 'gpt-4-turbo', 'gpt-4-vision', 'o1', 'chatgpt-4o', 'qwen'],
+  gemini: ['gemini'],     // all Gemini models support vision
+  openrouter: [],         // openrouter: any model may or may not; we allow it optimistically
+  ollama: ['llava', 'vision', 'minicpm', 'moondream', 'bakllava', 'cogvlm', 'qwen'],
+  lmstudio: ['llava', 'vision', 'minicpm', 'moondream', 'qwen'],
+  llamacpp: ['llava', 'vision', 'minicpm', 'moondream', 'qwen'],
+  pollinations: ['openai', 'gpt', 'claude', 'gemini', 'qwen'], // pollinations routes to vision-capable backends
+  mistral: ['pixtral'],
+  deepseek: [],           // DeepSeek does not support vision via OpenAI compat API
+  custom: [],             // unknown — allow it (user chose a custom endpoint)
+  claude: [],             // Claude Code CLI does not support image input
+};
+
+// Returns true when the provider+model combination is expected to handle image_url.
+// Returns false when we know it will fail, or the provider never does vision.
+// Returns true for unknowns (openrouter, custom) to avoid false blocking.
+function isVisionModel(providerId, model) {
+  if (!model || !providerId) return false;
+  if (providerId === 'claude') return false;
+  // Qwen text models are not interchangeable with Qwen-VL models. In particular,
+  // Groq's Qwen routes reject OpenAI-style image content arrays.
+  if (/qwen/i.test(model)) {
+    return /(?:qwen.*(?:\bvl\b|-vl)|vision|qwen\/qwen3\.[68]-27b)/i.test(model);
+  }
+  if (providerId === 'openrouter' || providerId === 'custom') return true; // optimistic
+  if (providerId === 'pollinations') return true; // their gateway forwards to vision models
+  const patterns = VISION_MODELS[providerId];
+  if (!patterns) return false;
+  // if empty list for a cloud provider, that provider never does vision
+  if (patterns.length === 0) return false;
+  const lc = model.toLowerCase();
+  return patterns.some((p) => lc.includes(p));
+}
+
+module.exports = { isLocal, isVisionModel, VISION_MODELS, PROVIDERS, CLAUDE_MODES, models, warm, chat, openaiMessages, boundMessages, chatCompletionModels, classifyFailure, resetClaude, isChatSession, claudeMemory, restoreClaude };

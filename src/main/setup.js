@@ -115,10 +115,10 @@ async function pullModel(name, onProgress, signal) {
   }
 }
 
-// Claude Code (or Codex) through Ollama, in a window of its own: Ollama fetches what's missing and
+// Claude Code, Codex or OpenCode through Ollama, in a window of its own: Ollama fetches what's missing and
 // asks which model to use. She sees it like any other session, through her hooks.
 function launchThroughOllama(integration) {
-  if (!WIN || !['claude', 'codex'].includes(integration)) return { ok: false };
+  if (!WIN || !['claude', 'codex', 'opencode'].includes(integration)) return { ok: false };
   const { cli } = ollamaFiles();
   // `start` opens a new console window (its first quoted argument is the window's title); cmd /k
   // strips the outer quotes of what follows, so a path with spaces in it keeps its own

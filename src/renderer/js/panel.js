@@ -17,8 +17,8 @@ export const FACES = {
   many: 'face-many.png',   // all her eyes on you
   grin: 'capri-face.png',
 };
-const KIND_FACE = { alert: 'many', done: 'look', error: 'laugh', work: 'calm', idle: 'calm', report: 'smug', chat: 'look', remind: 'look' };
-const PRIORITY = { info: 1, idle: 1, work: 2, done: 3, error: 3, report: 3, chat: 3, alert: 4, remind: 4 };
+const KIND_FACE = { alert: 'many', done: 'look', error: 'laugh', work: 'calm', idle: 'calm', report: 'smug', chat: 'look' };
+const PRIORITY = { info: 1, idle: 1, work: 2, done: 3, error: 3, report: 3, chat: 3, alert: 4 };
 const DECODE_STEP_MS = 28;
 const COUNT_MS = 700; // her report's numbers counting up
 
@@ -62,6 +62,7 @@ export class Panel {
     this.chatForm = panel.querySelector('.panel__chat');
     this.chatInput = panel.querySelector('.panel__input');
     this.chatSend = panel.querySelector('.panel__send');
+    this.chatVoice = panel.querySelector('.panel__voice');
     this.chatClose = panel.querySelector('.panel__close');
     this.note = panel.querySelector('.panel__note');
     this.chatForm.addEventListener('click', (e) => e.stopPropagation());
@@ -76,6 +77,10 @@ export class Panel {
       if (e.key === 'Escape') this.hide();
     });
     this.chatClose.addEventListener('click', () => this.hide());
+    this.chatVoice.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.current?.onVoice?.();
+    });
 
     this.el.addEventListener('click', () => {
       if (this.current?.chat) this.chatInput.focus(); // a chat stays until you close it
@@ -250,12 +255,16 @@ export class Panel {
   }
 
   renderActions(actions = [], onAction = null) {
-    this.actions.replaceChildren(...actions.map(({ id, label, primary }) => {
+    this.actions.replaceChildren(...actions.map(({ id, label, primary, title }) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = primary ? 'panel__action is-primary' : 'panel__action';
       button.dataset.id = id;
       button.textContent = label;
+      if (title) {
+        button.title = title;
+        button.setAttribute('aria-label', title);
+      }
       button.addEventListener('click', (e) => {
         e.stopPropagation(); // a click on the panel itself closes it
         if (onAction) onAction(id);
@@ -287,6 +296,10 @@ export class Panel {
     this.chatSend.disabled = false;
     this.chatSend.textContent = chat.send;
     this.chatClose.setAttribute('aria-label', chat.close);
+    this.chatVoice.setAttribute('aria-label', chat.voice);
+    this.chatVoice.setAttribute('aria-pressed', 'false');
+    this.chatVoice.textContent = 'MIC';
+    this.chatVoice.title = chat.voice;
     if (chat.note) {
       const tag = document.createElement('b');
       tag.textContent = chat.noteTag || '';
@@ -371,6 +384,17 @@ export class Panel {
     this.chatInput.disabled = busy;
     this.chatSend.disabled = busy;
     if (!busy && this.current?.chat) this.chatInput.focus();
+  }
+
+  setVoiceState(state) {
+    const active = state === 'listening' || state === 'thinking' || state === 'voiceModelLoading';
+    this.chatVoice.classList.toggle('is-listening', active);
+    this.chatVoice.setAttribute('aria-pressed', String(active));
+    if (this.current?.chat) {
+      this.chatVoice.textContent = active ? 'MIC ON' : 'MIC';
+      this.chatVoice.title = active ? this.current.chat.voiceStop : this.current.chat.voice;
+      this.chatVoice.setAttribute('aria-label', this.chatVoice.title);
+    }
   }
 
   // A button of the message on screen says something else now ("Copied").

@@ -150,7 +150,6 @@ body {
 .panel[data-kind='alert'] { --accent: var(--red); }
 .panel[data-kind='error'] { --accent: var(--red); }
 .panel[data-kind='idle'] { --accent: var(--paper-3); }
-.panel[data-kind='remind'] { --accent: var(--blue); }
 
 .panel__frame {
   position: relative;
@@ -726,6 +725,12 @@ html[data-motion='reduced'] .panel__bar {
 
 .panel__chat .panel__action {
   flex: none;
+}
+
+.panel__chat .panel__voice.is-listening {
+  border-color: var(--red);
+  color: var(--red);
+  box-shadow: 0 0 10px var(--red);
 }
 
 .panel__chat .panel__action:disabled {

@@ -19,6 +19,8 @@ const DEFAULTS = {
   chatModel: null,   // the model she talks with (null: the provider's first one)
   provider: 'ollama', // who answers her chat: a key of llm.js PROVIDERS
   apiKeys: {},       // { openai: 'sk-...' }, else the provider's env variable
+  cloudScreenCapture: false, // explicit consent before sending a screen capture to a cloud model
+  watchGame: false, // capture the visible display periodically only after the user enables game commentary
   customUrl: '',     // the 'custom' provider: any OpenAI-compatible base URL (http://host:port/v1)
   claudeCwd: null,   // the folder Claude Code works in (null: your home folder)
   userName: '',      // what she calls you
@@ -31,13 +33,17 @@ const DEFAULTS = {
   motion: 'auto',    // her animations: 'auto' (like Windows' animation effects), 'full' or 'reduced'
   motionAsked: false, // she asked once, Windows' animations being off, whether to move anyway
   render: 'auto',   // how her window is drawn: 'auto', 'gl' (OpenGL) or 'software' (no graphics card), for PCs that show it black
-  follow: true,      // with several screens, she follows the pointer to the one you're on
-  jealous: true,     // she gets jealous when she sees you on another AI (bond.js)
-  reminders: [],     // the reminders she keeps: [{ id, at, text, made }] (reminders.js)
-  bond: null,        // how close she is to you: { xp, first, last, days, streak, caps } (bond.js)
-  pcReact: true,     // she reacts to your PC: the processor at full tilt, the battery, the network, a USB stick, a game (pc.js)
-  watchScreen: false, // she looks at your screen now and then and says something about it (look.js)
-  lookAsked: false,  // she told you what looking means (where the picture goes) and you said yes
+  obsidianVaultPath: 'C:\\Users\\Administrator\\Documents\\Obsidian Vault',
+  obsidianSessionsDir: 'opencode sessions',
+  obsidianMemoryDir: 'memory',
+  obsidianAgentDir: 'Agente\\Memoria',
+  emotionIntensity: 'normal',   // 'low', 'normal', 'high'
+  emotionFrequency: 'normal',   // 'quiet', 'normal', 'chatty'
+  missionPermissions: 'confirm', // 'auto', 'confirm', 'strict'
+  elevenlabsApiKey: '',
+  elevenlabsModel: 'eleven_multilingual_v2',
+  elevenlabsVoiceId: '21m00Tcm4TlvDq8ikWAM',
+  elevenlabsEnabled: false,
 };
 
 let cache = null;

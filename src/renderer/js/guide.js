@@ -151,9 +151,9 @@ export class Guide {
     if (talk) this.onTalk?.();
   }
 
-  // Claude Code and Codex can run for free through Ollama (`ollama launch`): she offers it for those two
+  // The coding assistants she watches can run through Ollama (`ollama launch`).
   get freeWay() {
-    return Boolean(this.setup) && ['claude', 'codex'].includes(this.brain.assistant);
+    return Boolean(this.setup) && ['claude', 'codex', 'opencode'].includes(this.brain.assistant);
   }
 
   // "How does it work?" in her menu: what she can show you.

@@ -22,7 +22,7 @@ export class Brain {
     this.host = host;
     this.mission = mission; // today's log, for her report card (mission.js)
     this.lang = lang;
-    this.assistant = assistant; // 'claude', 'codex' or 'agy': whose events she follows
+    this.assistant = assistant; // the assistant whose events she follows
     this.custom = {};       // what you made her (custom.js): { userName, persona, myLines, memories }
     this.sessions = new Map();
     this.replyFor = null;    // the session whose answer she's holding up for you
@@ -76,13 +76,8 @@ export class Brain {
     }
     // the demo's second half (scripts/demo-sequence.js), not a Claude event
     if (evt.hook_event_name === 'CapriShowcase') return this.onShowcase?.();
-    // Codex's and Antigravity's hooks mark their sessions (codex:..., agy:...): only the one she watches
-    // counts. Another one at work is another AI in your life: she notices (bond.js).
-    const source = /^(codex|agy):/.exec(String(evt.session_id || ''))?.[1] || 'claude';
-    if (!evt.demo && source !== this.assistant) {
-      this.onRival?.(source === 'agy' ? 'gemini' : source);
-      return undefined;
-    }
+    // Non-Claude adapters prefix session IDs so only the assistant she watches counts.
+    if (!evt.demo && (/^(codex|agy|opencode):/.exec(String(evt.session_id || ''))?.[1] || 'claude') !== this.assistant) return;
     if (!this.watching && !evt.demo) return undefined; // not watching Claude Code: none of its business
     // the first real Claude Code event that ever reaches her (the demo's don't count)
     if (!this.linked && !evt.demo) {
@@ -253,9 +248,9 @@ export class Brain {
         return;
       }
       this.say('alert', pick(this.t.permission), s, { quote: evt.message || '', hold: null });
-      // next to your pointer, even on another screen
-      const near = await this.capri.toPointer(await this.host.cursor().catch(() => null));
-      const toward = near?.inside ? Math.sign(near.x - this.capri.pos.x) || 1 : this.capri.towardCenter();
+      const cursor = await this.host.cursor().catch(() => null);
+      if (cursor?.inside) await this.capri.summon(cursor);
+      const toward = cursor?.inside ? Math.sign(cursor.x - this.capri.pos.x) || 1 : this.capri.towardCenter();
       this.capri.perform('alarm', toward);
       return;
     }
@@ -279,7 +274,6 @@ export class Brain {
     const quote = cleanMarkdown(evt.last_assistant_message || '');
     if (wasWorking || s.count) {
       this.tally(evt)?.done({ files: s.files.size, ms: s.taskStart ? Date.now() - s.taskStart : 0, project: s.project });
-      if (!evt.demo) this.bond?.add('claude', 1); // work done together
     }
 
     if (!this.busySessions.length) {
@@ -354,22 +348,14 @@ export class Brain {
     this.say('info', fmt(pick(this.t.bye), { project: s.project }), s, { face: 'aside', hold: 4000 });
   }
 
-  // Something to say with nothing going on: one of your lines half the time, if you wrote some, and
-  // now and then one that goes with how close she is to you (bond.js).
+  // Something to say with nothing going on: one of your lines half the time, if you wrote some.
   idleLine() {
     const mine = this.custom.myLines || [];
-    const close = this.t.bond.idle[this.bond?.stage || 0] || [];
-    let line = pick(this.t.idle);
-    if (mine.length && Math.random() < 0.5) line = pick(mine);
-    else if (close.length && Math.random() < 0.4) line = pick(close);
-    return fmt(line, { name: this.custom.userName || 'choom' });
+    return fmt(mine.length && Math.random() < 0.5 ? pick(mine) : pick(this.t.idle), { name: this.custom.userName || 'choom' });
   }
 
-  // What she says when she comes online: that she missed you, after a few days away (once she
-  // knows you a little), else with your name, if she knows it.
+  // What she says when she comes online: with your name, if she knows it.
   onlineLine() {
-    const away = this.bond?.away || 0;
-    if (away >= 2 && this.bond.stage >= 1) return fmt(pick(this.t.bond.missed), { days: away });
     const name = this.custom.userName;
     return name ? fmt(pick(this.t.custom.onlineName), { name }) : pick(this.t.online);
   }

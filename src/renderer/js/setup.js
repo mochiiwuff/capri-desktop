@@ -1,7 +1,7 @@
 // Setting up who she talks with, with buttons, so nobody has to open a terminal: on this PC
 // (Ollama installed, woken up and a model fetched for you, with how far along it is), online with
-// no account (Pollinations), or with a key you paste in her panel. And Claude Code or Codex for
-// free, run through Ollama. Each step is a panel of her guide (guide.js).
+// no account (Pollinations), or with a key you paste in her panel. And the assistant she watches,
+// run through Ollama. Each step is a panel of her guide (guide.js).
 
 import { fmt } from './util.js';
 
@@ -147,24 +147,21 @@ export class Setup {
     return res.ok ? true : this.fail(t.wakeFailed, t.wakeFailedHow);
   }
 
-  // Which model to fetch: the better one first when the PC has room for it, then Ollama's free cloud
-  // ones if you're signed in to it.
+  // Which model to fetch: the better one first when the PC has room for it.
   async pickModel(line = this.t.model) {
     const t = this.t;
     const info = await this.host.setupInfo();
     const models = info.ram >= ROOMY ? info.models : [...info.models].reverse();
-    const cloud = info.cloud || [];
     const id = await this.guide.ask({
       face: 'look',
       line,
-      quote: cloud.length ? `${t.modelHow}\n${t.cloudHow}` : t.modelHow,
+      quote: t.modelHow,
       actions: [
         ...models.map((m, i) => ({ id: m.name, label: `${m.name} · ${this.size(m.bytes)}`, primary: i === 0 })),
-        ...cloud.map((name) => ({ id: name, label: `${name.replace(/:cloud$/, '')} · ${t.cloudFree}` })),
         { id: 'later', label: t.later },
       ],
     });
-    return models.some((m) => m.name === id) || cloud.includes(id) ? id : null;
+    return models.some((m) => m.name === id) ? id : null;
   }
 
   // Fetching it: a bar that fills, how much is done, and a button to stop.
@@ -250,11 +247,11 @@ export class Setup {
     return res.ok ? this.done() : this.address(res.error);
   }
 
-  // Claude Code or Codex through Ollama: her hooks in first (so she sees it), Ollama up, then its window.
+  // The assistant she watches through Ollama: her hooks in first, Ollama up, then its window.
   async freeNow() {
     const t = this.t;
-    const integration = this.brain.assistant === 'codex' ? 'codex' : 'claude';
-    const name = integration === 'codex' ? 'Codex' : 'Claude Code';
+    const integration = ['codex', 'opencode'].includes(this.brain.assistant) ? this.brain.assistant : 'claude';
+    const name = { claude: 'Claude Code', codex: 'Codex', opencode: 'OpenCode' }[integration];
     const id = await this.guide.ask({
       face: 'smug', line: fmt(t.freeLine, { name }), quote: fmt(t.freeHow, { name }),
       actions: [{ id: 'go', label: t.freeBtn, primary: true }, { id: 'later', label: t.later }],
@@ -303,5 +300,113 @@ export class Setup {
     const gb = bytes >= 1e9;
     const n = new Intl.NumberFormat(this.brain.lang, { maximumFractionDigits: gb ? 1 : 0 }).format(gb ? bytes / 1e9 : bytes / 1e6);
     return `${n} ${gb ? this.t.gb : this.t.mb}`;
+  }
+
+  async elevenlabs() {
+    const cfg = await this.host.getConfig();
+    const currentKey = cfg.elevenlabsApiKey ? '••••••••' + cfg.elevenlabsApiKey.slice(-4) : '';
+    const got = await this.guide.askText({
+      face: 'look',
+      line: 'Configurar voz ElevenLabs',
+      quote: 'Cole sua API Key da ElevenLabs para dar uma voz neural realista à Capri em vez da voz do Windows.',
+      secret: true,
+      placeholder: currentKey || 'sk_...',
+      tag: 'ELEVENLABS',
+      note: 'A chave fica salva localmente no seu app.',
+      actions: [
+        { id: 'save', label: 'Salvar e Avançar', primary: true },
+        { id: 'page', label: 'Site ElevenLabs' },
+        { id: 'cancel', label: 'Cancelar' },
+      ],
+      onAction: (id) => id === 'page' && (this.host.openSite('https://elevenlabs.io/app/speech-synthesis'), true),
+    });
+
+    if (got?.action === 'cancel' || !got?.text) return false;
+
+    this.working('Verificando chave no ElevenLabs...');
+    const verify = await this.host.elevenlabsVerify(got.text);
+    if (!verify.ok) {
+      await this.guide.ask({
+        kind: 'error',
+        face: 'aside',
+        line: 'Não rolou autenticar com o ElevenLabs.',
+        quote: verify.error,
+        actions: [{ id: 'retry', label: 'Tentar de novo', primary: true }, { id: 'cancel', label: 'Deixar quieto' }],
+      });
+      return false;
+    }
+
+    await this.host.setConfig({
+      elevenlabsApiKey: got.text.trim(),
+      elevenlabsEnabled: true,
+    });
+
+    return this.elevenlabsModel();
+  }
+
+  async elevenlabsModel() {
+    const cfg = await this.host.getConfig();
+    const got = await this.guide.askText({
+      face: 'smug',
+      line: 'Modelo de Voz ElevenLabs',
+      quote: 'Escolha ou digite o modelo (ex: eleven_multilingual_v2, eleven_flash_v2_5 ou modelo v4):',
+      placeholder: cfg.elevenlabsModel || 'eleven_multilingual_v2',
+      tag: 'MODELO',
+      note: 'Multilingual v2 é o padrão de alta fidelidade para português.',
+      actions: [
+        { id: 'v2', label: 'Multilingual v2', primary: true },
+        { id: 'flash', label: 'Flash v2.5' },
+        { id: 'turbo', label: 'Turbo v2.5' },
+        { id: 'voice', label: 'Próximo: Voz' },
+      ],
+    });
+
+    let chosenModel = got?.text?.trim();
+    if (got?.action === 'v2') chosenModel = 'eleven_multilingual_v2';
+    else if (got?.action === 'flash') chosenModel = 'eleven_flash_v2_5';
+    else if (got?.action === 'turbo') chosenModel = 'eleven_turbo_v2_5';
+
+    if (chosenModel) {
+      await this.host.setConfig({ elevenlabsModel: chosenModel });
+    }
+    return this.elevenlabsVoice();
+  }
+
+  async elevenlabsVoice() {
+    const cfg = await this.host.getConfig();
+    const got = await this.guide.askText({
+      face: 'grin',
+      line: 'Voice ID da Capri',
+      quote: 'Escolha uma voz feminina ou cole o Voice ID personalizado da ElevenLabs:',
+      placeholder: cfg.elevenlabsVoiceId || '21m00Tcm4TlvDq8ikWAM',
+      tag: 'VOICE ID',
+      note: 'Rachel (21m00Tcm4TlvDq8ikWAM) é a voz expressiva recomendada.',
+      actions: [
+        { id: 'rachel', label: 'Rachel (Padrão)', primary: true },
+        { id: 'bella', label: 'Bella' },
+        { id: 'elli', label: 'Elli' },
+        { id: 'done', label: 'Concluir' },
+      ],
+    });
+
+    let chosenVoice = got?.text?.trim();
+    if (got?.action === 'rachel') chosenVoice = '21m00Tcm4TlvDq8ikWAM';
+    else if (got?.action === 'bella') chosenVoice = 'EXAVITQu4vr4xnSDxMaL';
+    else if (got?.action === 'elli') chosenVoice = 'MF3mGyEYCl7XYWbV9V6O';
+
+    if (chosenVoice) {
+      await this.host.setConfig({ elevenlabsVoiceId: chosenVoice, elevenlabsEnabled: true });
+    }
+
+    this.voice.play('hello');
+    this.capri.perform('hop');
+    await this.guide.ask({
+      kind: 'done',
+      face: 'laugh',
+      line: 'Voz ElevenLabs configurada!',
+      quote: 'Pronto, choom! A Capri agora vai falar com a voz neural da ElevenLabs.',
+      actions: [{ id: 'ok', label: 'Ficou preem!', primary: true }],
+    });
+    return true;
   }
 }

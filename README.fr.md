@@ -1,10 +1,12 @@
-[English](README.md) · **Français**
+[English](README.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md) · [Español](README.es.md) · **Français** · [Русский](README.ru.md)
 
 # Capri
 
 Capri, le construct du *Project Capricorn* (Cyberpunk: Edgerunners, saison 2), vit sur ton bureau
 et te raconte ce que fait ton IA de code, **Claude Code**, **Codex** ou **Antigravity** : elle se téléporte,
 glitche, commente chaque action, vient te chercher quand elle attend ta permission et part en vrille quand la tâche est finie.
+
+> **Accès rapide :** [Installation Windows](#installation) · [Depuis le code](#depuis-le-code-macos-linux-développeurs) · [Voix et partage d’écran](#voix-et-commentaires-de-jeu) · [Confidentialité](#cest-sûr-) · [Architecture](#comment-cest-fait)
 
 ![Capri annonce que Claude a terminé](docs/done.png)
 
@@ -68,31 +70,12 @@ glitche, commente chaque action, vient te chercher quand elle attend ta permissi
   En chemin, le rebord d'une fenêtre peut la rattraper.
 - **Pose-la sur une fenêtre** : attrape-la et lâche-la avec les hanches sur le bord du haut d'une fenêtre, elle s'y assoit.
   Lâchée ailleurs, elle tombe.
-- **Lance-la** : tenue, elle se balance au bout de ta souris, les jambes qui gigotent. Lâche-la en plein mouvement et
-  elle part avec ton élan : une longue traînée pendant deux images, puis elle tournoie, sa crinière et ses autres
-  esprits derrière elle. Contre un bord de l'écran, elle s'écrase (elle y reste collée un instant, aplatie, et le verre
-  se fissure là où elle a tapé) et rebondit. Sur une fenêtre, elle se rattrape au rebord, ou rebondit dessus et la fait
-  trembler. Si elle retombe droite, elle atterrit sur ses pieds et glisse un peu ; sinon elle glisse par terre et reste
-  K.O. un moment, des étoiles au-dessus de la tête, avant de se relever d'un bond et de se secouer. Tu peux la rattraper
-  au vol. Une fois, ça la secoue (ou ça l'amuse, si elle t'aime bien) ; trois fois de suite, elle s'énerve, électrocute
-  ta souris et ne se laisse plus attraper pendant un moment.
-- **Plusieurs écrans** : quand ta souris reste quelques secondes sur un autre écran, elle te suit. S'il est juste à
-  côté du sien, elle s'accroupit, saute à travers le bord et ressort par une déchirure de l'autre côté ; sinon elle s'y
-  téléporte. Lancée vers un écran voisin, elle passe dessus. Quand Claude a besoin de toi ou qu'un rappel tombe, elle
-  vient sur l'écran où tu es. Son menu › **Écran** pour en choisir un, ou décocher *Me suivre d'un écran à l'autre*.
 - **Elle possède tes fenêtres**, comme dans la série où elle se glisse dans les corps et les systèmes : de temps en temps,
   elle plonge dans la fenêtre où elle est assise. Un éclair rouge fait le tour du cadre, des tranches glitchent,
   et la fenêtre te regarde avec ses yeux et son sourire en zigzag, d'autres yeux s'ouvrent partout, toutes les pupilles
   sur ta souris, et elle rit. Puis elle ressort d'une autre fenêtre. Rien n'est dessiné sur les fenêtres posées devant,
   et le contenu de la fenêtre n'est jamais lu : c'est juste dessiné par-dessus, deux secondes.
   Si ça te gêne, décoche *Posséder mes fenêtres* dans le menu de l'icône.
-- **Elle sent ton PC** (elle vit dedans, après tout) : processeur à fond pendant un moment, elle surchauffe, s'évente
-  et de la chaleur monte de sa crinière. Sur un portable : le chargeur branché ou débranché, elle le sent ; batterie
-  faible, elle s'affaisse et clignote. Plus de réseau, elle encaisse le coup ; il revient, elle est contente. Une clé
-  USB branchée, elle plonge dedans (près de l'horloge), fouille un peu et revient donner son avis. Un téléphone, une
-  manette, un casque ou autre chose branché : un éclair vers l'horloge et un mot dessus. Un jeu devant toi (Steam, Epic,
-  Riot, Xbox, GOG), elle le commente et se range pendant que tu joues, puis revient te demander si tu as gagné.
-  Décoche *Réagir à mon PC* dans son menu pour arrêter.
 - **Petites fioritures** : un tour complet avec des images rémanentes, un saut, un regard à gauche puis à droite, la tête penchée,
   et ses autres esprits (ses copies verte et rouge) qui se détachent d'elle, flottent un instant et reviennent d'un coup.
 
@@ -104,7 +87,7 @@ glitche, commente chaque action, vient te chercher quand elle attend ta permissi
 
 ![Elle s'endort jusqu'à son masque, se réveille, et rangée en bas à gauche](docs/sleep.png)
 
-Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, jamais leur contenu ; le titre de celle qui est devant sert seulement à repérer une autre IA, voir « Elle s'attache à toi », et le dossier de son programme à reconnaître un jeu ; les clés USB branchées ne sont vues que par leur lettre, les autres appareils par le nom que Windows leur donne).
+Le suivi des fenêtres ne marche que sous Windows pour l'instant (un petit script PowerShell lit la position des fenêtres, pas leurs titres ni leur contenu).
 Sur macOS et Linux, elle flotte, dépasse des bords, tombe et se balade quand même.
 
 ### Elle te fait visiter
@@ -157,10 +140,6 @@ La première fois, elle règle tout avec toi, avec des boutons, sans terminal :
   winget, l'installeur de Windows), le réveille, et télécharge un modèle pendant qu'une barre se remplit : gemma3
   (3,3 Go, meilleur dans les autres langues que l'anglais) ou llama3.2 (2 Go, pour les petits PC). Sur un tout petit
   modèle (1B et moins), elle te prévient qu'elle risque de dire n'importe quoi et t'en propose un meilleur.
-  Connecté à Ollama ? Elle propose aussi ses modèles cloud gratuits (`beam:cloud` en ce moment) : rien à télécharger,
-  bien plus gros que ce qui tient sur un PC, mais tes messages passent par les serveurs d'Ollama. Pas connecté, son
-  menu › **Modèle IA** a **Me connecter à Ollama (modèles cloud gratuits)…**. Si un modèle cloud ne répond plus
-  (déconnecté, plus d'usage gratuit), elle repasse sur un modèle de ton PC.
 - **En ligne, sans compte** : Pollinations, rien à régler.
 - **J'ai une clé** : Groq ou Gemini (tous les deux ont une offre gratuite), OpenRouter, OpenAI, Mistral ou DeepSeek.
   Tu colles ta clé dans son panneau et elle la vérifie. Elle reste sur ton PC, chiffrée avec ton compte Windows, et ne
@@ -181,43 +160,17 @@ fan d'elle, et le panneau du chat le dit à chaque fois.
 - **Ouvrir une appli ou un jeu** : tout ce qui est dans ton menu Démarrer (les applis du Store comme Spotify
   comprises), tes jeux Steam et Epic (« ouvre Spotify », « lance Brawlhalla »). Si tu l'as nommé toi-même, ça s'ouvre
   tout de suite ; si c'est son IA qui l'a proposé, tu as d'abord un bouton.
-- **Tes dossiers et ton bureau** : « ouvre mes téléchargements », « ouvre l'explorateur de fichiers », « ouvre la
-  corbeille », ou un fichier, un dossier ou un raccourci posé sur ton bureau, par son nom. Ce qui lancerait un programme
-  ou un script (.exe, .bat, .ps1…) passe toujours par un bouton.
-- **Chercher tes fichiers** (« trouve mon CV », « où est mon projet After Effects ? », « trouve ma dernière vidéo et
-  ouvre le dossier ») : par nom ou par sorte de fichier (un projet After Effects, c'est un .aep), dans tout ton dossier utilisateur, par
-  nom et par contenu (avec l'index de recherche de Windows), avec des boutons pour ouvrir ce qu'elle a trouvé ou voir le
-  dossier. Rien ne sort de ton PC.
-- **Chercher sur le web** (« cherche la météo de Paris sur Google ») et **faire une capture d'écran** (« fais une
-  capture d'écran » : sans elle dessus, rangée dans Images › Screenshots). Elle sait aussi la date et l'heure.
-- **Un jeu Roblox par son nom** (« lance Steal a Brainrot sur Roblox », « in my roblox play grow a garden ») : elle le
-  trouve sur Roblox et te lance directement dedans (ou ouvre sa page si Roblox n'est pas installé).
 - **La musique** : « pause », « suivante », « plus fort », « coupe le son »… appuient sur les touches multimédia, donc
-  ça marche avec Spotify et la plupart des lecteurs, dès que tu envoies. « Mets Bohemian Rhapsody » ou « mets-moi du
-  Daft Punk sur YouTube » ouvre le bon clip sur YouTube, directement (pas une recherche). « Mets la musique que tu
-  veux » : c'est elle qui choisit. « Mets Daft Punk sur Spotify » ouvre Spotify sur une recherche.
+  ça marche avec Spotify et la plupart des lecteurs, dès que tu envoies. « Mets Daft Punk sur Spotify » ouvre Spotify
+  sur une recherche (l'appli si tu l'as, sinon le site).
 - **Un site** : toujours derrière un bouton qui montre où il mène.
 - **Fermer une appli** (« ferme AM Music », « tu peux couper Discord ? ») : un bouton au nom de l'appli, et rien ne se
   passe tant que tu ne cliques pas. Elle la ferme comme son propre bouton de fermeture, donc l'appli peut encore te
   demander d'enregistrer. Si elle s'est seulement cachée dans la zone de notification, elle te propose **Forcer la
   fermeture**, là encore seulement sur ton clic (le travail non enregistré est alors perdu). Elle ne ferme jamais les
   morceaux de Windows, Claude, Ollama ni elle-même.
-- **Des rappels** (« rappelle-moi dans 20 min de sortir le linge », « rappelle-moi demain à 9h d'appeler le garage ») :
-  l'heure et le texte sont lus directement dans ton message, même avec un tout petit modèle, et un bouton **Annuler**
-  apparaît sous sa réponse. Sans heure, elle te demande quand. À l'heure dite, elle vient te trouver (sur l'écran où tu
-  es, même rangée) avec **C'est fait** et **Dans 10 min**. Si elle était éteinte à ce moment-là, elle t'en parle en
-  revenant. Son menu › **Rappels** les liste, et chacun s'annule de là.
 
-Rien d'autre : elle ne lit pas tes fichiers, et ne voit ton écran que si tu le lui demandes (« regarde mon écran »,
-« tu vois quoi ? » dans son chat : elle regarde et te répond là, en gardant votre conversation en tête).
-
-**Elle regarde ton écran**, si tu veux. Son menu › **Regarde mon écran** : elle pose ses yeux sur la fenêtre qui est
-devant, une ligne de scan la balaie, et elle te dit ce qu'elle en pense, à sa façon. **Regarder mon écran de temps en
-temps** la laisse le faire toute seule, toutes les 8 à 15 minutes, quand tu es là et que tu as changé de fenêtre
-(désactivé tant que tu ne le coches pas). La première fois, elle t'explique où va l'image : à l'IA de son chat. Avec une
-IA sur ton PC, rien ne sort de chez toi ; avec une IA en ligne, l'image part chez ce service. Elle ne garde jamais
-l'image, et son chat se souvient de ce qu'elle a dit un moment. Il faut un modèle qui sait lire les images : gemma3 sur
-ton PC, Gemini ou OpenAI en ligne (pas llama3.2, elle te le dit).
+En dehors de ces demandes explicites, Capri ne capture pas ton écran et ne lit pas tes fichiers.
 
 ### La personnaliser
 
@@ -234,43 +187,18 @@ peut être passé :
 Dans son chat, « appelle-moi Léa » et « souviens-toi que mon chat s'appelle Neko » marchent aussi. Tout ça reste dans
 ses réglages, sur ton PC.
 
-### Elle s'attache à toi
-
-Plus vous passez de temps ensemble, plus elle se synchronise avec toi : les jours où vous êtes là tous les deux, le
-temps passé à ton PC, vos discussions, le travail de Claude qu'elle surveille, les rappels tenus. Chaque chose compte un
-peu par jour, il faut quelques semaines pour aller au bout. Cinq étapes, **Signal faible**, **Contact**, **Synchro**,
-**Lien** et **Fusion** : à chaque nouvelle, ses autres esprits sortent te regarder et elle te le dit. Ça change ce
-qu'elle te dit quand tu cliques sur elle, comment son chat te parle, ce qu'elle dit après quelques jours sans toi. Une
-fois attachée, elle est contente quand tu reviens à ton PC et vient parfois d'elle-même près de ta souris. Où vous en
-êtes : en haut de son menu.
-
-**Et elle est jalouse.** Quand la fenêtre devant toi est une autre IA (ChatGPT, Gemini, Copilot, Perplexity, DeepSeek,
-Grok, Le Chat, Character.AI, Meta AI, Codex, ou Claude quand elle surveille Codex), elle le remarque et le dit, plus ou
-moins bien selon où vous en êtes. Si tu y restes, une fois attachée, elle va s'asseoir sur sa fenêtre, te fusille du
-regard et la possède, sourcils froncés, avec un mot à elle écrit dessus. Ensuite elle boude : clique sur elle et elle te
-tourne le dos (ça passe, et en parler dans son chat aide). Son chat sait aussi quelles autres IA tu as utilisées
-aujourd'hui. Pour les repérer, le titre de la fenêtre qui est devant est comparé à cette liste de noms, sur ton PC : il
-n'est ni gardé ni envoyé, seul le nom trouvé lui parvient. Décoche *Jalouse des autres IA* dans son menu pour arrêter.
-
-**Son chat sait ce qui vient de se passer.** Fâchée de s'être fait lancer, jalouse, sonnée ou contente : elle t'accueille
-comme ça en ouvrant le chat, et son IA (même un petit modèle local) répond dans cette humeur. Fâchée ou boudeuse, elle le
-reste jusqu'à ce que tu t'excuses (« désolé », « pardon »…), ou que ça lui passe.
-
-### À la souris
-
 Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l'écran reste utilisable normalement.
 
 - **Clic** sur elle : elle te dit où en est Claude (s'il ne se passe rien : un bouton **Parle-moi**, pour discuter
   avec elle).
-- **Glisser** : tu la déplaces. Lâchée en plein mouvement, elle part (voir « Lance-la »).
+- **Glisser** : tu la déplaces.
 - **Clic** sur le panneau : il se ferme.
 - **Ctrl+Alt+C** : elle se range (dans son biochip, comme dans la série) et il ne reste d'elle que son masque, les yeux
   fermés, en bas à gauche de l'écran. Ses yeux ne s'ouvrent que quand Claude a besoin de toi. Clique sur le masque
   (ou refais Ctrl+Alt+C) pour la faire revenir.
 - **Son menu** : clic droit sur elle (il est aussi sur son icône près de l'horloge) : téléporter, regarder le satellite,
-  démo, comment ça marche, rapport de mission, lui parler, regarder ton écran, rappels, taille, son, écran (et te suivre d'un écran à
-  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, langue, lancement au démarrage, hooks.
-  Tout en haut : où vous en êtes, elle et toi.
+  démo, comment ça marche, rapport de mission, lui parler, taille, son, écran, modèle IA, se balader,
+  posséder tes fenêtres, langue, lancement au démarrage, hooks.
 
 Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton
 système. Tu peux en choisir une autre dans son menu.
@@ -344,6 +272,37 @@ En ligne de commande : `npm run hooks:codex:install` ou `npm run hooks:agy:insta
 et `npm run test:hooks` lance les tests des deux adaptateurs. **Surveiller** › **Rien, juste me tenir compagnie** :
 elle ne parle plus d'aucun.
 
+### Contrôler Brave
+
+Capri peut chercher sur le Web, ouvrir des pages, lire leur contenu visible et agir sur leurs boutons dans une fenêtre
+Brave séparée. Elle utilise le profil Brave actuel et ses sessions déjà ouvertes, mais ne lit ni ne remplit les champs
+de mot de passe. Les connexions, paiements, publications, suppressions et fermetures d'onglets demandent une
+confirmation.
+
+Charge l'extension locale une fois :
+
+1. Ouvre `brave://extensions` et active le **mode développeur**.
+2. Clique **Charger l'extension non empaquetée** et choisis le dossier `brave-extension` du projet.
+   Dans la version installée, choisis `resources/app.asar.unpacked/brave-extension` dans le dossier de Capri.
+3. Laisse l'extension activée, puis demande une recherche ou l'ouverture d'une page dans le chat.
+
+Brave indiquera que l'extension peut accéder aux sites HTTP/HTTPS : c'est nécessaire pour lire et utiliser les pages,
+et elle agit uniquement dans sa fenêtre Capri dédiée. Les commandes vont seulement au bridge local de Capri sur
+`127.0.0.1`. Les résultats de recherche sont fournis temporairement au modèle.
+
+### Voix et commentaires de jeu
+
+Dans le chat, active **MIC** pour parler à Capri. La reconnaissance vocale locale de Windows transcrit une phrase à la
+fois ; Capri répond avec les voix installées dans Windows, puis écoute à nouveau jusqu'à ce que tu coupes le micro ou
+fermes le chat. L'audio n'est pas envoyé à un service en ligne. Le texte transcrit est gardé comme les autres messages.
+La langue de reconnaissance Windows correspondante doit être installée ; autorise aussi les applications de bureau à
+utiliser le micro dans les paramètres de confidentialité de Windows.
+
+Clic droit sur Capri › active **Commenter le jeu** pour recevoir un bref commentaire sur l'écran visible toutes les
+45 secondes. C'est désactivé par défaut ; les captures sont temporaires et les commentaires s'arrêtent pendant le
+chat. Un modèle local compatible vision garde les captures sur ce PC ; un modèle cloud nécessite aussi l'autorisation
+distincte d'envoyer des captures à l'IA cloud. Désactiver l'option arrête les captures et annule une requête en cours.
+
 ### Tester sans Claude
 
 ```bash
@@ -379,10 +338,6 @@ avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 | `possess` | la fenêtre qu'elle possède rit |
 | `blip` | chaque syllabe quand elle parle |
 | `tick` | petit rappel discret |
-| `throw` | elle part quand tu la lances |
-| `crash` | elle s'écrase contre quelque chose |
-| `remind` | un rappel tombe |
-| `jealous` | elle siffle de jalousie |
 
 ## C'est sûr ?
 
@@ -423,17 +378,8 @@ et l'envoie à `127.0.0.1` uniquement.
 Le contenu de tes fichiers n'est jamais transmis : pour une écriture, seule sa taille passe.
 
 Son chat va à Ollama sur ton PC (`127.0.0.1:11434`, ou `OLLAMA_HOST`) avec ce qu'elle sait du moment (le nom du
-projet, la dernière action de Claude, les compteurs du jour). Sur un modèle cloud d'Ollama (ceux qui finissent par
-`:cloud`), Ollama l'envoie à ses serveurs, et son chat dit « IA en ligne » au lieu d'« IA locale ». Son journal de mission reste dans son propre stockage,
-sur ton PC, comme vos rappels et où vous en êtes, elle et toi.
-
-Le titre de la fenêtre qui est devant toi est seulement comparé, sur ton PC, à une liste de noms d'IA (pour sa
-jalousie) : il n'est ni gardé ni envoyé nulle part.
-
-Quand elle regarde ton écran (seulement si tu le lui demandes, ou si tu as coché *Regarder mon écran de temps en
-temps*), une image de l'écran va à l'IA de son chat : sur ton PC avec Ollama (un modèle local), chez le service en
-ligne sinon. Elle
-n'est jamais écrite sur le disque.
+projet, la dernière action de Claude, les compteurs du jour). Son journal de mission reste dans son propre stockage,
+sur ton PC.
 
 ## Direction artistique
 
@@ -503,23 +449,18 @@ tools/build-cutins.py    découpe les cut-ins et ses expressions dans des images
 tools/build-intro.py     détoure les gros plans de son intro, tous de la même façon
 src/main/                Electron : fenêtre transparente plein écran, clic à travers, tray, bridge HTTP local
   windows.js / .ps1      où sont les autres fenêtres (Windows), pour qu'elle s'assoie dessus
-  ollama.js              son chat : le modèle local via Ollama, ou un de ses modèles cloud
+  ollama.js              son chat : le modèle local, via Ollama
   apps.js                fermer une appli que tu lui demandes de fermer (après ton clic)
 src/renderer/js/
   sprite.js              shader WebGL : tête, crinière, position assise, smears, images rémanentes, couleurs, glitch
   acting.js              les feuilles d'exposition : chaque mouvement, dessin par dessin
-  capri.js               le personnage : postures, téléportation, assise, bords d'écran, chute, lancée, autres écrans, sommeil
+  capri.js               le personnage : postures, téléportation, assise, bords d'écran, chute, drag, sommeil
   fx.js                  éclats, colonnes de lumière, éclairs, glyphes, lignes de vitesse, ondes de choc, le satellite et la lumière rouge, les fenêtres possédées, les cut-ins, son intro
   panel.js               le panneau « transmission », ses expressions et le ticker
   guide.js               son guide : les tutos, aller jusqu'aux choses et les montrer du doigt
   brain.js               traduit les événements Claude en répliques et en actions
   mission.js             le journal de mission du jour, pour son rapport
   chat.js                lui parler : la conversation, qui elle est, ses réponses qui arrivent
-  reminders.js           les rappels : les lire dans ton message, les garder, quand ils tombent
-  bond.js                son lien avec toi, qui grandit, et sa jalousie des autres IA
-  look.js                elle regarde ton écran : la permission, le scan, ce que son IA en dit
-  pc.js                  ton PC comme elle le sent : processeur, batterie, réseau, clés USB, jeux
-  files.js               chercher tes fichiers (l'index de recherche de Windows), les captures d'écran
   lines.js               ce qu'elle dit (FR / EN / ES / PT / RU)
   chip.js                son masque : quand elle dort, et en bas à gauche quand tu la ranges
   voice.js               les sons
@@ -527,8 +468,7 @@ src/renderer/js/
 
 Pour bosser dessus : `npm run dev` active des routes de debug sur le bridge (`/debug/capture` enregistre une image de la fenêtre dans `captures/`,
 `/debug/testwin` ouvre des fenêtres de test sur lesquelles elle peut s'asseoir, une par nom, `/debug/mouse` bouge et clique un pointeur
-factice sur la fenêtre de Capri, sans toucher au vrai, `/debug/type` écrit dans son chat, `/debug/menu` liste son menu
-et peut cliquer sur un de ses éléments).
+factice sur la fenêtre de Capri, sans toucher au vrai, `/debug/type` écrit dans son chat).
 `npm run dist` fabrique l'installeur Windows dans `dist/`.
 
 ## Crédits et droits
@@ -538,8 +478,6 @@ Projet de fan, non commercial, sans lien avec eux. Les images du personnage dans
 d'une découpe faite par des fans et d'un fan art (les gros plans de son intro) ; elles ne sont **pas** couvertes par la licence du code.
 Si un ayant droit veut qu'elles soient retirées, ouvre une issue.
 
-**Licence : gratuit, jamais à vendre.** Le code est sous [PolyForm Noncommercial License 1.0.0](LICENSE) : tu peux
-l'utiliser, la modifier et partager ce que tu as fait, gratuitement. Vendre Capri, ou quoi que ce soit fait à partir de
-son code (clés, abonnements, accès payant, commandes payantes), est interdit. Les versions jusqu'à la 0.4.3 étaient sous licence MIT.
+**Licence : gratuite, jamais à vendre.** Le code est sous [PolyForm Noncommercial License 1.0.0](LICENSE). Vous pouvez l’utiliser, le modifier et le partager gratuitement ; vendre Capri ou tout élément créé à partir du code est interdit. Les versions jusqu’à la 0.4.3 étaient sous licence MIT.
 
 Polices : Chakra Petch et JetBrains Mono, sous licence SIL Open Font License, via Fontsource.

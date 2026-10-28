@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Capri for Brave",
+  "version": "1.0.0",
+  "description": "Lets Capri search and operate a dedicated Brave window when you ask.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2tof48cX7tbCFQxBKgG124lQjH/bwA8uiFpcpOCv6HSWTfZMJcojfa61Hg3wItk6GPGXwtXSIKp8elxzgzUMglglkG2IxbE2IT/IbhIq2UQOjN35ZtbgYPAh1ZbrfHp7DJgyJCAzbPOA2B8lWinyCRAcOl/DfOBYfkeeQlMZQmm1UdZkVHY/k/Y0jqo5XpvEWnKRea/Cfz1hP/kZCKKPN+zkoZRVpg4+lbl86IFcWmmbKVmFfHlY+2AqO4GtZc2mMQ5McsB/Pbr8EOhSB2FvbUKQnHCzieinOJDsPt2DQWis+x+RDzYD36czghWCysUeTtC7I9kQm2xEoxtWZ/hnKwIDAQAB",
+  "permissions": ["alarms", "storage", "tabs", "scripting"],
+  "host_permissions": ["http://127.0.0.1:47823/*", "http://localhost:47823/*", "http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Open Capri's Brave window",
+    "default_popup": "popup.html"
+  }
+}

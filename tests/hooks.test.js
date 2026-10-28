@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { createBridge } = require('../src/main/bridge');
 const { configure, EVENTS } = require('../scripts/install-codex-hooks');
+const opencodeHooks = require('../scripts/install-opencode-plugin');
 
 function invoke(script, input, port) {
   return new Promise((resolve, reject) => {
@@ -104,6 +105,94 @@ test('hook exits silently when Capri is unavailable', async () => {
   const port = server.address().port;
   await new Promise((resolve) => server.close(resolve));
   await invoke('capri-codex-hook.js', JSON.stringify({ hook_event_name: 'Stop' }), port);
+});
+
+test('OpenCode plugin forwards prompts, tools, permissions and lifecycle events through the bridge', async (t) => {
+  const events = [];
+  const server = createBridge({ port: 0, onEvent(evt) { events.push(evt); } });
+  await once(server, 'listening');
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const oldPort = process.env.CAPRI_PORT;
+  t.after(() => {
+    if (oldPort === undefined) delete process.env.CAPRI_PORT;
+    else process.env.CAPRI_PORT = oldPort;
+  });
+  process.env.CAPRI_PORT = String(server.address().port);
+  const pluginFile = path.join(__dirname, '..', 'hooks', 'capri-opencode-plugin.js');
+  const { Capri } = await import(moduleUrl(pluginFile));
+  const hooks = await Capri({ directory: '/project' });
+
+  await hooks.event({ event: { type: 'session.created', properties: { info: { id: 's1', title: 'Project' } } } });
+  await hooks.event({ event: { type: 'message.updated', properties: { info: { id: 'm1', sessionID: 's1', role: 'user' } } } });
+  await hooks.event({ event: { type: 'message.part.updated', properties: { part: { type: 'text', messageID: 'm1', sessionID: 's1', text: 'Run tests' } } } });
+  await hooks['tool.execute.before'](
+    { tool: 'bash', sessionID: 's1', callID: 'c1' },
+    { args: { command: 'npm test' } },
+  );
+  await hooks['tool.execute.after']({ tool: 'bash', sessionID: 's1', callID: 'c1', args: { command: 'npm test' } }, {});
+  await hooks.event({ event: { type: 'permission.asked', properties: { sessionID: 's1', permission: 'bash' } } });
+  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
+  await hooks.event({ event: { type: 'session.deleted', properties: { info: { id: 's1' } } } });
+
+  const deadline = Date.now() + 2000;
+  while (events.length < 7 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(events.map((event) => event.hook_event_name), [
+    'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Notification', 'Stop', 'SessionEnd',
+  ]);
+  assert.ok(events.every((event) => event.session_id === 'opencode:s1'));
+  assert.equal(events[1].prompt, 'Run tests');
+  assert.equal(events[2].tool_name, 'Bash');
+  assert.equal(events[2].tool_input.command, 'npm test');
+  assert.equal(events[4].notification_type, 'permission_prompt');
+
+  const { assistant } = require('../src/main/assistants');
+  assert.equal(assistant('opencode').hooks, opencodeHooks);
+  globalThis.matchMedia = () => ({ matches: false });
+  t.after(() => { delete globalThis.matchMedia; });
+  const { Brain } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/brain.js')));
+  const noop = () => {};
+  const stub = (obj) => new Proxy(obj, { get: (value, key) => (key in value ? value[key] : noop) });
+  const brain = new Brain({
+    capri: stub({ windows: { fg: null, wins: [] }, mode: 'idle' }),
+    panel: stub({ say() {}, setTicker() {} }), voice: { play: noop },
+    host: { cursor: async () => null }, assistant: 'opencode',
+  });
+  t.after(() => clearInterval(brain.thinkTimer));
+  await brain.handle(events[1]);
+  await brain.handle({ ...events[1], session_id: 'codex:other' });
+  assert.ok(brain.sessions.has('opencode:s1'));
+  assert.equal(brain.sessions.has('codex:other'), false);
+
+  const { linesFor } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
+  const strings = (value) => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : [];
+  for (const lang of ['en', 'fr', 'es', 'pt', 'ru']) {
+    const text = strings(linesFor(lang, 'opencode')).join('\n');
+    assert.match(text, /OpenCode/);
+    assert.doesNotMatch(text, /Claude|\.claude|settings\.json/);
+  }
+});
+
+test('OpenCode installer preserves other plugins, is idempotent and removes only Capri', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-opencode-'));
+  const old = process.env.OPENCODE_CONFIG_DIR;
+  process.env.OPENCODE_CONFIG_DIR = dir;
+  try {
+    const otherPlugin = path.join(dir, 'plugins', 'other.js');
+    fs.mkdirSync(path.dirname(otherPlugin), { recursive: true });
+    fs.writeFileSync(otherPlugin, 'export const Other = () => ({});');
+    const first = opencodeHooks.install();
+    assert.equal(opencodeHooks.status().installed, true);
+    const installed = fs.readFileSync(first.file, 'utf8');
+    assert.match(installed, /CAPRI_OPENCODE_PLUGIN/);
+    assert.equal(opencodeHooks.install().file, first.file);
+    assert.equal(fs.readdirSync(path.dirname(otherPlugin)).length, 2);
+    assert.equal(opencodeHooks.uninstall().removed, true);
+    assert.equal(opencodeHooks.status().installed, false);
+    assert.equal(fs.readFileSync(otherPlugin, 'utf8'), 'export const Other = () => ({});');
+  } finally {
+    if (old === undefined) delete process.env.OPENCODE_CONFIG_DIR; else process.env.OPENCODE_CONFIG_DIR = old;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('Codex onboarding, guide, and chat use Codex in every language; Claude text is preserved', async () => {

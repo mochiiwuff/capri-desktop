@@ -6,10 +6,26 @@
 const http = require('node:http');
 
 const MAX_BODY = 512 * 1024;
+const BRAVE_EXTENSION_ORIGIN = 'chrome-extension://hbipfcmbibjaodaagpdkkkgahhdkldjj';
 
-function send(res, status, body) {
+function isExtensionOrigin(origin) {
+  return typeof origin === 'string' && (origin === BRAVE_EXTENSION_ORIGIN || origin.startsWith('chrome-extension://'));
+}
+
+function send(res, status, body, origin = null) {
   const json = JSON.stringify(body);
-  res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(json) });
+  const allowOrigin = isExtensionOrigin(origin) ? origin : null;
+  res.writeHead(status, {
+    'content-type': 'application/json',
+    'content-length': Buffer.byteLength(json),
+    ...(allowOrigin && {
+      'access-control-allow-origin': allowOrigin,
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'content-type',
+      'access-control-allow-private-network': 'true',
+      'vary': 'Origin',
+    }),
+  });
   res.end(json);
 }
 
@@ -37,13 +53,44 @@ function readJson(req) {
   });
 }
 
-function createBridge({ port, onEvent, onDebug }) {
+function createBridge({ port, onEvent, onDebug, onBrowser }) {
   const server = http.createServer(async (req, res) => {
-    // Browsers always send an Origin header on cross-site requests; hooks never do.
-    // Refusing those keeps random web pages from puppeting Capri.
-    if (req.headers.origin) return send(res, 403, { ok: false });
-
     const url = new URL(req.url, 'http://127.0.0.1');
+    // Browsers always send an Origin header on cross-site requests; hooks never do.
+    // The Capri extension may reach only its two browser-control endpoints.
+    const origin = req.headers.origin;
+    const browserRoute = ['/browser/health', '/browser/next', '/browser/result'].includes(url.pathname);
+    if (origin && !(isExtensionOrigin(origin) && browserRoute)) return send(res, 403, { ok: false }, origin);
+
+    if (onBrowser && req.method === 'OPTIONS' && browserRoute) {
+      if (origin && !isExtensionOrigin(origin)) return send(res, 403, { ok: false }, origin);
+      res.writeHead(204, {
+        'access-control-allow-origin': origin || '*',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+        'access-control-allow-headers': req.headers['access-control-request-headers'] || 'content-type',
+        'access-control-allow-private-network': 'true',
+        'access-control-max-age': '600',
+        'vary': 'Origin',
+      });
+      return res.end();
+    }
+
+    if (onBrowser && (!origin || isExtensionOrigin(origin)) && req.method === 'GET' && url.pathname === '/browser/next') {
+      return send(res, 200, await onBrowser('next'), origin);
+    }
+
+    if (onBrowser && (!origin || isExtensionOrigin(origin)) && req.method === 'GET' && url.pathname === '/browser/health') {
+      return send(res, 200, { ok: true, name: 'capri-browser' }, origin);
+    }
+
+    if (onBrowser && (!origin || isExtensionOrigin(origin)) && req.method === 'POST' && url.pathname === '/browser/result') {
+      try {
+        const body = await readJson(req);
+        return send(res, 200, { ok: onBrowser('result', body) }, origin);
+      } catch (err) {
+        return send(res, 400, { ok: false, error: err.message }, origin);
+      }
+    }
 
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { ok: true, name: 'capri', pid: process.pid });

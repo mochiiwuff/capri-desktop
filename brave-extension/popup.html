@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capri para Brave</title>
+  <style>
+    body { width: 280px; margin: 0; padding: 16px; color: #eee; background: #17151c; font: 14px sans-serif; }
+    p { min-height: 36px; line-height: 1.4; }
+    button { width: 100%; padding: 9px; color: #fff; background: #8d3159; border: 0; border-radius: 4px; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+  </style>
+</head>
+<body>
+  <strong>Capri para Brave</strong>
+  <p id="status" role="status">Conectando à Capri...</p>
+  <button id="open" type="button" hidden>Abrir janela da Capri</button>
+  <script src="popup.js"></script>
+</body>
+</html>

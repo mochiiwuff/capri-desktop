@@ -8,7 +8,7 @@ import { rand, pick } from './util.js';
 const BLIP_NOTES = [62, 65, 67, 69, 72, 74, 77, 79];
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
-export const CUES = ['teleport-out', 'teleport-in', 'done', 'alert', 'error', 'hello', 'blip', 'tick', 'star', 'land', 'rise', 'bolt', 'charge', 'possess', 'throw', 'crash', 'remind', 'jealous'];
+export const CUES = ['teleport-out', 'teleport-in', 'done', 'alert', 'error', 'hello', 'blip', 'tick', 'star', 'land', 'rise', 'bolt', 'charge', 'possess'];
 
 export class Voice {
   constructor() {
@@ -88,10 +88,6 @@ export class Voice {
       bolt: () => this.bolt(opts.soft),
       charge: () => this.charge(),
       possess: () => this.possess(),
-      throw: () => this.whoosh(opts.power ?? 0.6),
-      crash: () => this.crash(opts.power ?? 0.6),
-      remind: () => this.remind(),
-      jealous: () => this.hiss(),
     }[cue];
     fn?.();
   }
@@ -215,61 +211,6 @@ export class Voice {
     const o = this.osc('sawtooth', 160, t, 0.2, 0.07);
     o.frequency.exponentialRampToValueAtTime(1400, t + 0.18);
     this.noiseBurst(t, 0.18, 0.12, 500, 6000, 2);
-  }
-
-  // thrown: air rushing past, a falling saw under it, harder the faster she goes
-  whoosh(power) {
-    const t = this.ctx.currentTime;
-    const k = 0.4 + power * 0.6;
-    this.noiseBurst(t, 0.28, 0.16 * k, 300, 3200 + power * 3000, 1.4);
-    const o = this.osc('sawtooth', 420 + power * 300, t, 0.22, 0.05 * k);
-    o.frequency.exponentialRampToValueAtTime(90, t + 0.2);
-    for (let i = 0; i < 3; i++) this.osc('square', rand(1500, 3800), t + 0.03 + i * 0.03, 0.015, 0.03 * k);
-  }
-
-  // slamming into something: a heavy thump, glass crunching, her signal glitching out for a moment
-  crash(power) {
-    const t = this.ctx.currentTime;
-    const k = 0.35 + power * 0.65;
-    const o = this.osc('triangle', 130, t, 0.22, 0.34 * k);
-    o.frequency.exponentialRampToValueAtTime(38, t + 0.2);
-    this.noiseBurst(t, 0.12, 0.22 * k, 2400, 300, 1.2);
-    if (power > 0.25) {
-      for (let i = 0; i < 6; i++) this.noiseBurst(t + 0.02 + i * rand(0.012, 0.03), 0.02, 0.12 * k, rand(5000, 9000), rand(6000, 10000), 9);
-    }
-    for (let i = 0; i < 4; i++) this.osc('square', rand(700, 2600), t + 0.05 + i * 0.028, 0.018, 0.04 * k);
-  }
-
-  // a reminder: three bright notes going up, softer than an alert, with a shimmer
-  remind() {
-    const t = this.ctx.currentTime;
-    [76, 81, 88].forEach((n, i) => {
-      this.osc('triangle', midi(n), t + i * 0.12, 0.35, 0.08);
-      this.osc('sine', midi(n + 12), t + i * 0.12 + 0.01, 0.25, 0.025);
-    });
-    this.noiseBurst(t + 0.3, 0.4, 0.02, 8000, 12000, 6);
-  }
-
-  // jealous: a hiss over a low growl that wobbles, like a cat about to swipe
-  hiss() {
-    const ctx = this.ctx;
-    const t = ctx.currentTime;
-    const src = ctx.createBufferSource();
-    src.buffer = this.noise;
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.Q.value = 1.2;
-    bp.frequency.setValueAtTime(3500, t);
-    bp.frequency.linearRampToValueAtTime(6500, t + 0.4);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.14, t + 0.08);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-    src.connect(bp).connect(g).connect(this.master);
-    src.start(t, rand(0, 0.5));
-    src.stop(t + 0.5);
-    const growl = this.osc('sawtooth', 72, t, 0.4, 0.07);
-    for (let i = 1; i <= 8; i++) growl.frequency.setValueAtTime(i % 2 ? 64 : 80, t + i * 0.045);
   }
 
   // touching down: a soft digital thump
