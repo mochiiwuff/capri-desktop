@@ -32,12 +32,13 @@ export const fmt = (str, vars = {}) => str.replace(/\{(\w+)\}/g, (_, k) => (vars
 
 export function duration(ms, lang = 'fr') {
   const ru = lang === 'ru';
+  const uk = lang === 'uk';
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return ru ? `${s} с` : `${s} s`;
+  if (s < 60) return ru || uk ? `${s} с` : `${s} s`;
   const m = Math.floor(s / 60);
   const ss = String(s % 60).padStart(2, '0');
-  if (m < 60) return lang === 'en' ? `${m}m ${ss}s` : ru ? `${m} мин ${ss} с` : `${m} min ${ss}`;
-  return `${Math.floor(m / 60)} ${ru ? 'ч' : 'h'} ${String(m % 60).padStart(2, '0')}`;
+  if (m < 60) return lang === 'en' ? `${m}m ${ss}s` : ru ? `${m} мин ${ss} с` : uk ? `${m} хв ${ss} с` : `${m} min ${ss}`;
+  return `${Math.floor(m / 60)} ${ru ? 'ч' : uk ? 'год' : 'h'} ${String(m % 60).padStart(2, '0')}`;
 }
 
 export const basename = (p = '') => String(p).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '';

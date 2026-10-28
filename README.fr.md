@@ -272,7 +272,7 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, langue, lancement au démarrage, hooks.
   Tout en haut : où vous en êtes, elle et toi.
 
-Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton
+Elle parle **français, anglais, espagnol, portugais du Brésil, russe et ukrainien**, et choisit toute seule la langue de ton
 système. Tu peux en choisir une autre dans son menu.
 
 ## Installation
@@ -355,7 +355,7 @@ permission, fin), puis montre tout ce qu'elle fait toute seule, une phrase avant
 l'éclair sur ta souris, la grande séquence du satellite, la possession d'une fenêtre (un petit terminal s'ouvre
 pour elle, puis se ferme sous elle et elle tombe), le sommeil jusqu'à son masque, et le rangement en bas à gauche.
 C'est aussi dans le menu de l'icône, dans sa langue ; en ligne de commande c'est en anglais, ou précise la langue :
-`npm run demo -- fr` (ou `es`, `pt`, `ru`).
+`npm run demo -- fr` (ou `es`, `pt`, `ru`, `uk`).
 
 ## Sons
 

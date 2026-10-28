@@ -109,6 +109,27 @@ const TRAY = {
     pcReact: 'Реагировать на мой ПК',
     cloudFree: 'бесплатно, онлайн', cloudSignin: 'Войти в Ollama (бесплатные облачные модели)…',
   },
+  uk: {
+    name: 'Українська',
+    online: (port) => `Capri — слухаю порт ${port}`,
+    teleport: 'Телепортуватися', satellite: 'Подивитися на супутник', demo: 'Запустити демо', help: 'Як це працює?',
+    report: 'Звіт про місії', talk: 'Поговорити з нею', custom: 'Налаштувати її…', chatModel: 'ШІ-модель', aiSetup: 'Обрати разом із нею…', apiKey: 'API-ключ або адреса…', noOllama: 'Ollama не знайдено',
+    rest: 'Коли вона відпочиває', restCorner: 'У своєму куточку', restTaskbar: 'Сидить на панелі завдань', watch: 'Що відстежувати', watchNone: 'Нічого, просто будь поруч',
+    motion: 'Анімації', motionAuto: 'Як у Windows', motionFull: 'Усі', motionReduced: 'Мінімум',
+    display: 'Відображення', displayAuto: 'Звичайне', displayGl: 'OpenGL (якщо її тло чорне)', displaySoftware: 'Без відеокарти (якщо досі чорне)',
+    show: 'Повернути її', hide: 'Сховати',
+    size: 'Розмір', small: 'Маленька', medium: 'Середня', large: 'Велика', sound: 'Звук', mute: 'Без звуку',
+    soundsDir: 'Відкрити папку своїх звуків', screen: 'Екран', wander: 'Гуляти, коли нічого не відбувається',
+    possess: 'Вселятися в мої вікна', lang: 'Мова', auto: 'Автоматично (системна)', startup: 'Запускати разом із Windows',
+    hooksOn: 'Хуки Claude Code: встановлено', hooksOff: 'Встановити хуки Claude Code',
+    hooksRemove: 'Видалити хуки Claude Code', forget: 'Забути наші розмови', quit: 'Вийти',
+    sync: (percent, stage) => `Ви з нею: ${percent} % · ${stage}`, stages: ['Слабкий сигнал', 'Контакт', 'Синхрон', 'Зв’язок', 'Злиття'],
+    reminders: 'Нагадування', noReminders: 'Нагадувань немає (попроси в її чаті)', cancelReminder: 'Скасувати нагадування',
+    follow: 'Іти за мною з екрана на екран', jealous: 'Ревнує до інших ШІ',
+    lookNow: 'Подивись на мій екран', lookAuto: 'Іноді дивитися на мій екран',
+    pcReact: 'Реагувати на мій ПК',
+    cloudFree: 'безкоштовно, онлайн', cloudSignin: 'Увійти в Ollama (безкоштовні хмарні моделі)…',
+  },
 };
 
 module.exports = { TRAY, LANGS: Object.keys(TRAY) };

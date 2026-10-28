@@ -257,7 +257,7 @@ She only catches the mouse on her actual body (pixel-precise): the rest of the s
   model, wander, possess your windows, jealous of other AIs, react to my PC, language, start with Windows, hooks. At the very top:
   where you two stand.
 
-She speaks **French, English, Spanish, Brazilian Portuguese and Russian**, and picks the language of your system on her
+She speaks **French, English, Spanish, Brazilian Portuguese, Russian and Ukrainian**, and picks the language of your system on her
 own. You can choose another one in her menu.
 
 ## Install
@@ -337,7 +337,7 @@ prompt, the end), then shows everything she does on her own, a line before each 
 zapping your pointer, the whole satellite sequence, possessing a window (a little terminal opens for her, then closes
 under her and she falls), sleeping down to her mask, and putting herself away in the bottom-left corner.
 It's also in the tray menu, in her language; from the command line it's in English, or add one: `npm run demo -- fr`
-(or `es`, `pt`, `ru`).
+(or `es`, `pt`, `ru`, `uk`).
 
 ## Sounds
 
