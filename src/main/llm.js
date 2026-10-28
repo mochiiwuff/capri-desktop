@@ -2,7 +2,7 @@
 
 // Who she talks with: Ollama, any OpenAI-compatible server (local, cloud, or a keyless gateway),
 // or Claude Code itself (headless `claude -p`, so your messages become its prompts).
-// Keys come from config.json's `apiKeys` ({ openai: "sk-..." }) or the provider's env variable.
+// The main process supplies decrypted/session keys, or the provider's environment variable.
 
 const os = require('node:os');
 const fs = require('node:fs');

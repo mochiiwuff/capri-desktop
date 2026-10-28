@@ -19,6 +19,8 @@ const ollama = require('./ollama');
 const setup = require('./setup');
 const { inspectPlatform } = require('./platform');
 const { platformText } = require('./platform-labels');
+const { storageText } = require('./storage-labels');
+const { createJsonStore } = require('./json-store');
 const apps = require('./apps');
 const launch = require('./launch');
 const files = require('./files');
@@ -65,23 +67,40 @@ const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
 
 // Her memory of your chats, across restarts: { history: [{ role, content }], claude: Claude Code's session }
 const memoryFile = () => path.join(app.getPath('userData'), 'memory.json');
-function readMemory() {
-  try {
-    return JSON.parse(fs.readFileSync(memoryFile(), 'utf8'));
-  } catch {
-    return {};
+const memoryStore = createJsonStore({ file: memoryFile, defaults: { history: [], claude: null }, normalize(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || (value.history && !Array.isArray(value.history))) {
+    throw new Error('Invalid memory');
   }
-}
-function saveMemory(patch) {
+  return value;
+} });
+function readMemory() { return memoryStore.load(); }
+function saveMemory(patch, options) {
   try {
-    fs.writeFileSync(memoryFile(), JSON.stringify({ ...readMemory(), ...patch }));
+    memoryStore.write({ ...readMemory(), ...patch }, options);
+    return true;
+  } catch { notifyStorage('failed'); return false; }
+}
+
+const storageNotices = new Set();
+function notifyStorage(reason) {
+  if (!app.isReady() || storageNotices.has(reason)) return;
+  storageNotices.add(reason);
+  const t = storageText(resolveLang(config.load().lang));
+  dialog.showMessageBox({ type: 'warning', title: t.title, message: t[reason] || t.failed }).catch(() => {});
+}
+
+function saveConfig(patch, renderer = false) {
+  try {
+    if (renderer) config.rendererPatch(patch); else config.save(patch);
+    return true;
   } catch (err) {
-    console.error('[capri] could not save her memory:', err.message);
+    if (err.code && err.code !== 'EINVALIDJSON') notifyStorage(config.status().blocked ? 'blocked' : 'failed');
+    return false;
   }
 }
 function forgetChats() {
+  if (!saveMemory({ history: [], claude: null }, { discardBackupHistory: true })) return;
   llm.resetClaude();
-  saveMemory({ history: [], claude: null });
   sendCommand('forget');
 }
 
@@ -128,7 +147,7 @@ function targetDisplay() {
 // screen with another scale, Windows resizes the window once it lands there.
 function moveOverlay(id) {
   if (!displays().some((d) => d.id === id)) return null;
-  config.save({ displayId: id });
+  if (!saveConfig({ displayId: id })) return null;
   fitOverlay();
   const { area } = overlayArea();
   overlay.setBounds(area);
@@ -238,7 +257,7 @@ function sendCommand(name, payload = {}) {
 // Ctrl+Alt+C: she folds herself away into her biochip in the corner, or comes back out of it.
 function toggleVisible(force) {
   const visible = typeof force === 'boolean' ? force : !config.load().visible;
-  config.save({ visible });
+  if (!saveConfig({ visible })) return;
   sendCommand('stow', { on: !visible });
   rebuildTray();
 }
@@ -295,19 +314,23 @@ function resolveLang(setting) {
 
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
-  const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
+  const cfg = config.publicValues();
   const lang = resolveLang(cfg.lang);
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang, langSetting: cfg.lang,
+  return { ...cfg, keys: config.keys.names(config.load().apiKeys).filter((id) => Object.hasOwn(llm.PROVIDERS, id)),
+    keyStorage: config.keys.status(), storageText: storageText(lang),
+    assistant: activeAssistant().id, lang, langSetting: cfg.lang,
     floorGap: overlayArea().gap, system: { features: platformInfo?.features || {}, text: platformText(lang) } };
 }
 
 function featureAvailable(name) { return platformInfo?.features[name]?.status !== 'unavailable'; }
 
-async function refreshPlatform() {
+async function refreshPlatform(reloadStorage = false) {
+  if (reloadStorage) { config.load(true); memoryStore.load(true); }
   platformInfo = await inspectPlatform({ backend: app.commandLine.getSwitchValue('ozone-platform') || 'x11' });
   overlay?.webContents.send('capri:config', rendererConfig());
   rebuildTray();
-  return { ...platformInfo, checkedAt: new Date().toISOString(), appVersion: app.getVersion(), electronVersion: process.versions.electron };
+  return { ...platformInfo, checkedAt: new Date().toISOString(), appVersion: app.getVersion(), electronVersion: process.versions.electron,
+    keyStorage: config.keys.status(), settingsStorage: config.status(), memoryStorage: memoryStore.status() };
 }
 
 async function showDiagnostics() {
@@ -315,7 +338,7 @@ async function showDiagnostics() {
   diagnosticOpen = true;
   try {
     for (;;) {
-      const report = await refreshPlatform();
+      const report = await refreshPlatform(true);
       const t = platformText(resolveLang(config.load().lang));
       const detail = [
         `${report.distribution} · ${report.session} · ${report.backend}`,
@@ -324,6 +347,15 @@ async function showDiagnostics() {
         ...Object.entries(report.features).map(([key, value]) =>
           `${t.features[key]}: ${t.states[value.status]}${value.reason ? ` — ${t.reasons[value.reason]}` : ''}`),
         '', t.trayNote,
+        '', storageText(resolveLang(config.load().lang))[report.keyStorage.persistent ? 'persistent' : 'session'],
+        ...(report.keyStorage.lockedKeys ? [storageText(resolveLang(config.load().lang)).locked] : []),
+        ...[report.settingsStorage, report.memoryStorage].flatMap((state, index) => {
+          const text = storageText(resolveLang(config.load().lang));
+          return state.blocked ? [text.blocked] : state.error || state.migrationError ? [text.failed]
+            : state.recovery !== 'none' ? [text[index === 1
+              ? state.recovery === 'backup' ? 'memoryRecovered' : 'memoryReset'
+              : state.recovery === 'backup' ? 'recovered' : 'reset']] : [];
+        }),
       ].join('\n');
       const { response } = await dialog.showMessageBox({ type: 'info', title: t.title,
         message: t.intro, detail, buttons: [t.copy, t.refresh, t.close], defaultId: 2, cancelId: 2 });
@@ -333,16 +365,16 @@ async function showDiagnostics() {
   } finally { diagnosticOpen = false; }
 }
 
-function updateConfig(patch) {
-  config.save(patch);
-  if ('rest' in patch) {
+function updateConfig(patch, renderer = false) {
+  const saved = saveConfig(patch, renderer);
+  if (saved && 'rest' in patch) {
     fitOverlay(); // the taskbar in her window or not
     windowWatch?.refresh();
   }
   const cfg = rendererConfig();
   overlay?.webContents.send('capri:config', cfg);
   rebuildTray();
-  return cfg;
+  return saved ? cfg : { ...cfg, saveError: true };
 }
 
 function rebuildTray() {
@@ -517,7 +549,7 @@ function rebuildTray() {
         label, type: 'radio', checked: cfg.render === render,
         click: () => {
           if (cfg.render === render) return;
-          config.save({ render });
+          if (!saveConfig({ render })) return;
           app.relaunch();
           app.exit(0);
         },
@@ -710,9 +742,9 @@ async function pickProvider(provider) {
   if (chatErrorCode) sendCommand('setupKey'); // it needs a key or an address: she asks for it
 }
 
-// What llm.js gets: the config with its keys opened (they're kept encrypted, setup.js)
+// Only the main-process provider receives decrypted or session keys.
 function llmConfig(cfg = config.load()) {
-  return { ...cfg, apiKeys: setup.openKeys(cfg.apiKeys) };
+  return { ...cfg, apiKeys: config.keys.openKeys(cfg.apiKeys) };
 }
 
 async function pickClaudeFolder() {
@@ -732,7 +764,7 @@ function createTray() {
 }
 
 function registerIpc() {
-  ipcMain.handle('system:info', () => refreshPlatform());
+  ipcMain.handle('system:info', () => refreshPlatform(true));
   ipcMain.on('overlay:interactive', (_e, on) => {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
@@ -762,7 +794,7 @@ function registerIpc() {
   });
   ipcMain.handle('config:get', () => rendererConfig());
   ipcMain.handle('hooks:status', () => activeHooks().status());
-  ipcMain.handle('config:set', (_e, patch) => updateConfig(patch));
+  ipcMain.handle('config:set', (_e, patch) => updateConfig(patch, true));
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
   // right-clicking her: the same menu as the tray icon (which Windows often hides behind the ^ by the clock)
   ipcMain.on('menu:open', () => trayMenu?.popup({ window: overlay }));
@@ -872,20 +904,33 @@ function registerIpc() {
     }
   });
   ipcMain.on('setup:cancel', () => pulling?.abort());
-  // who answers her chat, with its key or address if it needs one: saved, tried, and undone if it fails
-  ipcMain.handle('setup:use', async (_e, { provider, key, url }) => {
-    if (!llm.PROVIDERS[provider]) return { ok: false, error: 'unknown provider' };
-    const before = config.load();
-    const patch = { provider };
-    if (key) patch.apiKeys = { ...before.apiKeys, [provider]: setup.sealKey(String(key).trim()) };
-    if (url) patch.customUrl = String(url).trim();
-    updateConfig(patch);
-    const models = await refreshModels();
-    if (models?.length) return { ok: true, model: pickModel() };
-    const error = models ? 'no model' : chatError || 'offline';
-    updateConfig({ provider: before.provider, apiKeys: before.apiKeys, customUrl: before.customUrl });
-    await refreshModels();
-    return { ok: false, error };
+  // Validate a provider before persisting anything. A failed check must not overwrite
+  // working settings or leak a key through a server's error message.
+  ipcMain.handle('setup:use', async (_e, { provider, key, url } = {}) => {
+    const t = storageText(resolveLang(config.load().lang));
+    if (typeof provider !== 'string' || !Object.hasOwn(llm.PROVIDERS, provider) || (key !== undefined && (typeof key !== 'string' || !key.trim() || key.length > 16384))
+      || (url !== undefined && typeof url !== 'string')) return { ok: false, error: t.providerFailed };
+    const rawKey = key?.trim();
+    const patch = { provider, ...(url && { customUrl: url.trim() }) };
+    const candidate = llmConfig({ ...config.load(), ...patch });
+    if (rawKey) candidate.apiKeys[provider] = rawKey;
+    try {
+      const models = await llm.models(provider, candidate);
+      if (!models?.length) return { ok: false, error: t.providerFailed };
+      const prepared = rawKey && config.keys.prepare(rawKey);
+      if (prepared) {
+        patch.apiKeys = { ...config.load().apiKeys };
+        if (prepared.value) patch.apiKeys[provider] = prepared.value;
+        else delete patch.apiKeys[provider];
+      }
+      if (!saveConfig(patch)) return { ok: false, error: t.failed };
+      if (prepared) config.keys.activate(provider, rawKey, prepared.storage);
+      chatModels = models;
+      chatError = chatErrorCode = null;
+      overlay?.webContents.send('capri:config', rendererConfig());
+      rebuildTray();
+      return { ok: true, model: pickModel(), storage: prepared?.storage };
+    } catch { return { ok: false, error: t.providerFailed }; }
   });
   ipcMain.on('setup:keyPage', (_e, provider) => setup.KEY_PAGES[provider] && shell.openExternal(setup.KEY_PAGES[provider]));
   ipcMain.handle('setup:launch', (_e, integration) => featureAvailable('ollamaLaunch')
@@ -1095,12 +1140,19 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(async () => {
+    config.initializeKeys();
     await refreshPlatform();
-    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    if (!['codex', 'claude'].includes(config.load().assistant)) saveConfig({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();
     createTray();
+    readMemory();
+    const stored = config.status();
+    if (stored.blocked || memoryStore.status().blocked) notifyStorage('blocked');
+    else if (stored.migrationError) notifyStorage('failed');
+    else if (stored.recovery !== 'none') notifyStorage(stored.recovery === 'backup' ? 'recovered' : 'reset');
+    else if (memoryStore.status().recovery !== 'none') notifyStorage(memoryStore.status().recovery === 'backup' ? 'memoryRecovered' : 'memoryReset');
     windowWatch = startWindowWatch({
       overlay,
       onUpdate: (data) => {

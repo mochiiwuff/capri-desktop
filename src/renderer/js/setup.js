@@ -215,14 +215,16 @@ export class Setup {
   // Her panel with a line to paste the key into (hidden as you type), and the page to get one.
   async paste(provider, error = '') {
     const t = this.t;
+    const cfg = await this.host.getConfig();
+    const storageNote = cfg.storageText?.[cfg.keyStorage?.persistent ? 'persistent' : 'session'];
     const got = await this.guide.askText({
       face: error ? 'wide' : 'look',
       line: fmt(t.paste, { name: NAMES[provider] || provider }),
-      quote: error ? `${t.keyBad} ${error}` : t.pasteHow,
+      quote: error ? `${t.keyBad} ${error}` : storageNote || t.pasteHow,
       secret: true,
       placeholder: t.placeholder,
       tag: t.keyTag,
-      note: t.keyNote,
+      note: storageNote || t.keyNote,
       actions: [{ id: 'page', label: t.where }, { id: 'other', label: t.other }],
       onAction: (id) => id === 'page' && (this.host.keyPage(provider), true),
     });
@@ -230,7 +232,7 @@ export class Setup {
     if (!got?.text) return false;
     this.working(t.checking);
     const res = await this.host.useProvider({ provider, key: got.text });
-    return res.ok ? this.done() : this.paste(provider, res.error);
+    return res.ok ? this.done(cfg.storageText?.[res.storage === 'session' ? 'session' : 'persistent']) : this.paste(provider, res.error);
   }
 
   // The address of an OpenAI-compatible server of your own (LM Studio, llama.cpp…).
@@ -286,11 +288,11 @@ export class Setup {
   }
 
   // She can talk: true if you want to now (her chat opens).
-  async done() {
+  async done(storageNote = '') {
     this.voice.play('hello');
     this.capri.perform('hop');
     const id = await this.guide.ask({
-      kind: 'done', face: 'laugh', line: this.t.ready, quote: this.t.readyHow,
+      kind: 'done', face: 'laugh', line: this.t.ready, quote: [this.t.readyHow, storageNote].filter(Boolean).join('\n'),
       actions: [{ id: 'talk', label: this.t.talk, primary: true }, { id: 'later', label: this.t.later }],
     });
     return id === 'talk';

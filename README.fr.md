@@ -165,8 +165,9 @@ La première fois, elle règle tout avec toi, avec des boutons, sans terminal :
   (déconnecté, plus d'usage gratuit), elle repasse sur un modèle de ton PC.
 - **En ligne, sans compte** : Pollinations, rien à régler.
 - **J'ai une clé** : Groq ou Gemini (tous les deux ont une offre gratuite), OpenRouter, OpenAI, Mistral ou DeepSeek.
-  Tu colles ta clé dans son panneau et elle la vérifie. Elle reste sur ton PC, chiffrée avec ton compte Windows, et ne
-  part que vers ce service.
+  Tu colles ta clé dans son panneau et elle la vérifie. Elle est chiffrée avec le trousseau sécurisé du système ;
+  sans trousseau disponible, elle reste uniquement en mémoire pour la session. Elle ne part que vers ce service.
+  Voir les [règles de stockage et de récupération](docs/STORAGE.fr.md).
 
 Son menu › **Modèle IA** pour changer plus tard : **Choisir avec elle…**, ou directement un service et un modèle,
 LM Studio (`:1234`), llama.cpp ou vLLM (`:8080`), n'importe quel serveur compatible OpenAI (**Clé API ou

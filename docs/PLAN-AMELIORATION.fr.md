@@ -26,8 +26,22 @@ Les lots suivants restent à réaliser, en particulier la validation sur CachyOS
 - Restauration de l’affichage de Capri si une capture échoue ou est annulée.
 - Suite portée à 26 tests ; test Electron étendu au diagnostic et aux réglages Linux.
 
-La validation sur un bureau Hyprland réel, le stockage sûr des clés, les sauvegardes
-atomiques et les nouvelles intégrations Linux restent à réaliser.
+## Suivi du stockage
+
+- Nouvelles clés chiffrées uniquement avec un trousseau sécurisé ; repli en mémoire
+  pour la session, indiqué dans l’interface, sans sauvegarde en clair.
+- Migration des anciennes clés et conservation des valeurs chiffrées illisibles.
+- Fournisseur validé avant toute modification des réglages ; conservation de la
+  clé précédente si la vérification échoue.
+- Réglages validés et versionnés, écritures atomiques, sauvegarde sans clés API,
+  récupération et conservation des fichiers endommagés.
+- Même protection d’écriture pour la mémoire des conversations ; la commande
+  d’oubli vide aussi sa sauvegarde ordinaire.
+- Suite portée à 48 tests et test Electron étendu aux clés de session avec un
+  fournisseur local factice. Les API de trousseau sont simulées dans les tests unitaires.
+
+La validation sur un bureau Hyprland réel, les essais avec les trousseaux natifs
+et les nouvelles intégrations Linux restent à réaliser.
 
 ## État de départ
 

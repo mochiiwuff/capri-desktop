@@ -19,6 +19,11 @@ les réponses invalides des services, le contenu du diagnostic et les explicatio
 affichées lorsque des actions ne sont pas disponibles. Les services sont simulés :
 ces tests tournent également sur le runner Windows.
 
+`tests/storage.test.js` couvre les écritures interrompues, les fichiers corrompus,
+les formats futurs et le stockage des clés avec ou sans trousseau sécurisé.
+Les API de trousseau sont simulées. Le contrôle des permissions POSIX est réservé
+au runner Linux. Voir le [guide de stockage](STORAGE.fr.md).
+
 Les suites peuvent aussi être exécutées séparément :
 
 ```sh
@@ -51,6 +56,9 @@ cerveau du personnage. Il termine sa propre instance et supprime son profil,
 sans installer de hooks ni modifier les réglages de l’utilisateur.
 Il vérifie aussi l’accès au diagnostic via IPC, les réglages Linux désactivés dans
 le menu et l’explication des commandes multimédias indisponibles dans le chat.
+Un faux fournisseur local et une clé factice vérifient la conservation uniquement
+en mémoire sans trousseau sûr, ainsi que le maintien de la clé précédente si la
+validation d’un nouveau fournisseur échoue. Aucune clé réelle n’est nécessaire.
 
 Le serveur X virtuel ne valide pas la transparence avec le compositeur, les clics
 à travers ou le multi-écran Hyprland. Pour ces essais, suivre le

@@ -69,6 +69,11 @@ menu. Le clic droit sur Capri ouvre également son menu. Sous Hyprland, un racco
 peut être réservé au compositeur : utiliser le menu si Ctrl+Alt+C ne fonctionne pas.
 Ollama est facultatif et doit être installé/démarré séparément pour le chat local.
 
+Pour conserver une clé API entre les lancements, un trousseau GNOME/libsecret ou
+KWallet doit être disponible et déverrouillé. Sinon Capri utilise la clé uniquement
+en mémoire pour la session ; elle ne la sauvegarde pas via `basic_text`. Voir le
+[guide de stockage et de récupération](../STORAGE.fr.md).
+
 ## Diagnostic depuis le menu
 
 Le menu de Capri propose **Diagnostic et fonctions disponibles**. Il indique la

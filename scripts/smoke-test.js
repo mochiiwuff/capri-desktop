@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { setTimeout: delay } = require('node:timers/promises');
@@ -33,10 +34,11 @@ async function main() {
   const log = [];
   let exited = false;
   let spawnError;
+  let modelServer;
   // XDG_CONFIG_HOME isolates Electron userData. An explicit Chromium profile also
   // prevents the single-instance lock from attaching to a running user instance.
   const child = spawn(electron, [ROOT, '--dev', `--user-data-dir=${path.join(profile, 'chromium')}`,
-    '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], {
+    '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--password-store=basic'], {
     cwd: ROOT,
     env: { ...process.env, CAPRI_PORT: String(port), XDG_CONFIG_HOME: profile,
       XDG_CACHE_HOME: path.join(profile, 'cache'), HYPRLAND_INSTANCE_SIGNATURE: '' },
@@ -118,6 +120,44 @@ async function main() {
     const explanation = await evaluate('window.dev.chat.doNow({kind: "media", action: "pause"})');
     assert.ok(explanation.line.includes(cfg.system.text.reasons.windowsOnly), 'chat explains unavailable Linux actions');
 
+    // Only synthetic keys and a loopback fake provider are used. Force basic_text
+    // to prove that Electron reporting encryption available cannot weaken policy.
+    assert.equal(cfg.keyStorage.persistent, false);
+    const syntheticKey = 'capri-smoke-synthetic-key';
+    let accept = true;
+    modelServer = http.createServer((req, res) => {
+      const ok = accept && req.headers.authorization === `Bearer ${syntheticKey}`;
+      res.writeHead(ok ? 200 : 401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(ok ? { data: [{ id: 'smoke-model' }] }
+        : { error: { message: req.headers.authorization || 'missing key' } }));
+    });
+    modelServer.listen(0, '127.0.0.1');
+    await once(modelServer, 'listening');
+    const url = `http://127.0.0.1:${modelServer.address().port}/v1`;
+    const configured = await evaluate(`window.host.useProvider(${JSON.stringify({ provider: 'custom', key: syntheticKey, url })})`);
+    assert.equal(configured.ok, true);
+    assert.equal(configured.storage, 'session');
+    const sessionCfg = await evaluate('window.host.getConfig()');
+    assert.equal(sessionCfg.keyStorage.sessionKeys, 1);
+    assert.equal(sessionCfg.apiKeys, undefined);
+    assert.ok(!JSON.stringify(sessionCfg).includes(syntheticKey));
+    const settingsFiles = fs.readdirSync(profile, { recursive: true }).filter((name) => /(?:^|[/\\])config\.json(?:\.bak)?$/.test(name));
+    assert.ok(settingsFiles.length > 0, 'isolated settings were written');
+    for (const name of settingsFiles) {
+      const saved = JSON.parse(fs.readFileSync(path.join(profile, name), 'utf8'));
+      assert.deepEqual(saved.apiKeys, {}, 'session keys must never be persisted');
+      assert.ok(!JSON.stringify(saved).includes(syntheticKey));
+    }
+    const injected = await evaluate('window.host.setConfig({apiKeys: {custom: "injected-key"}})');
+    assert.equal(injected.saveError, true, 'ordinary settings IPC cannot inject plaintext keys');
+    accept = false;
+    const rejected = await evaluate('window.host.useProvider({provider: "custom", key: "rejected-synthetic-key"})');
+    assert.equal(rejected.ok, false);
+    assert.ok(!rejected.error.includes('rejected-synthetic-key'), 'server error echoes must not leak keys');
+    accept = true;
+    assert.equal((await evaluate('window.host.useProvider({provider: "custom"})')).ok, true,
+      'a failed provider check preserves the previous session key');
+
     const session = `${renderer.assistant === 'claude' ? '' : `${renderer.assistant}:`}smoke-test`;
     await request('event', {
       hook_event_name: 'PreToolUse', session_id: session, cwd: ROOT,
@@ -130,7 +170,7 @@ async function main() {
       'the completed session to be removed');
     assert.equal(exited, false);
     assert.doesNotMatch(log.join(''), /\[capri\] boot failed|\[capri\] renderer gone/);
-    console.log(`Smoke test passed: Electron, WebGL (${renderer.width}×${renderer.height}), menu and hook delivery.`);
+    console.log(`Smoke test passed: Electron, WebGL (${renderer.width}×${renderer.height}), diagnostics, session-only keys, settings and hook delivery.`);
   } catch (err) {
     console.error(log.join(''));
     throw err;
@@ -139,6 +179,7 @@ async function main() {
     if (!exited) child.kill();
     const timer = setTimeout(() => { if (!exited) child.kill('SIGKILL'); }, 3000);
     try { await closed; } finally { clearTimeout(timer); }
+    if (modelServer) await new Promise((resolve) => modelServer.close(resolve));
     fs.rmSync(profile, { recursive: true, force: true });
   }
 }
