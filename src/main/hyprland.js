@@ -142,8 +142,17 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
       await dispatch(`hl.dsp.window.move({ x = ${x}, y = ${y}, ${at} })`,
         `movewindowpixel exact ${x} ${y},address:${win.address}`, call);
     }
+    if (own?.address !== win.address) await setNoFocus(win.address, !chatting);
     own = { address: win.address, x, y, width: area.width, height: area.height };
     return true;
+  }
+
+  // Focusable, her full-screen window would be the one under the pointer everywhere for Hyprland:
+  // it would take your clicks and Super+drag would move it. Out of her chat, Hyprland skips it.
+  let chatting = false;
+  function setNoFocus(address, on) {
+    return dispatch(`hl.dsp.window.set_prop({ window = "address:${address}", prop = "no_focus", value = "${on ? 1 : 0}" })`,
+      `setprop address:${address} no_focus ${on ? 1 : 0}`, call);
   }
 
   // the pointer, over her window ({x, y} in it) and in Electron's screen coordinates (`screen`)
@@ -182,6 +191,8 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
 
   async function handOver(on) {
     if (!own) return false;
+    chatting = on;
+    await setNoFocus(own.address, !on);
     if (on) {
       const active = await ask('activewindow').catch(() => null);
       if (active?.address && active.address !== own.address) before = active.address;
