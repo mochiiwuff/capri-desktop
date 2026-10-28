@@ -347,3 +347,11 @@ test('her window is handed to the monitor it is placed on, and pinned again', as
   await hypr.place(xScreens[0], xScreens[0], xScreens);
   assert.ok(!sent.some((s) => /pin|workspace/.test(s))); // already there: left alone
 });
+
+test('a window full screen on her monitor is reported, not one on another monitor', () => {
+  const own = { address: '0xcap', pid: 99, title: 'Capri Overlay', mapped: true, monitor: 0, at: [0, 0], size: [1920, 1080] };
+  const video = { ...client, fullscreen: 2, monitor: 0, class: 'mpv' };
+  assert.equal(snapshot([own, video], monitors, video, bounds, 99, () => '').full, true);
+  assert.equal(snapshot([own, video], monitors, { ...video, monitor: 1 }, bounds, 99, () => '').full, false);
+  assert.equal(snapshot([own, video], monitors, { ...video, fullscreen: 1 }, bounds, 99, () => '').full, false); // maximized
+});

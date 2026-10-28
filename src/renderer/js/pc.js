@@ -11,6 +11,7 @@ const CHARGER_EVERY = 60 * 1000;
 const PLUG_EVERY = 15 * 1000;
 const GAME_AFTER = 6000;  // a game in front this long: you're playing
 const GAME_OVER = 8000;   // and gone this long: you're done
+const FULL = Symbol('full screen'); // no game, but a window full screen on her monitor
 
 const PHONE = /phone|iphone|apple|galaxy|samsung|pixel|xiaomi|redmi|poco|oneplus|huawei|honor|motorola|oppo|vivo|realme|nokia|xperia|android|mobile|t[ée]l[ée]phone|celular|телефон/i;
 const PAD = /controller|gamepad|manette|mando|controle|xbox|dualsense|dualshock|joy-?con|геймпад/i;
@@ -147,7 +148,8 @@ export class Pc {
   }
 
   // what windows.ps1 sees: USB sticks by letter, devices plugged in or out, the game in front
-  onWindows({ usb = [], plug = null, game = null }) {
+  onWindows({ usb = [], plug = null, game = null, full = false }) {
+    if (!game && full) game = FULL; // something full screen on her monitor (Hyprland): as a game, quietly
     if (!this.enabled) {
       this.drives = usb;
       this.plugs = plug?.n ?? 0;
@@ -209,6 +211,11 @@ export class Pc {
       }
       if (this.capri.mode === 'alert') return; // busy with Claude: once she's done
       g.said = true;
+      if (g.name === FULL) {
+        g.put = true;
+        this.capri.stow();
+        return;
+      }
       this.capri.wake();
       this.say(fmt(pick(this.t.game), { game: g.name }), 'smug', 3000);
       setTimeout(() => {
@@ -221,7 +228,7 @@ export class Pc {
     if (g.gone && now - g.gone >= GAME_OVER) {
       this.game = null;
       if (g.put && this.capri.stowed && this.wantsOut()) {
-        this.capri.unstow().then(() => this.say(pick(this.t.gameBack), 'look', 5000));
+        this.capri.unstow().then(() => g.name !== FULL && this.say(pick(this.t.gameBack), 'look', 5000));
       }
     }
   }

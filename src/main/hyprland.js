@@ -145,7 +145,10 @@ function snapshot(clients, monitors, active, bounds, pid = process.pid, readCmd 
       w: c.size[0], h: c.size[1], max: Boolean(c.fullscreen) }))
     .filter((w) => w.x < bounds.width && w.x + w.w > 0 && w.y < bounds.height && w.y + w.h > 0);
   const game = active?.pid !== pid ? gameOf(active, readCmd) : null;
-  return { fg: active?.address || null, taskbar: false, ai: [], game, usb: [], plug: null, wins };
+  // a video, a slideshow… full screen on her monitor: she steps aside too, without a word
+  const full = Boolean(!game && active?.mapped && active.fullscreen === 2 && active.pid !== pid
+    && (!own || active.monitor === own.monitor));
+  return { fg: active?.address || null, taskbar: false, ai: [], game, full, usb: [], plug: null, wins };
 }
 
 function startWindowWatch({ overlay, onUpdate, read = query, events = read === query ? watchEvents : null, every = 1000 }) {
