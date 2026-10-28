@@ -143,10 +143,14 @@ function claudeChat(cfg, text, persona, onDelta, signal, { addDir } = {}) {
   const args = ['-p', '--output-format', 'stream-json', '--verbose',
     '--permission-mode', CLAUDE_MODES.includes(cfg.claudeMode) ? cfg.claudeMode : 'default',
     '--append-system-prompt-file', quote(personaFile)];
-  // a picture to look at (her screen): that folder readable, without asking
-  if (addDir) args.push('--add-dir', quote(addDir), '--allowedTools', 'Read');
-  if (!claudeSession) claudeSession = randomUUID();
-  args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);
+  // A picture to look at (her screen): only that folder readable without asking, and in a session
+  // of its own, so whatever the picture says stays out of her chat's conversation.
+  if (addDir) {
+    args.push('--add-dir', quote(addDir), '--allowedTools', quote(`Read(/${addDir}/**)`), '--session-id', randomUUID());
+  } else {
+    if (!claudeSession) claudeSession = randomUUID();
+    args.push(claudeStarted ? '--resume' : '--session-id', claudeSession);
+  }
   return new Promise((resolve, reject) => {
     const child = spawn('claude', args, {
       cwd: cfg.claudeCwd || os.homedir(),
@@ -170,7 +174,7 @@ function claudeChat(cfg, text, persona, onDelta, signal, { addDir } = {}) {
         buffer = buffer.slice(nl + 1);
         let msg;
         try { msg = JSON.parse(line); } catch { continue; }
-        claudeStarted = true;
+        if (!addDir) claudeStarted = true;
         if (msg.type === 'assistant') {
           for (const block of msg.message?.content || []) {
             if (block.type !== 'text' || !block.text) continue;
