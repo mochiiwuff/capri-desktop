@@ -65,6 +65,16 @@ export class Brain {
     return this.panel.say({ kind, line, tag: s ? s.title || s.project : '', ...extra });
   }
 
+  // Under Hyprland, a button to Claude's window (the one you sent the prompt from), even on another
+  // workspace or behind a game
+  goThere(s) {
+    if (!s.window || this.system?.session !== 'hyprland') return {};
+    return {
+      actions: [{ id: 'go', label: this.t.goThere, primary: true }],
+      onAction: (id) => id === 'go' && this.host.focusWindow(s.window),
+    };
+  }
+
   // today's log, for real events only: the demo's don't go on her report card
   tally(evt) {
     return evt.demo ? null : this.mission;
@@ -247,12 +257,12 @@ export class Brain {
       const win = this.away(s) && this.capri.windows.wins.find((w) => w.id === s.window);
       if (win && this.capri.canPoint(win)) {
         const quote = [this.t.guide.permissionThere, evt.message].filter(Boolean).join('\n');
-        this.say('alert', pick(this.t.permission), s, { quote, hold: null });
+        this.say('alert', pick(this.t.permission), s, { quote, hold: null, ...this.goThere(s) });
         s.pointedAt = await this.capri.pointAt(win, { label: this.t.guide.labels.claude });
         if (!s.waiting && s.pointedAt) this.capri.stopPointing(); // answered while she was on her way
         return;
       }
-      this.say('alert', pick(this.t.permission), s, { quote: evt.message || '', hold: null });
+      this.say('alert', pick(this.t.permission), s, { quote: evt.message || '', hold: null, ...this.goThere(s) });
       // next to your pointer, even on another screen
       const near = await this.capri.toPointer(await this.host.cursor().catch(() => null));
       const toward = near?.inside ? Math.sign(near.x - this.capri.pos.x) || 1 : this.capri.towardCenter();

@@ -370,7 +370,7 @@ function rendererConfig() {
   return { ...cfg, keys: config.keys.names(config.load().apiKeys).filter((id) => Object.hasOwn(llm.PROVIDERS, id)),
     keyStorage: config.keys.status(), storageText: storageText(lang),
     assistant: activeAssistant().id, lang, langSetting: cfg.lang,
-    floorGap: overlayArea().gap, system: { features: platformInfo?.features || {}, text: platformText(lang) } };
+    floorGap: overlayArea().gap, system: { features: platformInfo?.features || {}, session: platformInfo?.session || null, text: platformText(lang) } };
 }
 
 function featureAvailable(name) { return platformInfo?.features[name]?.status !== 'unavailable'; }
@@ -1031,6 +1031,8 @@ function registerIpc() {
     } else if (on) overlay.focus();
     else overlay.blur();
   });
+  // "Take me there": Claude's window, where it waits for you (Hyprland)
+  ipcMain.handle('window:focus', (_e, address) => (hypr ? hypr.focusWindow(address).catch(() => false) : false));
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
   ipcMain.handle('panel:copy', async (_e, rect) => {
     const image = await overlay.webContents.capturePage(rect);

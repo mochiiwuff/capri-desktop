@@ -83,7 +83,7 @@ const ownWindow = (clients, pid) => clients.find((c) => c.pid === pid && c.title
 // a monitor's size in the layout's (logical) pixels: rotated a quarter turn, its sides swap
 function logical(m) {
   const [w, h] = m.transform % 2 ? [m.height, m.width] : [m.width, m.height];
-  return { name: m.name, x: m.x, y: m.y, width: Math.round(w / (m.scale || 1)), height: Math.round(h / (m.scale || 1)) };
+  return { id: m.id, workspace: m.activeWorkspace?.id, name: m.name, x: m.x, y: m.y, width: Math.round(w / (m.scale || 1)), height: Math.round(h / (m.scale || 1)) };
 }
 
 // XWayland lays its outputs out its own way (often side by side from 0,0), so Electron's screens
@@ -210,6 +210,16 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     const x = mon.x + area.x - bounds.x;
     const y = mon.y + area.y - bounds.y;
     const at = `window = "address:${win.address}"`;
+    // Hyprland gives XWayland a window's coordinates from the monitor it belongs to, and a pinned
+    // window keeps the monitor it had when moved across: left on the other one, her window sits
+    // outside XWayland's screens, where its pointer can't reach (clicks on her never arrive).
+    // Unpinned, sent to that monitor's workspace, and pinned again, it belongs there.
+    if (Number.isInteger(mon.id) && win.monitor !== mon.id && Number.isInteger(mon.workspace)) {
+      if (win.pinned) await dispatch(`hl.dsp.window.pin({ ${at} })`, `pin address:${win.address}`, call);
+      await dispatch(`hl.dsp.window.move({ workspace = "${mon.workspace}", ${at} })`,
+        `movetoworkspacesilent ${mon.workspace},address:${win.address}`, call);
+      if (win.pinned) await dispatch(`hl.dsp.window.pin({ ${at} })`, `pin address:${win.address}`, call);
+    }
     if (win.size[0] !== area.width || win.size[1] !== area.height) {
       await dispatch(`hl.dsp.window.resize({ x = ${area.width}, y = ${area.height}, ${at} })`,
         `resizewindowpixel exact ${area.width} ${area.height},address:${win.address}`, call);
@@ -336,7 +346,15 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     } catch { /* Hyprland gone: nothing to restore */ }
   }
 
-  return { place, cursor, focus, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
+  // another window to the front (its workspace with it), if it's still there
+  async function focusWindow(address) {
+    if (!/^0x[0-9a-f]{1,16}$/i.test(address)) return false;
+    const clients = await ask('clients');
+    if (!clients.some((c) => c.address === address && c.mapped)) return false;
+    return dispatch(`hl.dsp.focus({ window = "address:${address}" })`, `focuswindow address:${address}`, call);
+  }
+
+  return { place, cursor, focus, focusWindow, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
 }
 
 module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };

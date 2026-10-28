@@ -318,3 +318,32 @@ test('a game in front is named from its install folder or its Steam window, neve
   const result = snapshot([], monitors, { ...client, class: 'steam_app_1', title: 'Hades' }, bounds, 99, () => '');
   assert.equal(result.game, 'Hades');
 });
+
+test('"take me there" focuses an existing window only, by a well-formed address', async () => {
+  const own = { address: '0xcap', pid: 7, title: 'Capri Overlay', mapped: true, at: [1080, 297], size: [2560, 1440] };
+  const state = { monitors: hyprMonitors, clients: [own, { address: '0xabc', mapped: true }], activewindow: null };
+  const { sent, call } = fakeHyprland(state);
+  const hypr = createHyprland({ pid: 7, call });
+  assert.equal(await hypr.focusWindow('0xabc'), true);
+  assert.equal(state.activewindow.address, '0xabc');
+  assert.equal(await hypr.focusWindow('0xdead'), false); // closed since
+  assert.equal(await hypr.focusWindow('0xabc" }) hl.dsp.exit() --'), false);
+  assert.ok(!sent.some((s) => s.includes('exit')));
+});
+
+test('her window is handed to the monitor it is placed on, and pinned again', async () => {
+  const own = { address: '0xcap', pid: 7, title: 'Capri Overlay', mapped: true, pinned: true, monitor: 1,
+    at: [0, 0], size: [2560, 1440] };
+  const mons = hyprMonitors.map((m, id) => ({ ...m, id, activeWorkspace: { id: id + 1 } }));
+  const state = { monitors: mons, clients: [own] };
+  const { sent, call } = fakeHyprland(state);
+  const hypr = createHyprland({ pid: 7, call });
+  await hypr.place(xScreens[0], xScreens[0], xScreens);
+  const moves = sent.filter((s) => /pin|workspace|x = 1080/.test(s));
+  assert.deepEqual(moves.map((s) => s.match(/hl\.dsp\.window\.(\w+)/)[1]), ['pin', 'move', 'pin', 'move']);
+  assert.ok(moves[1].includes('workspace = "1"'));
+  sent.length = 0;
+  state.clients = [{ ...own, monitor: 0, at: [1080, 297] }];
+  await hypr.place(xScreens[0], xScreens[0], xScreens);
+  assert.ok(!sent.some((s) => /pin|workspace/.test(s))); // already there: left alone
+});

@@ -70,4 +70,5 @@ contextBridge.exposeInMainWorld('host', {
   webSearch: (query) => ipcRenderer.invoke('web:search', query),
   openSite: (address) => ipcRenderer.invoke('apps:site', address),
   focusOverlay: (on) => ipcRenderer.send('overlay:focus', Boolean(on)),
+  focusWindow: (address) => ipcRenderer.invoke('window:focus', String(address || '')),
 });
