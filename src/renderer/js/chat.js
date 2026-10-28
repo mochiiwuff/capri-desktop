@@ -184,12 +184,27 @@ export class Chat {
       this.panel.chatInput.focus();
       return;
     }
+    // The keyboard now, not once her model has answered (a second or more): what you type in the
+    // meantime is kept for her text field instead of landing in the window you were in.
+    host.focusOverlay(true);
+    let early = '';
+    const keep = (e) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // her field has it
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) early += e.key;
+      else if (e.key === 'Backspace') early = early.slice(0, -1);
+    };
+    window.addEventListener('keydown', keep);
+    const released = () => window.removeEventListener('keydown', keep);
     if (capri.stowed) {
       host.setConfig({ visible: true });
       await capri.unstow();
     }
     capri.wake();
     const status = await host.chatStatus();
+    if (!status.ok) {
+      released();
+      host.focusOverlay(false);
+    }
     if (!status.ok && this.onSetup) {
       this.onSetup(status); // nothing to talk with yet: she sets it up with you, with buttons (setup.js)
       return;
@@ -227,7 +242,6 @@ export class Chat {
     const moody = !tiny && feeling && t.moody[feeling];
     const hello = moody ? fmt(pick(moody), this.bond.mood.vars) : pick(this.history.length ? t.again : t.hello);
     this.opening = moody ? hello : null;
-    host.focusOverlay(true); // the keyboard, for typing to her
     const shown = this.panel.say({
       kind: 'chat',
       face: moody ? MOOD_FACE[feeling] : 'look',
@@ -251,11 +265,17 @@ export class Chat {
       hold: null,
     });
     if (!shown) {
+      released();
       host.focusOverlay(false); // something more important is on (a permission prompt)
       return;
     }
     this.open = true;
-    setTimeout(() => this.panel.chatInput.focus(), 150); // once the overlay has the keyboard
+    setTimeout(() => {
+      released();
+      const input = this.panel.chatInput;
+      if (early && !input.value) input.value = early;
+      input.focus(); // once the overlay has the keyboard
+    }, 150);
     capri.perform('hop');
     capri.nextMove = capri.nextGaze = performance.now() + STAY_MS;
   }
@@ -283,6 +303,20 @@ export class Chat {
     this.onMessage?.();
     // what you asked for plainly happens right away (the music, the volume, an app you named): her
     // line about it comes under her answer (Claude Code, answering her chat, does things its own way)
+    // With Claude Code answering, a plain "pause" or "next" still happens at once, here: it can't
+    // reach your player from her chat, and would take a while to say so.
+    const quick = this.agent && text.trim().split(/\s+/).length <= 3 ? this.asked(text) : null;
+    if (quick?.kind === 'media') {
+      const done = await this.doNow(quick);
+      if (this.turn !== id) return;
+      this.turn = 0;
+      const line = done?.line || this.t.failed;
+      this.remember({ role: 'assistant', content: line });
+      this.panel.stream(line, { done: true });
+      this.panel.setFace(done?.face || 'aside');
+      this.panel.setChatBusy(false);
+      return;
+    }
     const asked = this.agent ? null : this.asked(text);
     if (asked?.kind === 'look') return this.sendLook(text, id);
     const early = asked && asked.kind !== 'close' ? this.doNow(asked) : null;

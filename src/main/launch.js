@@ -215,7 +215,19 @@ const MEDIA = { pause: [0xb3, 1], play: [0xb3, 1], next: [0xb0, 1], previous: [0
 const KEY_DOWN = 1; // KEYEVENTF_EXTENDEDKEY
 const KEY_UP = 3;   // ...and KEYEVENTF_KEYUP
 
+// Linux: the player through MPRIS (playerctl), the volume through PipeWire (wpctl)
+const LINUX_MEDIA = {
+  pause: ['playerctl', ['pause']], play: ['playerctl', ['play']], next: ['playerctl', ['next']],
+  previous: ['playerctl', ['previous']], mute: ['wpctl', ['set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle']],
+  volup: ['wpctl', ['set-volume', '-l', '1.0', '@DEFAULT_AUDIO_SINK@', '10%+']],
+  voldown: ['wpctl', ['set-volume', '@DEFAULT_AUDIO_SINK@', '10%-']],
+};
+
 async function media(action) {
+  if (process.platform === 'linux' && LINUX_MEDIA[action]) {
+    const [command, args] = LINUX_MEDIA[action];
+    return new Promise((resolve) => execFile(command, args, { timeout: 3000 }, (err) => resolve(!err)));
+  }
   if (!WIN || !MEDIA[action]) return false;
   const [key, times] = MEDIA[action];
   return powershell(

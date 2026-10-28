@@ -173,3 +173,9 @@ test('a failed screenshot restores the overlay and explains cancellation or port
   assert.equal(document.documentElement.style.visibility, '');
   assert.match(result.line, /capture.*échoué|annulée/);
 });
+
+test('media controls are offered on Linux once playerctl and wpctl are installed', async () => {
+  const tools = new Set(['playerctl', 'wpctl']);
+  assert.equal((await inspectPlatform(linux({ exists: (name) => tools.has(name) }))).features.media.status, 'supported');
+  assert.equal((await inspectPlatform(linux({ exists: (name) => name === 'playerctl' }))).features.media.status, 'unavailable');
+});
