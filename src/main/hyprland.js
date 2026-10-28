@@ -24,6 +24,40 @@ function request(text, file = socketPath()) {
   });
 }
 
+// Hyprland's event socket: a line per event (`name>>data`), so she hears of a window opened, moved
+// or closed, a workspace switched or the config reloaded as it happens. Reconnects if Hyprland
+// restarts; `close()` stops it.
+function watchEvents(onEvent, file = socketPath() && socketPath().replace(/\.socket\.sock$/, '.socket2.sock')) {
+  let sock = null;
+  let closed = false;
+  let retry = null;
+  const connect = () => {
+    if (closed || !file) return;
+    let buffer = '';
+    sock = net.createConnection(file);
+    sock.setEncoding('utf8');
+    sock.on('data', (chunk) => {
+      buffer += chunk;
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        const at = line.indexOf('>>');
+        if (at > 0) onEvent(line.slice(0, at), line.slice(at + 2));
+      }
+    });
+    sock.on('error', () => {});
+    sock.on('close', () => { if (!closed) retry = setTimeout(connect, 2000); });
+  };
+  connect();
+  return { close() { closed = true; clearTimeout(retry); sock?.destroy(); } };
+}
+
+// what changes the windows she perches on, or her own place
+const WINDOW_EVENTS = new Set(['openwindow', 'closewindow', 'movewindowv2', 'workspacev2', 'activespecialv2',
+  'focusedmonv2', 'activewindowv2', 'changefloatingmode', 'fullscreen', 'minimized', 'pin', 'monitoraddedv2',
+  'monitorremovedv2', 'configreloaded']);
+
 function hyprctl(command) {
   return new Promise((resolve, reject) => {
     execFile('hyprctl', ['-j', command], { timeout: 2000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => (
@@ -81,7 +115,7 @@ function snapshot(clients, monitors, active, bounds, pid = process.pid) {
   return { fg: active?.address || null, taskbar: false, ai: [], game: null, usb: [], plug: null, wins };
 }
 
-function startWindowWatch({ overlay, onUpdate, read = query }) {
+function startWindowWatch({ overlay, onUpdate, read = query, events = read === query ? watchEvents : null, every = 1000 }) {
   let stopped = false;
   let busy = false;
   let last = null;
@@ -108,9 +142,18 @@ function startWindowWatch({ overlay, onUpdate, read = query }) {
       send(); // remove stale perches after a compositor/IPC failure
     } finally { busy = false; }
   }
-  const timer = setInterval(poll, 500);
+  // events for what happens at once, a slower poll for what has none (a window dragged or resized)
+  let soon = null;
+  const stream = events ? events((name) => {
+    if (!WINDOW_EVENTS.has(name) || soon) return;
+    soon = setTimeout(() => { soon = null; poll(); }, 30);
+  }) : null;
+  const timer = setInterval(poll, every);
   poll();
-  return { stop() { stopped = true; clearInterval(timer); }, refresh() { previous = ''; send(); } };
+  return {
+    stop() { stopped = true; clearInterval(timer); clearTimeout(soon); stream?.close(); },
+    refresh() { previous = ''; send(); },
+  };
 }
 
 // Her overlay as Hyprland sees it: put on the right monitor, the pointer read from the compositor
@@ -142,17 +185,37 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
       await dispatch(`hl.dsp.window.move({ x = ${x}, y = ${y}, ${at} })`,
         `movewindowpixel exact ${x} ${y},address:${win.address}`, call);
     }
-    if (own?.address !== win.address) await setNoFocus(win.address, !chatting);
+    if (own?.address !== win.address) await settle(win.address);
     own = { address: win.address, x, y, width: area.width, height: area.height };
     return true;
   }
 
   // Focusable, her full-screen window would be the one under the pointer everywhere for Hyprland:
-  // it would take your clicks and Super+drag would move it. Out of her chat, Hyprland skips it.
+  // it would take your clicks and Super+drag would move it. So Hyprland skips it (no_focus) except
+  // while the pointer is on her (to be clicked) or her chat is open (to be typed to), and the pointer
+  // passing over her never takes the keyboard (no_follow_mouse).
   let chatting = false;
-  function setNoFocus(address, on) {
-    return dispatch(`hl.dsp.window.set_prop({ window = "address:${address}", prop = "no_focus", value = "${on ? 1 : 0}" })`,
-      `setprop address:${address} no_focus ${on ? 1 : 0}`, call);
+  let hovered = false;
+  let skipped = null; // no_focus as last set
+  const setProp = (address, prop, on) => dispatch(
+    `hl.dsp.window.set_prop({ window = "address:${address}", prop = "${prop}", value = "${on ? 1 : 0}" })`,
+    `setprop address:${address} ${prop} ${on ? 1 : 0}`, call);
+  async function setNoFocus(address, on) {
+    if (skipped === on) return true;
+    skipped = on;
+    return setProp(address, 'no_focus', on);
+  }
+  async function settle(address) {
+    skipped = null;
+    await setProp(address, 'no_follow_mouse', true);
+    return setNoFocus(address, !chatting && !hovered);
+  }
+
+  // the pointer on her body, her panel or her biochip (the renderer's hit test), or off them
+  function hover(on) {
+    hovered = Boolean(on);
+    queue = queue.then(() => own && setNoFocus(own.address, !chatting && !hovered)).catch(() => {});
+    return queue;
   }
 
   // the pointer, over her window ({x, y} in it) and in Electron's screen coordinates (`screen`)
@@ -192,7 +255,7 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
   async function handOver(on) {
     if (!own) return false;
     chatting = on;
-    await setNoFocus(own.address, !on);
+    await setNoFocus(own.address, !chatting && !hovered);
     if (on) {
       const active = await ask('activewindow').catch(() => null);
       if (active?.address && active.address !== own.address) before = active.address;
@@ -219,6 +282,16 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     return true;
   }
 
+  // `hyprctl reload` puts back your config's follow_mouse, her chat open or not: held at 2 again
+  function reapply() {
+    queue = queue.then(async () => {
+      if (!own) return;
+      await settle(own.address);
+      if (chatting && followMouse !== null) await setFollowMouse(2);
+    }).catch(() => {});
+    return queue;
+  }
+
   // quitting with her chat open: your follow_mouse back before she's gone
   function restoreSync() {
     if (followMouse === null) return;
@@ -230,7 +303,7 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
     } catch { /* Hyprland gone: nothing to restore */ }
   }
 
-  return { place, cursor, focus, restoreSync, get placed() { return Boolean(own); } };
+  return { place, cursor, focus, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
 }
 
-module.exports = { snapshot, startWindowWatch, createHyprland, monitorFor, logical, socketPath };
+module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath };

@@ -56,6 +56,7 @@ let windowWatch = null;
 // under Hyprland: her window placed, the pointer read and the keyboard handed over by the compositor
 const hypr = process.platform === 'linux' && hyprland.socketPath() ? hyprland.createHyprland() : null;
 let pointerTimer = null;
+let hyprEvents = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let platformInfo = null;
@@ -176,12 +177,13 @@ function fitOverlay() {
   const { area, gap } = overlayArea();
   overlay.setBounds(area);
   overlay.webContents.send('overlay:resize', { width: area.width, height: area.height, gap });
-  placeOnHyprland();
+  // once now, then after Electron's own moves of her window have landed
+  for (const wait of [0, 300, 1500]) setTimeout(placeOnHyprland, wait);
 }
 
 // XWayland's coordinates aren't Hyprland's: a window put at its screen's corner by Electron can land
 // beside it, or keep an old screen's size when Electron's own moves arrive after Hyprland's. Hyprland
-// moves her there itself, and checks every second that she stays there (it moves nothing otherwise):
+// moves her there itself, and checks now and then that she stays there (it moves nothing otherwise):
 // out of place, her click-through window would catch clicks meant for yours.
 let placing = false;
 function placeOnHyprland() {
@@ -198,7 +200,15 @@ function placeOnHyprland() {
 // hears of it otherwise (Electron forwards it only on Windows and macOS).
 function startPointer() {
   if (!hypr) return;
-  setInterval(placeOnHyprland, 1000);
+  setInterval(placeOnHyprland, 3000);
+  // her place and her chat's hold on the keyboard, again after `hyprctl reload` or a monitor change
+  hyprEvents = hyprland.watchEvents((name) => {
+    if (!['configreloaded', 'monitoraddedv2', 'monitorremovedv2'].includes(name)) return;
+    setTimeout(() => {
+      placeOnHyprland();
+      hypr.reapply();
+    }, 200);
+  });
   let last = '';
   let busy = false;
   pointerTimer = setInterval(async () => {
@@ -808,6 +818,7 @@ function registerIpc() {
   ipcMain.handle('system:info', () => refreshPlatform(true));
   ipcMain.on('overlay:interactive', (_e, on) => {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
+    hypr?.hover(on);
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
   ipcMain.handle('overlay:cursor', async () => {
@@ -1249,6 +1260,7 @@ function main() {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
     clearInterval(pointerTimer);
+    hyprEvents?.close();
     hypr?.restoreSync();
   });
   app.on('window-all-closed', (e) => e.preventDefault());

@@ -59,7 +59,7 @@ function watchHarness(t, read) {
   });
   const watch = startWindowWatch({
     overlay: { isDestroyed: () => false, getBounds: () => bounds },
-    onUpdate: (data) => updates.push(data), read,
+    onUpdate: (data) => updates.push(data), read, every: 500,
   });
   t.after(() => watch.stop());
   const tick = async () => { t.mock.timers.tick(500); await flushPoll(); };
@@ -256,4 +256,49 @@ test('a chat opened and given up at once leaves follow_mouse as it was', async (
   await Promise.all([hypr.focus(true), hypr.focus(false)]);
   assert.equal(state.followMouse, 1);
   assert.equal(state.activewindow.address, '0xterm');
+});
+
+test('Hyprland events bring a poll at once; others are ignored', async () => {
+  let emit = null;
+  let reads = 0;
+  const watch = startWindowWatch({
+    overlay: { isDestroyed: () => false, getBounds: () => bounds },
+    onUpdate: () => {},
+    read: async (key) => { reads++; return ({ clients: [client], monitors, activewindow: client })[key]; },
+    events: (fn) => { emit = fn; return { close() {} }; },
+    every: 60000,
+  });
+  try {
+    await new Promise((r) => setTimeout(r, 10));
+    const first = reads;
+    emit('windowtitlev2', '0x1,title');
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(reads, first);
+    emit('openwindow', '0x2'); emit('workspacev2', '2,2'); // one poll for both
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(reads, first + 3);
+  } finally { watch.stop(); }
+});
+
+test('Hyprland skips her window except under the pointer or with her chat open', async () => {
+  const own = { address: '0xcap', pid: 7, title: 'Capri Overlay', mapped: true, at: [1080, 297], size: [2560, 1440] };
+  const state = { monitors: hyprMonitors, clients: [own], activewindow: { address: '0xterm' }, followMouse: 1 };
+  const { sent, call } = fakeHyprland(state);
+  const noFocus = () => sent.filter((s) => s.includes('prop = "no_focus"')).at(-1)?.match(/value = "(\d)"/)[1];
+  const hypr = createHyprland({ pid: 7, call });
+  await hypr.place(xScreens[0], xScreens[0], xScreens);
+  assert.ok(sent.some((s) => s.includes('prop = "no_follow_mouse", value = "1"')));
+  assert.equal(noFocus(), '1');
+  await hypr.hover(true);
+  assert.equal(noFocus(), '0');
+  await hypr.hover(false);
+  assert.equal(noFocus(), '1');
+  await hypr.focus(true);
+  await hypr.hover(false); // the pointer off her, her chat still open: still hers
+  assert.equal(noFocus(), '0');
+  await hypr.focus(false);
+  assert.equal(noFocus(), '1');
+  const count = sent.filter((s) => s.includes('no_focus')).length;
+  await hypr.hover(false); // unchanged: nothing sent
+  assert.equal(sent.filter((s) => s.includes('no_focus')).length, count);
 });
