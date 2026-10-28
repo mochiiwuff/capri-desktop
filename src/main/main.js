@@ -228,18 +228,23 @@ function startPointer() {
       hypr.reapply();
     }, 200);
   });
+  // As often as it's worth it: 20 times a second with the pointer on her screen, 4 times a second
+  // on another one or with her put away (her biochip still answers it), once a second while away.
   let last = '';
-  let busy = false;
-  pointerTimer = setInterval(async () => {
-    if (busy || away || !overlay || overlay.isDestroyed()) return;
-    busy = true;
-    try {
-      const p = await hypr.cursor();
-      const key = p ? `${p.x},${p.y}` : '';
-      if (p && key !== last) overlay.webContents.send('overlay:pointer', { x: p.x, y: p.y, inside: p.inside });
-      last = key;
-    } catch { /* Hyprland busy or restarting: the next tick tries again */ } finally { busy = false; }
-  }, 50);
+  const tick = async () => {
+    let next = 1000;
+    if (!away && overlay && !overlay.isDestroyed()) {
+      try {
+        const p = await hypr.cursor();
+        const key = p ? `${p.x},${p.y}` : '';
+        if (p && key !== last) overlay.webContents.send('overlay:pointer', { x: p.x, y: p.y, inside: p.inside });
+        last = key;
+        next = !p?.inside ? 250 : config.load().visible === false ? 120 : 50;
+      } catch { next = 500; /* Hyprland busy or restarting: again in a moment */ }
+    }
+    pointerTimer = setTimeout(tick, next);
+  };
+  tick();
 }
 
 // The pointer reaches her click-through window through a mouse hook, and Windows drops a hook that
@@ -1354,7 +1359,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
-    clearInterval(pointerTimer);
+    clearTimeout(pointerTimer);
     hyprEvents?.close();
     hypr?.restoreSync();
   });
