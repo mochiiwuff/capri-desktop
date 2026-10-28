@@ -7,6 +7,7 @@
 
 import { fmt, rand } from './util.js';
 import { clean, mood } from './chat.js';
+import { unavailable, featureMessage } from './availability.js';
 
 const FIRST_AFTER = 2 * 60 * 1000; // turned on: her first look a couple of minutes later
 const EVERY = [8, 15];             // then every 8 to 15 minutes…
@@ -40,7 +41,7 @@ export class Look {
   }
 
   configure({ watchScreen, lookAsked }) {
-    const on = Boolean(watchScreen);
+    const on = Boolean(watchScreen) && !unavailable(this.brain, 'screenCapture');
     if (on && !this.auto) this.nextAt = Date.now() + FIRST_AFTER;
     this.auto = on;
     this.asked = Boolean(lookAsked);
@@ -71,6 +72,10 @@ export class Look {
 
   // From her menu: turned on (she asks first, the first time) or off.
   async setAuto(on) {
+    if (on && unavailable(this.brain, 'screenCapture')) {
+      this.panel.say({ kind: 'info', face: 'aside', line: featureMessage(this.brain, 'screenCapture'), hold: 9000 });
+      return;
+    }
     if (!on) {
       this.host.setConfig({ watchScreen: false });
       return;
@@ -82,6 +87,10 @@ export class Look {
 
   // From her menu: one look, now.
   async once() {
+    if (unavailable(this.brain, 'screenCapture')) {
+      this.panel.say({ kind: 'info', face: 'aside', line: featureMessage(this.brain, 'screenCapture'), hold: 9000 });
+      return;
+    }
     if (!this.asked && !(await this.ask())) return;
     this.now({ manual: true });
   }
@@ -117,6 +126,7 @@ export class Look {
   }
 
   async now({ manual = false } = {}) {
+    if (unavailable(this.brain, 'screenCapture')) return;
     if (this.looking) return;
     this.looking = true;
     const t = this.t;

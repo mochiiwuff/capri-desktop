@@ -4,6 +4,7 @@
 // you closing the panel) ends it.
 
 import { fmt } from './util.js';
+import { unavailable } from './availability.js';
 
 const IDLE_FOR = 10 * 60 * 1000; // no wandering off while she's showing you something
 
@@ -153,7 +154,7 @@ export class Guide {
 
   // Claude Code and Codex can run for free through Ollama (`ollama launch`): she offers it for those two
   get freeWay() {
-    return Boolean(this.setup) && ['claude', 'codex'].includes(this.brain.assistant);
+    return Boolean(this.setup) && ['claude', 'codex'].includes(this.brain.assistant) && !unavailable(this.brain, 'ollamaLaunch');
   }
 
   // "How does it work?" in her menu: what she can show you.

@@ -17,6 +17,8 @@ const { startWindowWatch } = require('./windows');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
+const { inspectPlatform } = require('./platform');
+const { platformText } = require('./platform-labels');
 const apps = require('./apps');
 const launch = require('./launch');
 const files = require('./files');
@@ -50,6 +52,8 @@ let demoTimer = null;
 let windowWatch = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
+let platformInfo = null;
+let diagnosticOpen = false;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
 let chatError = null;  // why not, when the provider said
 let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
@@ -139,7 +143,8 @@ function moveOverlay(id) {
 // below the top of the taskbar (0, or its height).
 function overlayArea() {
   const { workArea, bounds } = targetDisplay();
-  const area = config.load().rest === 'taskbar' ? { ...bounds, y: bounds.y + 1, height: bounds.height - 1 } : workArea;
+  const area = config.load().rest === 'taskbar' && featureAvailable('taskbarRest')
+    ? { ...bounds, y: bounds.y + 1, height: bounds.height - 1 } : workArea;
   return { area, gap: area.y + area.height - (workArea.y + workArea.height) };
 }
 
@@ -291,7 +296,41 @@ function resolveLang(setting) {
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
   const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  const lang = resolveLang(cfg.lang);
+  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang, langSetting: cfg.lang,
+    floorGap: overlayArea().gap, system: { features: platformInfo?.features || {}, text: platformText(lang) } };
+}
+
+function featureAvailable(name) { return platformInfo?.features[name]?.status !== 'unavailable'; }
+
+async function refreshPlatform() {
+  platformInfo = await inspectPlatform({ backend: app.commandLine.getSwitchValue('ozone-platform') || 'x11' });
+  overlay?.webContents.send('capri:config', rendererConfig());
+  rebuildTray();
+  return { ...platformInfo, checkedAt: new Date().toISOString(), appVersion: app.getVersion(), electronVersion: process.versions.electron };
+}
+
+async function showDiagnostics() {
+  if (diagnosticOpen) return;
+  diagnosticOpen = true;
+  try {
+    for (;;) {
+      const report = await refreshPlatform();
+      const t = platformText(resolveLang(config.load().lang));
+      const detail = [
+        `${report.distribution} · ${report.session} · ${report.backend}`,
+        `Capri ${report.appVersion} · Electron ${report.electronVersion}`,
+        '',
+        ...Object.entries(report.features).map(([key, value]) =>
+          `${t.features[key]}: ${t.states[value.status]}${value.reason ? ` — ${t.reasons[value.reason]}` : ''}`),
+        '', t.trayNote,
+      ].join('\n');
+      const { response } = await dialog.showMessageBox({ type: 'info', title: t.title,
+        message: t.intro, detail, buttons: [t.copy, t.refresh, t.close], defaultId: 2, cancelId: 2 });
+      if (response === 0) { clipboard.writeText(JSON.stringify(report, null, 2)); break; }
+      else if (response !== 1) break;
+    }
+  } finally { diagnosticOpen = false; }
 }
 
 function updateConfig(patch) {
@@ -313,6 +352,11 @@ function rebuildTray() {
   const watched = activeAssistant();
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
     [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
+  const system = platformText(resolveLang(cfg.lang));
+  const availableItem = (label, feature, options) => ({ ...options,
+    label: featureAvailable(feature) ? label : `${label} · ${system.states.unavailable}`,
+    enabled: featureAvailable(feature),
+  });
 
   const screens = displays();
   const current = targetDisplay().id;
@@ -336,9 +380,10 @@ function rebuildTray() {
     { label: t.satellite, click: () => sendCommand('satellite') },
     { label: t.demo, click: playDemo },
     { label: t.help, click: () => sendCommand('welcome') },
+    { label: system.title, click: () => showDiagnostics().catch((err) => console.error('[capri] diagnostics:', err.message)) },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
     { label: t.talk, click: () => sendCommand('chat') },
-    { label: t.lookNow, click: () => sendCommand('look') },
+    availableItem(t.lookNow, 'screenCapture', { click: () => sendCommand('look') }),
     {
       label: t.reminders,
       submenu: reminders.length
@@ -423,12 +468,13 @@ function rebuildTray() {
       ],
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
-    { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
-    { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
+    availableItem(t.possess, 'windowTracking', { type: 'checkbox', checked: cfg.possess && featureAvailable('windowTracking'), click: (item) => updateConfig({ possess: item.checked }) }),
+    availableItem(t.jealous, 'aiDetection', { type: 'checkbox', checked: cfg.jealous !== false && featureAvailable('aiDetection'), click: (item) => updateConfig({ jealous: item.checked }) }),
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
     {
       // she asks first (what she'll send where), then turns it on herself
       label: t.lookAuto, type: 'checkbox', checked: Boolean(cfg.watchScreen),
+      enabled: featureAvailable('screenCapture'),
       click: (item) => {
         sendCommand('watchScreen', { on: item.checked });
         rebuildTray(); // as it is until she's asked
@@ -437,7 +483,8 @@ function rebuildTray() {
     {
       label: t.rest,
       submenu: [['corner', t.restCorner], ['taskbar', t.restTaskbar]].map(([rest, label]) => ({
-        label, type: 'radio', checked: cfg.rest === rest, click: () => updateConfig({ rest }),
+        label, enabled: rest !== 'taskbar' || featureAvailable('taskbarRest'),
+        type: 'radio', checked: (featureAvailable('taskbarRest') ? cfg.rest : 'corner') === rest, click: () => updateConfig({ rest }),
       })),
     },
     // the coding assistant she watches (a new one: she says hello and offers to plug herself in), or none
@@ -459,7 +506,7 @@ function rebuildTray() {
     },
     {
       label: t.motion,
-      submenu: [['auto', t.motionAuto], ['full', t.motionFull], ['reduced', t.motionReduced]].map(([motion, label]) => ({
+      submenu: [['auto', process.platform === 'win32' ? t.motionAuto : system.systemMotion], ['full', t.motionFull], ['reduced', t.motionReduced]].map(([motion, label]) => ({
         label, type: 'radio', checked: cfg.motion === motion, click: () => updateConfig({ motion, motionAsked: true }),
       })),
     },
@@ -483,9 +530,10 @@ function rebuildTray() {
       })),
     },
     {
-      label: t.startup,
+      label: featureAvailable('autoStart') ? t.startup : `${t.startup} · ${system.states.unavailable}`,
+      enabled: featureAvailable('autoStart'),
       type: 'checkbox',
-      checked: app.getLoginItemSettings(loginItemOptions()).openAtLogin,
+      checked: featureAvailable('autoStart') && app.getLoginItemSettings(loginItemOptions()).openAtLogin,
       click: (item) => app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: item.checked }),
     },
     // her hooks, while she watches Claude Code
@@ -684,6 +732,7 @@ function createTray() {
 }
 
 function registerIpc() {
+  ipcMain.handle('system:info', () => refreshPlatform());
   ipcMain.on('overlay:interactive', (_e, on) => {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
@@ -800,7 +849,9 @@ function registerIpc() {
     return { models: setup.MODELS, cloud: free, ram: os.totalmem(), keyed: Object.keys(setup.KEY_PAGES) };
   });
   ipcMain.handle('setup:ollama', () => setup.ollamaState());
-  ipcMain.handle('setup:install', () => setup.installOllama((line) => progress({ kind: 'install', line })));
+  ipcMain.handle('setup:install', () => featureAvailable('ollamaInstall')
+    ? setup.installOllama((line) => progress({ kind: 'install', line }))
+    : { ok: false, code: 'unavailable', error: platformText(resolveLang(config.load().lang)).reasons.manualOllama });
   ipcMain.handle('setup:start', async () => {
     const res = await setup.startOllama();
     await refreshModels();
@@ -837,7 +888,9 @@ function registerIpc() {
     return { ok: false, error };
   });
   ipcMain.on('setup:keyPage', (_e, provider) => setup.KEY_PAGES[provider] && shell.openExternal(setup.KEY_PAGES[provider]));
-  ipcMain.handle('setup:launch', (_e, integration) => setup.launchThroughOllama(integration));
+  ipcMain.handle('setup:launch', (_e, integration) => featureAvailable('ollamaLaunch')
+    ? setup.launchThroughOllama(integration)
+    : { ok: false, code: 'unavailable', error: platformText(resolveLang(config.load().lang)).reasons.manualLaunch });
   // closing an app you asked her to close, once you've clicked to confirm (apps.js)
   const appInfo = (app) => app && { name: app.process, label: app.label };
   ipcMain.handle('apps:list', async () => (await apps.list().catch(() => [])).map(appInfo));
@@ -967,9 +1020,14 @@ async function debugHandler(route, body) {
   }
   if (route === 'menu') {
     // her menu as labels, and a click on one of them if asked ({ click: 'beam:cloud · ...' })
-    const items = (menu) => menu.items.filter((i) => i.label).map((i) => (i.submenu ? { [i.label]: items(i.submenu) } : i.label));
+    const items = (menu) => menu.items.filter((i) => i.label).map((i) => body.details
+      ? { label: i.label, enabled: i.enabled, checked: i.checked, ...(i.submenu && { submenu: items(i.submenu) }) }
+      : i.submenu ? { [i.label]: items(i.submenu) } : i.label);
     const find = (menu) => menu.items.reduce((hit, i) => hit || (i.label === body.click ? i : i.submenu && find(i.submenu)), null);
-    if (body.click) find(trayMenu)?.click();
+    if (body.click) {
+      const item = find(trayMenu);
+      if (item?.enabled) item.click();
+    }
     return { ok: true, value: items(trayMenu) };
   }
   if (route === 'eval') {
@@ -1036,7 +1094,8 @@ function main() {
   app.on('second-instance', () => sendCommand('status'));
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    await refreshPlatform();
     if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();

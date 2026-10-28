@@ -4,6 +4,7 @@
 // free, run through Ollama. Each step is a panel of her guide (guide.js).
 
 import { fmt } from './util.js';
+import { unavailable, featureMessage } from './availability.js';
 
 // the services that take a key, in the order she offers them (the first two have a free tier)
 const KEYED = ['groq', 'gemini', 'openrouter', 'openai', 'mistral', 'deepseek'];
@@ -124,7 +125,8 @@ export class Setup {
     if (!state.installed) {
       if (!state.winget) {
         const id = await this.guide.ask({
-          face: 'aside', line: t.noWinget, quote: t.noWingetHow,
+          face: 'aside', line: unavailable(this.brain, 'ollamaInstall') ? this.brain.system.text.features.ollamaInstall : t.noWinget,
+          quote: unavailable(this.brain, 'ollamaInstall') ? featureMessage(this.brain, 'ollamaInstall') : t.noWingetHow,
           actions: [{ id: 'site', label: t.site, primary: true }, { id: 'later', label: t.later }],
         });
         if (id === 'site') this.host.openOllama();
@@ -253,6 +255,7 @@ export class Setup {
   // Claude Code or Codex through Ollama: her hooks in first (so she sees it), Ollama up, then its window.
   async freeNow() {
     const t = this.t;
+    if (unavailable(this.brain, 'ollamaLaunch')) return this.fail(t.failed, featureMessage(this.brain, 'ollamaLaunch'));
     const integration = this.brain.assistant === 'codex' ? 'codex' : 'claude';
     const name = integration === 'codex' ? 'Codex' : 'Claude Code';
     const id = await this.guide.ask({
@@ -267,7 +270,7 @@ export class Setup {
     }
     if (!(await this.ollamaUp())) return false;
     const res = await this.host.launchThroughOllama(integration);
-    if (!res.ok) return this.fail(t.failed, '');
+    if (!res.ok) return this.fail(t.failed, res.error || '');
     this.voice.play('hello');
     this.capri.perform('hop');
     await this.guide.ask({ kind: 'done', face: 'look', line: t.freeOpened, quote: fmt(t.freeOpenedHow, { name }), actions: [{ id: 'ok', label: t.ok, primary: true }] });

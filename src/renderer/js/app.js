@@ -14,6 +14,7 @@ import { Reminders, clock } from './reminders.js';
 import { Look } from './look.js';
 import { Pc } from './pc.js';
 import { linesFor } from './lines.js';
+import { unavailable } from './availability.js';
 import { pick, fmt, reducedMotion } from './util.js';
 
 const host = window.host;
@@ -89,13 +90,14 @@ async function boot() {
     voice,
   });
   capri.wander = config.wander;
-  capri.possessWindows = config.possess;
-  capri.restOn = config.rest || 'corner';
+  capri.possessWindows = config.possess && !unavailable({ system: config.system }, 'windowTracking');
+  capri.restOn = unavailable({ system: config.system }, 'taskbarRest') ? 'corner' : config.rest || 'corner';
   capri.setView(innerWidth, innerHeight, innerHeight - floorGap);
   capri.setScale(config.scale);
 
   const mission = new Mission();
   const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, assistant: config.assistant });
+  brain.system = config.system;
 
   // Click-through everywhere except on her body, the panel and her biochip.
   let interactive = false;
@@ -241,7 +243,7 @@ async function boot() {
   chat.bond = bond;
   capri.fondness = bond.stage;
   const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide });
-  jealousy.enabled = config.jealous !== false;
+  jealousy.enabled = config.jealous !== false && !unavailable(brain, 'aiDetection');
   chat.jealousy = jealousy;
   brain.onRival = (key) => jealousy.onRivalEvent(key);
   const reminders = new Reminders({ host, list: config.reminders || [] });
@@ -592,16 +594,17 @@ async function boot() {
   });
 
   host.onConfig((cfg) => {
+    brain.system = cfg.system;
     voice.configure(cfg);
-    jealousy.enabled = cfg.jealous !== false;
+    jealousy.enabled = cfg.jealous !== false && !unavailable(brain, 'aiDetection');
     followOn = cfg.follow !== false;
     look.configure(cfg);
     pc.enabled = cfg.pcReact !== false;
     wantsOut = cfg.visible !== false;
     reminders.sync(cfg.reminders); // one may have been cancelled from her menu
     capri.wander = cfg.wander;
-    capri.possessWindows = cfg.possess;
-    capri.restOn = cfg.rest || 'corner';
+    capri.possessWindows = cfg.possess && !unavailable(brain, 'windowTracking');
+    capri.restOn = unavailable(brain, 'taskbarRest') ? 'corner' : cfg.rest || 'corner';
     applyMotion(cfg.motion);
     if ((cfg.claude === false && brain.watching) || cfg.assistant !== brain.assistant) {
       guide.answer(null);

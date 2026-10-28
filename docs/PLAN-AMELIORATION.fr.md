@@ -18,6 +18,17 @@ déjà disponibles. Les versions ci-dessous sont des jalons proposés.
 
 Les lots suivants restent à réaliser, en particulier la validation sur CachyOS/Hyprland réel.
 
+## Suivi du diagnostic Linux
+
+- Détection centralisée de l’affichage, de la session, de `hyprctl` et du portail.
+- Diagnostic accessible dans le menu, actualisable et copiable sans données personnelles.
+- Réglages indisponibles désactivés ; explications dans le chat et le parcours Ollama.
+- Restauration de l’affichage de Capri si une capture échoue ou est annulée.
+- Suite portée à 26 tests ; test Electron étendu au diagnostic et aux réglages Linux.
+
+La validation sur un bureau Hyprland réel, le stockage sûr des clés, les sauvegardes
+atomiques et les nouvelles intégrations Linux restent à réaliser.
+
 ## État de départ
 
 - L’overlay Linux fonctionne avec X11/XWayland. Le placement, les clics à travers

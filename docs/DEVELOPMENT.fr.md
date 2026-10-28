@@ -14,6 +14,11 @@ traductions, installation des hooks et suivi des fenêtres Hyprland. Les tests
 de hooks ouvrent un serveur HTTP éphémère sur `127.0.0.1` : l’environnement doit
 autoriser l’écoute locale. Aucun modèle IA ni service distant n’est requis.
 
+La suite `tests/platform.test.js` vérifie aussi la détection des capacités Linux,
+les réponses invalides des services, le contenu du diagnostic et les explications
+affichées lorsque des actions ne sont pas disponibles. Les services sont simulés :
+ces tests tournent également sur le runner Windows.
+
 Les suites peuvent aussi être exécutées séparément :
 
 ```sh
@@ -44,6 +49,8 @@ Le test lance sa propre instance Electron avec un profil temporaire, un port
 image dessinée par WebGL, le menu et la réception d’un événement de hook par le
 cerveau du personnage. Il termine sa propre instance et supprime son profil,
 sans installer de hooks ni modifier les réglages de l’utilisateur.
+Il vérifie aussi l’accès au diagnostic via IPC, les réglages Linux désactivés dans
+le menu et l’explication des commandes multimédias indisponibles dans le chat.
 
 Le serveur X virtuel ne valide pas la transparence avec le compositeur, les clics
 à travers ou le multi-écran Hyprland. Pour ces essais, suivre le

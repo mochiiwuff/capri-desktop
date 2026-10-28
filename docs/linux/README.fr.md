@@ -69,6 +69,30 @@ menu. Le clic droit sur Capri ouvre également son menu. Sous Hyprland, un racco
 peut être réservé au compositeur : utiliser le menu si Ctrl+Alt+C ne fonctionne pas.
 Ollama est facultatif et doit être installé/démarré séparément pour le chat local.
 
+## Diagnostic depuis le menu
+
+Le menu de Capri propose **Diagnostic et fonctions disponibles**. Il indique la
+session détectée, l’affichage X11/XWayland, la réponse de `hyprctl` et les fonctions
+prises en charge. **Actualiser** relance les vérifications après une correction.
+
+Les réglages indisponibles sont désactivés : par exemple, le démarrage automatique
+Linux et la détection des autres IA ne sont pas encore intégrés. Le chat explique
+aussi pourquoi une commande multimédia ou une fermeture d’application ne peut pas
+être exécutée. L’assistant de configuration ne propose plus l’ouverture automatique
+de Claude/Codex via Ollama sous Linux ; le diagnostic donne la commande manuelle.
+
+Pour la capture Wayland, un portail détecté reste une **condition à vérifier**,
+pas une preuve de fonctionnement : la permission et le bureau peuvent influer sur
+le résultat. Un portail non actif peut démarrer à la demande. La présence de
+`pw-cli` indique seulement que l’outil PipeWire est installé. L’intégration des
+captures via les portails reste un chantier distinct.
+
+**Copier le diagnostic** copie un rapport JSON limité aux états techniques, à la
+distribution reconnue et aux versions de Capri/Electron. Il ne contient ni valeurs
+de variables d’environnement, ni chemins personnels, ni titres de fenêtres, ni
+conversations, ni sorties brutes des commandes. La visibilité effective du tray
+reste inconnue : vérifier le module Waybar si l’icône manque.
+
 ## Fonctionnalités et limites
 
 - Overlay, animations et hooks Claude/Codex/Antigravity : fonctionnement commun.

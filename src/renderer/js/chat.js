@@ -8,6 +8,7 @@
 import { pick, fmt } from './util.js';
 import { ASSISTANT_NAMES } from './lines.js';
 import { parseReminder, parseWhen, clock } from './reminders.js';
+import { unavailable, featureMessage } from './availability.js';
 
 const REMEMBER = 20; // messages she has in mind when answering
 const KEEP = 60;     // messages she remembers across restarts (memory.json)
@@ -426,6 +427,7 @@ export class Chat {
     if (song) return { kind: 'music', song };
     const video = YOUTUBE_ASK.exec(text)?.[1];
     if (video) return { kind: 'youtube', song: songOf(video) };
+    if (CLOSE_ASK.test(text) && unavailable(this.brain, 'closeApps')) return { kind: 'unsupported', feature: 'closeApps' };
     const app = this.askedToClose(text);
     if (app) return { kind: 'close', name: app };
     if (GAME_ASK.test(text) && count <= 8) return { kind: 'open', text };
@@ -444,6 +446,7 @@ export class Chat {
   // Doing it now. Resolves with her line about it ({ line, face }), or null if there was nothing to do.
   async doNow(asked) {
     const { t } = this;
+    if (asked.kind === 'unsupported') return { line: featureMessage(this.brain, asked.feature), face: 'aside' };
     const custom = this.brain.custom;
     if (asked.kind === 'remind') {
       if (!asked.at) {
@@ -466,6 +469,7 @@ export class Chat {
       return { line: this.brain.t.custom.remembered, face: 'smug' };
     }
     if (asked.kind === 'media') {
+      if (unavailable(this.brain, 'media')) return { line: featureMessage(this.brain, 'media'), face: 'aside' };
       this.capri.pulse();
       return (await this.host.media(asked.action)) ? { line: t.media[asked.action], face: 'smug' } : null;
     }
@@ -499,13 +503,17 @@ export class Chat {
       return { line: lines.join('\n'), face: 'smug', files: results };
     }
     if (asked.kind === 'shot') {
+      if (unavailable(this.brain, 'screenCapture')) return { line: featureMessage(this.brain, 'screenCapture'), face: 'aside' };
       // not her nor her panel in it
       document.documentElement.style.visibility = 'hidden';
-      await new Promise((r) => setTimeout(r, 180));
-      const shot = await this.host.screenshot();
-      document.documentElement.style.visibility = '';
+      let shot;
+      try {
+        await new Promise((r) => setTimeout(r, 180));
+        shot = await this.host.screenshot().catch(() => null);
+      } finally { document.documentElement.style.visibility = ''; }
       this.voice.play('tick');
-      return shot ? { line: fmt(t.shot, { name: shot.name }), face: 'smug', files: [shot] } : null;
+      return shot ? { line: fmt(t.shot, { name: shot.name }), face: 'smug', files: [shot] }
+        : { line: this.brain.system?.text.captureFailed || t.failed, face: 'aside' };
     }
     if (asked.kind === 'play') {
       // what came before an "and" first ("ouvre discord et…"), unless it's YouTube, where the song goes anyway
@@ -523,7 +531,8 @@ export class Chat {
       this.zap();
       return (await this.host.openSite(site.url)) ? { line: fmt(t.siteOpened, { site: site.name }), face: 'laugh' } : null;
     }
-    if (!item) return null; // nothing by that name here: her tag may still say what you meant
+    if (!item) return unavailable(this.brain, 'appCatalog')
+      ? { line: featureMessage(this.brain, 'appCatalog'), face: 'aside' } : null;
     return this.openNow(item);
   }
 
@@ -597,7 +606,8 @@ export class Chat {
     const item = await this.host.findLaunch(value);
     if (item) return this.launch(item, answer);
     const site = namedSite(value); // "[[open: YouTube]]": a site, not an app
-    return site ? this.offerSite(site.url, answer) : this.addLine(answer, fmt(t.notInstalled, { app: value }));
+    return site ? this.offerSite(site.url, answer) : this.addLine(answer, unavailable(this.brain, 'appCatalog')
+      ? featureMessage(this.brain, 'appCatalog') : fmt(t.notInstalled, { app: value }));
   }
 
   // her answer, with a line of what she did under it
@@ -637,6 +647,7 @@ export class Chat {
 
   // The media keys: pause, next, louder…
   async media(action, answer) {
+    if (unavailable(this.brain, 'media')) return this.addLine(answer, featureMessage(this.brain, 'media'), 'aside');
     this.capri.pulse();
     const ok = await this.host.media(action);
     if (ok) this.addLine(answer, this.t.media[action], 'smug');
@@ -685,6 +696,7 @@ export class Chat {
 
   // She was asked to close an app: a button with its name, and nothing happens until you click it.
   async offerClose(wanted, answer) {
+    if (unavailable(this.brain, 'closeApps')) return this.addLine(answer, featureMessage(this.brain, 'closeApps'), 'aside');
     const { t } = this;
     const app = await this.host.findApp(wanted);
     if (!this.open || this.turn) return;
@@ -728,6 +740,8 @@ export class Chat {
     const lines = [
       'Only when the user asks you to open an app, a game, a file or folder on their desktop, or a folder like Downloads, to play music, to control the music playing, or to open a website: say in a few words that you will, and end your answer with one tag: [[open: NAME]], [[music: ARTIST - SONG]] (it plays on YouTube; if they did not say which song, pick one that fits), [[media: ACTION]] (ACTION: pause, play, next, previous, volup, voldown or mute), or [[site: ADDRESS]]. Some of these get a button to confirm, so never say it is already done. Any other time, write no tag at all: there are no other tags.',
     ];
+    const limits = ['appCatalog', 'closeApps', 'media', 'screenCapture'].filter((name) => unavailable(this.brain, name));
+    if (limits.length) lines.push(`Current platform limits override the actions above: ${limits.map((name) => featureMessage(this.brain, name)).join(' ')} Do not promise these unavailable actions or emit tags for them. Opening known files, folders and websites is still supported.`);
     if (this.apps.length) {
       const open = this.apps.map(({ name, label }) => (label && label !== name ? `${name} (${label})` : name)).join(', ');
       lines.push(`You can also close an app that's open, only when they ask you to: end your answer with [[close: NAME]], NAME being the exact name from this list (the part before the parentheses). They get a button to confirm it. Apps open right now: ${open}.`);

@@ -103,6 +103,20 @@ async function main() {
 
     const menu = await request('debug/menu');
     assert.ok(Array.isArray(menu.value) && menu.value.length > 0, 'the application menu is populated');
+    const system = await evaluate('window.host.systemInfo()');
+    assert.equal(system.schemaVersion, 1);
+    assert.equal(system.platform, 'linux');
+    assert.equal(system.features.overlay.status, 'supported');
+    assert.equal(system.features.autoStart.status, 'unavailable');
+    const cfg = await evaluate('window.host.getConfig()');
+    assert.equal(cfg.system.features.media.status, 'unavailable');
+    assert.ok(menu.value.includes(cfg.system.text.title), 'diagnostics are accessible from the menu');
+    const details = await request('debug/menu', { details: true });
+    const disabled = details.value.filter((item) => item.label.includes(cfg.system.text.states.unavailable));
+    assert.ok(disabled.length >= 3, 'unsupported Linux settings are marked in the menu');
+    assert.ok(disabled.every((item) => item.enabled === false), 'unsupported Linux settings cannot be clicked');
+    const explanation = await evaluate('window.dev.chat.doNow({kind: "media", action: "pause"})');
+    assert.ok(explanation.line.includes(cfg.system.text.reasons.windowsOnly), 'chat explains unavailable Linux actions');
 
     const session = `${renderer.assistant === 'claude' ? '' : `${renderer.assistant}:`}smoke-test`;
     await request('event', {
