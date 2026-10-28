@@ -180,25 +180,25 @@ function fitOverlay() {
 }
 
 // XWayland's coordinates aren't Hyprland's: a window put at its screen's corner by Electron can land
-// beside it. Hyprland moves her there itself (again a moment later, once the window is mapped).
+// beside it, or keep an old screen's size when Electron's own moves arrive after Hyprland's. Hyprland
+// moves her there itself, and checks every second that she stays there (it moves nothing otherwise):
+// out of place, her click-through window would catch clicks meant for yours.
+let placing = false;
 function placeOnHyprland() {
-  if (!hypr || !overlay) return;
+  if (!hypr || !overlay || overlay.isDestroyed() || placing) return;
+  placing = true;
   const { area } = overlayArea();
   const { bounds } = targetDisplay();
-  const all = displays().map((d) => d.bounds);
-  for (const wait of [0, 300, 1500]) {
-    setTimeout(() => {
-      if (overlay && !overlay.isDestroyed()) {
-        hypr.place(bounds, area, all).catch((err) => console.error('[capri] Hyprland placement:', err.message));
-      }
-    }, wait);
-  }
+  hypr.place(bounds, area, displays().map((d) => d.bounds))
+    .catch((err) => console.error('[capri] Hyprland placement:', err.message))
+    .finally(() => { placing = false; });
 }
 
 // The pointer, read from Hyprland twenty times a second: her window lets it through, so it never
 // hears of it otherwise (Electron forwards it only on Windows and macOS).
 function startPointer() {
   if (!hypr) return;
+  setInterval(placeOnHyprland, 1000);
   let last = '';
   let busy = false;
   pointerTimer = setInterval(async () => {
