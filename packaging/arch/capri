@@ -1,0 +1,9 @@
+#!/bin/sh
+# Capri on the system's Electron. XWayland: her click-through overlay doesn't work as a native
+# Wayland window. Started by the compositor, PATH may miss ~/.local/bin, where claude often is.
+export PATH="$HOME/.local/bin:$PATH"
+# her own Claude Code profile (login, settings, sessions), apart from yours in ~/.claude;
+# CAPRI_CLAUDE_CONFIG_DIR picks another one
+export CLAUDE_CONFIG_DIR="${CAPRI_CLAUDE_CONFIG_DIR:-$HOME/.config/capri-desktop/claude}"
+mkdir -p "$CLAUDE_CONFIG_DIR"
+exec electron /usr/lib/capri-desktop --ozone-platform=x11 "$@"

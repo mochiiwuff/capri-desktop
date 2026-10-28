@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Capri
+Comment=Capri on your desktop, narrating what Claude Code is doing
+Exec=capri
+Icon=capri
+Categories=Utility;
+StartupWMClass=capri-desktop

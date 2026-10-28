@@ -1,0 +1,54 @@
+# Capri for Arch / CachyOS, on the system's Electron. Built from this clone's committed state:
+#   cd packaging/arch && makepkg -si
+# (BRANCH=other-branch makepkg -si to build another branch)
+
+pkgname=capri-desktop
+pkgver=0.4.4
+pkgrel=1
+pkgdesc="Capri, the Project Capricorn construct, living on your desktop and narrating what Claude Code is doing"
+arch=('any')
+url="https://github.com/x3noux11/capri-desktop"
+license=('LicenseRef-PolyForm-Noncommercial-1.0.0')
+depends=('electron' 'nodejs')
+makedepends=('git' 'npm')
+optdepends=(
+  'claude-code: her chat through Claude Code, and the events she narrates'
+  'hyprland: window tracking, placement and keyboard handoff (packaged rules in /usr/share/capri-desktop)'
+  'grim: "look at my screen" without the portal'
+  'playerctl: play, pause, next from her chat'
+  'wireplumber: the volume from her chat (wpctl)'
+  'wl-clipboard: capri --ask-selection'
+  'glib2: opening apps from her chat (gio launch)'
+)
+source=("$pkgname::git+file://${startdir}/../..#branch=${BRANCH:-feat/hyprland-input}"
+        'capri' 'capri.desktop' 'hyprland.lua')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  printf '%s.r%s.%s' "$(node -p "require('./package.json').version")" \
+    "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$pkgname"
+  # her fonts are her only runtime dependencies; Electron is the system's
+  npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+}
+
+check() {
+  cd "$pkgname"
+  node --check src/main/main.js
+}
+
+package() {
+  cd "$pkgname"
+  local app="$pkgdir/usr/lib/$pkgname"
+  install -d "$app"
+  cp -r src assets hooks scripts node_modules package.json "$app/"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 assets/icons/capri.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/capri.png"
+  install -Dm755 "$srcdir/capri" "$pkgdir/usr/bin/capri"
+  install -Dm644 "$srcdir/capri.desktop" "$pkgdir/usr/share/applications/capri.desktop"
+  install -Dm644 "$srcdir/hyprland.lua" "$pkgdir/usr/share/$pkgname/hyprland.lua"
+}
