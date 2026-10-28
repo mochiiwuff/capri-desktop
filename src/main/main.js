@@ -9,6 +9,7 @@ const {
   clipboard, ClipboardItem, dialog, powerMonitor, desktopCapturer,
 } = require('electron');
 const { randomUUID } = require('node:crypto');
+const { spawn } = require('node:child_process');
 
 const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
@@ -152,8 +153,30 @@ function rearmOverlay() {
   overlay.setIgnoreMouseEvents(true, { forward: true });
   overlay.setAlwaysOnTop(true, 'screen-saver');
   fitOverlay();
+  if (LINUX && lastShape) setInputShape(lastShape);
   sendCommand('rearmed'); // click-through again: she waits for the pointer to be on her
   console.log('[capri] mouse hook set up again');
+}
+
+// Linux: Electron's click-through forwards no mouse moves there, so she'd never hear the pointer is
+// on her and could never be clicked. Instead her window takes the pointer only on the rectangles the
+// renderer sends (her body, the panel, her chip), set as its X11 input shape by tools/linux-input-shape.
+const LINUX = process.platform === 'linux';
+let shaper = null;
+let lastShape = null;
+function setInputShape(rects) {
+  if (!overlay || overlay.isDestroyed() || !Array.isArray(rects)) return;
+  if (!shaper) {
+    shaper = spawn(path.join(ROOT, 'tools', 'linux-input-shape'), [], { stdio: ['pipe', 'ignore', 'inherit'] });
+    shaper.on('error', (err) => console.log('[capri] input shape helper:', err.message));
+    shaper.on('exit', () => { shaper = null; });
+    shaper.stdin.on('error', () => {});
+  }
+  lastShape = rects;
+  const k = screen.getDisplayMatching(overlay.getBounds()).scaleFactor || 1;
+  const xid = overlay.getNativeWindowHandle().readUInt32LE(0);
+  const px = (r) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * k)).join(',');
+  shaper.stdin.write(`${xid} ${rects.map(px).join(' ')}\n`);
 }
 
 // Back on top of everything, the taskbar included (it comes up over her when it's clicked). Twice:
@@ -197,6 +220,9 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  // on Linux the input shape (setInputShape) says where she takes the pointer: Electron's own
+  // click-through would wipe it, so from here on it's left alone
+  if (LINUX) overlay.setIgnoreMouseEvents = () => {};
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
@@ -677,6 +703,7 @@ function registerIpc() {
   ipcMain.on('overlay:interactive', (_e, on) => {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
+  ipcMain.on('overlay:shape', (_e, rects) => LINUX && setInputShape(rects));
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
   ipcMain.handle('overlay:cursor', () => {
     const p = screen.getCursorScreenPoint();

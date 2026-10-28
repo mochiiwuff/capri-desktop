@@ -174,6 +174,48 @@ async function boot() {
     rearmedAt = now;
     host.rearm();
   }, WATCH_MS);
+  // Linux: no mouse moves reach her click-through window there, so main.js makes only these parts of
+  // it take the pointer: a coarse grid over the window, the cells on her body, the panel, her chip or
+  // her mask, merged into rectangles (a run like the one above it just grows down). Held, all of it.
+  if (host.linux) {
+    const CELL = 12;
+    let sent = '';
+    setInterval(() => {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const p = panel.rect();
+      const on = (x, y) => Boolean((p && x >= p.left && x <= p.right && y >= p.top && y <= p.bottom)
+        || capri.hit(x, y) || (chip.visible && chip.contains(x, y, 0)) || (mask.visible && mask.contains(x, y, 30)));
+      const rects = [];
+      if (capri.dragging) rects.push({ x: 0, y: 0, w: W, h: H });
+      else {
+        let above = [];
+        for (let y = 0; y < H; y += CELL) {
+          const row = [];
+          for (let x = 0; x < W; x += CELL) {
+            if (!on(x + CELL / 2, y + CELL / 2)) continue;
+            const last = row[row.length - 1];
+            if (last && last.x + last.w === x) last.w += CELL;
+            else row.push({ x, y, w: CELL, h: CELL });
+          }
+          above = row.map((r) => {
+            const up = above.find((u) => u.x === r.x && u.w === r.w);
+            if (up) {
+              up.h += CELL;
+              return up;
+            }
+            rects.push(r);
+            return r;
+          });
+        }
+      }
+      const key = JSON.stringify(rects);
+      if (key !== sent) {
+        sent = key;
+        host.setShape(rects);
+      }
+    }, 66);
+  }
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();
