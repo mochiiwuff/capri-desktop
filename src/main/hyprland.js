@@ -370,4 +370,15 @@ function createHyprland({ pid = process.pid, call = request } = {}) {
   return { place, cursor, focus, focusWindow, snapshot, hover, reapply, restoreSync, get placed() { return Boolean(own); } };
 }
 
-module.exports = { snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };
+// Nobody looking: every monitor switched off (DPMS), or a screen locker running.
+const LOCKERS = new Set(['hyprlock', 'swaylock', 'gtklock', 'waylock']);
+function lockerRunning(read = (p) => fs.readFileSync(p, 'utf8'), list = () => fs.readdirSync('/proc')) {
+  for (const entry of list()) {
+    if (!/^\d+$/.test(entry)) continue;
+    try { if (LOCKERS.has(read(`/proc/${entry}/comm`).trim())) return true; } catch { /* gone meanwhile */ }
+  }
+  return false;
+}
+const screensOff = (monitors) => Array.isArray(monitors) && monitors.length > 0 && monitors.every((m) => m.dpmsStatus === false);
+
+module.exports = { query, lockerRunning, screensOff, snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };

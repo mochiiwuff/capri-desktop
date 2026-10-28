@@ -57,6 +57,7 @@ let windowWatch = null;
 // under Hyprland: her window placed, the pointer read and the keyboard handed over by the compositor
 const hypr = process.platform === 'linux' && hyprland.socketPath() ? hyprland.createHyprland() : null;
 let pointerTimer = null;
+let away = false; // screens off or locked (Hyprland): she's hidden, nothing of hers runs
 let hyprEvents = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
@@ -201,7 +202,24 @@ function placeOnHyprland() {
 // hears of it otherwise (Electron forwards it only on Windows and macOS).
 function startPointer() {
   if (!hypr) return;
-  setInterval(placeOnHyprland, 3000);
+  setInterval(() => away || placeOnHyprland(), 3000);
+  // Screens off or locked: her window hidden, so nothing of hers is drawn (about a core's 15 %
+  // otherwise), and shown again when you're back.
+  setInterval(async () => {
+    if (!overlay || overlay.isDestroyed()) return;
+    const monitors = await hyprland.query('monitors').catch(() => null);
+    const now = hyprland.screensOff(monitors) || hyprland.lockerRunning();
+    if (now === away) return;
+    away = now;
+    // hidden and throttled, Chromium stops drawing her at all (she isn't throttled otherwise)
+    overlay.webContents.setBackgroundThrottling(away);
+    if (away) overlay.hide();
+    else {
+      overlay.showInactive();
+      for (const wait of [0, 300, 1500]) setTimeout(placeOnHyprland, wait);
+      sendCommand('back');
+    }
+  }, 2000);
   // her place and her chat's hold on the keyboard, again after `hyprctl reload` or a monitor change
   hyprEvents = hyprland.watchEvents((name) => {
     if (!['configreloaded', 'monitoraddedv2', 'monitorremovedv2'].includes(name)) return;
@@ -213,7 +231,7 @@ function startPointer() {
   let last = '';
   let busy = false;
   pointerTimer = setInterval(async () => {
-    if (busy || !overlay || overlay.isDestroyed()) return;
+    if (busy || away || !overlay || overlay.isDestroyed()) return;
     busy = true;
     try {
       const p = await hypr.cursor();

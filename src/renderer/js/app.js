@@ -650,6 +650,9 @@ async function boot() {
       case 'status':
         brain.status();
         break;
+      case 'back': // screens on again, or unlocked (Hyprland): a little hop hello
+        if (!capri.stowed && !capri.busy) capri.perform('hop');
+        break;
       case 'talk': // `capri --talk`, from a keybind: her chat, or closing it (`--ask-selection`: with it)
         if (chat.open && !cmd.keep) panel.hide();
         else chat.start({ text: cmd.text });

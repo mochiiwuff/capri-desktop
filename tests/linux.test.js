@@ -355,3 +355,14 @@ test('a window full screen on her monitor is reported, not one on another monito
   assert.equal(snapshot([own, video], monitors, { ...video, monitor: 1 }, bounds, 99, () => '').full, false);
   assert.equal(snapshot([own, video], monitors, { ...video, fullscreen: 1 }, bounds, 99, () => '').full, false); // maximized
 });
+
+test('nobody looking: all screens off, or a screen locker running', () => {
+  const { screensOff, lockerRunning } = require('../src/main/hyprland');
+  assert.equal(screensOff([{ dpmsStatus: false }, { dpmsStatus: false }]), true);
+  assert.equal(screensOff([{ dpmsStatus: false }, { dpmsStatus: true }]), false);
+  assert.equal(screensOff([]), false);
+  const procs = { '/proc/12/comm': 'kitty\n', '/proc/40/comm': 'hyprlock\n' };
+  const read = (p) => { if (!(p in procs)) throw new Error('gone'); return procs[p]; };
+  assert.equal(lockerRunning(read, () => ['12', 'self', '40', '77']), true);
+  assert.equal(lockerRunning(read, () => ['12', '77']), false);
+});
