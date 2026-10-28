@@ -20,6 +20,7 @@ const setup = require('./setup');
 const apps = require('./apps');
 const launch = require('./launch');
 const files = require('./files');
+const { startShape } = require('./shape');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
@@ -41,6 +42,10 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+// Linux: her window's input region (shape.js), and the last one she asked for, set again after a resize
+let shape = null;
+let shapeRects = null;
+const shaped = () => Boolean(shape?.alive && shapeRects);
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
@@ -141,6 +146,20 @@ function fitOverlay() {
   const { area, gap } = overlayArea();
   overlay.setBounds(area);
   overlay.webContents.send('overlay:resize', { width: area.width, height: area.height, gap });
+  if (shaped()) setShape(shapeRects);
+}
+
+// Linux: the window takes the pointer only in `rects` (css px). The first time, the window stops
+// being click-through as a whole (Electron's way): from then on, the region alone decides.
+function setShape(rects) {
+  if (!shape?.alive) {
+    if (shapeRects) overlay.setIgnoreMouseEvents(true); // capri-shape gone: click-through, like before
+    shapeRects = null;
+    return;
+  }
+  if (!shapeRects) overlay.setIgnoreMouseEvents(false);
+  shapeRects = rects;
+  shape.set(rects, screen.getDisplayMatching(overlay.getBounds()).scaleFactor * overlay.webContents.getZoomFactor());
 }
 
 // The pointer reaches her click-through window through a mouse hook, and Windows drops a hook that
@@ -148,8 +167,10 @@ function fitOverlay() {
 // clicked anymore. Off then on puts in a new one; her place on top and her size are set again too.
 function rearmOverlay() {
   if (!overlay || overlay.isDestroyed()) return;
-  overlay.setIgnoreMouseEvents(false);
-  overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (!shaped()) {
+    overlay.setIgnoreMouseEvents(false);
+    overlay.setIgnoreMouseEvents(true, { forward: true });
+  }
   overlay.setAlwaysOnTop(true, 'screen-saver');
   fitOverlay();
   sendCommand('rearmed'); // click-through again: she waits for the pointer to be on her
@@ -180,10 +201,15 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // Linux: a window made focusable later never gets the keyboard under GNOME (her chat couldn't be
+    // typed in), so it can be from the start. It only takes the pointer on her (shape.js), and is
+    // shown without focus: nothing gets taken from you until you click into her chat.
+    focusable: process.platform === 'linux',
     hasShadow: false,
     alwaysOnTop: true,
-    type: process.platform === 'win32' ? 'toolbar' : undefined,
+    // Linux: a dock to GNOME, the way panels are: on every workspace, never in the overview or
+    // Alt+Tab (skipTaskbar alone isn't heard there)
+    type: { win32: 'toolbar', linux: 'dock' }[process.platform],
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -197,6 +223,8 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  shape = startShape(overlay);
+  if (process.platform === 'linux') overlay.setVisibleOnAllWorkspaces(true); // she comes along when you switch
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
@@ -675,7 +703,10 @@ function createTray() {
 
 function registerIpc() {
   ipcMain.on('overlay:interactive', (_e, on) => {
-    overlay?.setIgnoreMouseEvents(!on, { forward: true });
+    if (!shaped()) overlay?.setIgnoreMouseEvents(!on, { forward: true });
+  });
+  ipcMain.on('overlay:region', (_e, rects) => {
+    if (overlay && Array.isArray(rects)) setShape(rects.filter((r) => Array.isArray(r) && r.length === 4).slice(0, 32));
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
   ipcMain.handle('overlay:cursor', () => {
@@ -856,7 +887,7 @@ function registerIpc() {
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
-    overlay.setFocusable(Boolean(on));
+    if (process.platform !== 'linux') overlay.setFocusable(Boolean(on));
     if (on) overlay.focus();
     else overlay.blur();
   });
@@ -1028,6 +1059,7 @@ function main() {
 
   app.whenReady().then(() => {
     if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    if (ASSISTANTS.claude.hooks.status().installed) ASSISTANTS.claude.hooks.refreshHook(); // Nix: this version's hook
     serveProtocol();
     registerIpc();
     createOverlay();
@@ -1068,6 +1100,7 @@ function main() {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    shape?.stop();
     windowWatch?.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());

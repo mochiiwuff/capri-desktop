@@ -17,6 +17,8 @@ const words = (query) => String(query || '').toLowerCase().normalize('NFKD').rep
 
 // never in the results: code dependencies, app data, git internals
 const JUNK = ['node_modules', '\\AppData\\', '\\.git\\', '\\site-packages\\', '\\$Recycle.Bin\\'];
+// …and their Linux places: caches, app data, the trash, Nix's links into the store
+JUNK.push('/.cache/', '/.local/share/Trash/', '/.git/', '/site-packages/', '/.npm/', '/.cargo/', '/result/');
 const junk = (p) => JUNK.some((j) => p.includes(j));
 // files that are code, left out of a search by what's inside (any word shows up in some library)
 const CODE = ['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'map', 'lock', 'yml', 'yaml', 'py', 'css', 'html', 'md', 'txt', 'xml', 'log'];
@@ -42,6 +44,7 @@ async function indexed(terms, exts) {
     // each query in a single-quoted PowerShell string (its own quotes doubled)
     ...[byName, byText].filter(Boolean).map((w) => `$r = New-Object -ComObject ADODB.Recordset; $r.Open('${query(w).replace(/'/g, "''")}', $c); while (-not $r.EOF) { $r.Fields.Item('System.ItemUrl').Value; $r.MoveNext() }; $r.Close()`),
   ].join('; ');
+  if (process.platform !== 'win32') return null; // no Windows Search: the walk below
   const out = await powershell(script, 10000).catch(() => null);
   if (out == null) return null;
   const paths = out.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^file:/i.test(l));

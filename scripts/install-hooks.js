@@ -43,12 +43,40 @@ function hasNode() {
   }
 }
 
+// Installed with Nix, the app lives under /nix/store, at a path that changes with every update and
+// goes away with the old version: the hook is copied to a folder of yours that stays put, and
+// settings.json points there. Copied again each time (refreshHook), so it follows the updates.
+function stableHook(script) {
+  if (!script.startsWith('/nix/store/')) return script;
+  const base = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  const target = path.join(base, 'capri', 'capri-hook.js');
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== fs.readFileSync(script, 'utf8')) {
+      fs.copyFileSync(script, target);
+      fs.chmodSync(target, 0o644); // the store's copy is read-only, and the next update has to overwrite it
+    }
+  } catch (err) {
+    console.error('[capri] could not copy the hook out of the Nix store:', err.message);
+    return script;
+  }
+  return target;
+}
+
+function hookScript() {
+  return path.resolve(__dirname, '..', 'hooks', 'capri-hook.js')
+    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
+}
+
+// the copy outside the Nix store brought up to date with this version (main.js, at start)
+function refreshHook() {
+  stableHook(hookScript());
+}
+
 // In the installed app (the .exe) the hook sits next to the app archive (asarUnpack), where
 // node can read it. With no node on the machine, Capri's own executable runs it as node.
 function hookCommand() {
-  const script = path.resolve(__dirname, '..', 'hooks', 'capri-hook.js')
-    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`)
-    .replace(/\\/g, '/');
+  const script = stableHook(hookScript()).replace(/\\/g, '/');
   if (process.versions.electron && !hasNode()) {
     return `ELECTRON_RUN_AS_NODE=1 "${process.execPath.replace(/\\/g, '/')}" "${script}"`;
   }
@@ -133,7 +161,7 @@ function status() {
   }
 }
 
-module.exports = { install, uninstall, status, EVENTS };
+module.exports = { install, uninstall, status, refreshHook, EVENTS };
 
 if (require.main === module) {
   const arg = process.argv[2];

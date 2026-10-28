@@ -174,6 +174,31 @@ async function boot() {
     rearmedAt = now;
     host.rearm();
   }, WATCH_MS);
+  // Linux (XWayland) has no mouse hook to bring the pointer to a click-through window, and doesn't
+  // know where it is over the other apps. So her window takes the pointer only where she is: her
+  // box, the panel, her biochip or her mask, sent to main.js as they move (the rest of the screen
+  // stays yours). Inside them, the real moves come in and refreshHit() does the rest.
+  if (host.platform === 'linux') {
+    const box = (r, pad = 0) => r && { x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad };
+    let sent = '';
+    const region = () => {
+      if (capri.dragging) return [{ x: 0, y: 0, w: innerWidth, h: innerHeight }]; // a throw goes anywhere
+      const p = panel.rect();
+      return [
+        capri.screenBox(),
+        p && { x: p.left, y: p.top, w: p.width, h: p.height },
+        chip.visible && box(chip, 8),
+        mask.visible && box(mask, 30),
+      ].filter(Boolean);
+    };
+    setInterval(() => {
+      const rects = region().map((r) => [r.x, r.y, r.w, r.h].map((n) => Math.round(n / 4) * 4));
+      const key = JSON.stringify(rects);
+      if (key === sent) return;
+      sent = key;
+      host.setRegion(rects);
+    }, 50);
+  }
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();

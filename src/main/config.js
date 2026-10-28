@@ -17,7 +17,8 @@ const DEFAULTS = {
   assistant: 'auto', // the coding assistant she watches: 'claude' or 'codex' ('auto': whichever has her hooks)
   linked: false,     // a Claude Code event has reached her at least once
   chatModel: null,   // the model she talks with (null: the provider's first one)
-  provider: 'ollama', // who answers her chat: a key of llm.js PROVIDERS
+  // who answers her chat: a key of llm.js PROVIDERS. On Linux, Claude Code: no key, your own login
+  provider: process.platform === 'linux' ? 'claude' : 'ollama',
   apiKeys: {},       // { openai: 'sk-...' }, else the provider's env variable
   customUrl: '',     // the 'custom' provider: any OpenAI-compatible base URL (http://host:port/v1)
   claudeCwd: null,   // the folder Claude Code works in (null: your home folder)

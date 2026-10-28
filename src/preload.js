@@ -9,12 +9,14 @@ const on = (channel) => (fn) => {
 };
 
 contextBridge.exposeInMainWorld('host', {
+  platform: process.platform,
   onClaudeEvent: on('claude:event'),
   onCommand: on('capri:command'),
   onConfig: on('capri:config'),
   onResize: on('overlay:resize'),
   onWindows: on('windows:update'),
   setInteractive: (on) => ipcRenderer.send('overlay:interactive', Boolean(on)),
+  setRegion: (rects) => ipcRenderer.send('overlay:region', rects),
   rearm: () => ipcRenderer.send('overlay:rearm'),
   cursor: () => ipcRenderer.invoke('overlay:cursor'),
   screens: () => ipcRenderer.invoke('screens:list'),

@@ -201,6 +201,18 @@ export class Capri {
     return { x: SPRITE.feet.x + ((at.x - this.pos.x) / s) * this.facing, y: SPRITE.feet.y - (this.pos.y + this.bob - at.y) / s };
   }
 
+  // Her box on screen (css px), with room to spare while she turns: on Linux her window only takes
+  // the pointer there (app.js), and hit() sorts out her body from the air around it. null: hidden.
+  screenBox(pad = 24) {
+    if (this.hidden || this.p.alpha < 0.5) return null;
+    const s = this.scale;
+    const more = this.turn ? SPRITE.height * s * 0.5 : 0;
+    const xs = [0, SPRITE.width].map((sx) => this.pos.x + (sx - SPRITE.feet.x) * s * this.facing);
+    const ys = [0, SPRITE.height].map((sy) => this.pos.y + this.bob - (SPRITE.feet.y - sy) * s);
+    const p = pad + more;
+    return { x: Math.min(...xs) - p, y: Math.min(...ys) - p, w: Math.abs(xs[1] - xs[0]) + 2 * p, h: Math.abs(ys[1] - ys[0]) + 2 * p };
+  }
+
   // How far her outline reaches from her middle on screen once turned `deg` (px): { minX, maxX,
   // minY, maxY }, and `low`, the x of her lowest point (where she touches the floor). Her outline
   // at rest, mane and all: she bounces off the edges of the screen with the tips of her mane.

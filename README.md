@@ -295,9 +295,33 @@ npm install
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+Keep that terminal open while she runs. Not tested on macOS yet: she should start, but the window tricks
+(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only.
+
+### Linux (GNOME on Wayland, NixOS)
+
+Tested on GNOME 50 on Wayland, on NixOS. She runs through XWayland (`--ozone-platform=x11`): a Wayland window on
+GNOME can't stay on top or place itself. There she is:
+
+- **Clickable on her, click-through elsewhere.** XWayland can't pass the pointer on to a click-through window, nor
+  say where it is over the other apps, so her window takes the pointer only where she is (her body, her panel, her
+  biochip). A tiny helper, `native/capri-shape.c`, sets that region (the window's XShape input region). Build it with
+  `cc -O2 -o capri-shape native/capri-shape.c -lX11 -lXext` and put it on your PATH (or point `CAPRI_SHAPE` at it).
+  Without it she still shows up, but can't be clicked.
+- **On every workspace, out of the overview and Alt+Tab**: her window is a dock to GNOME.
+- **Chatting through Claude Code by default**: `claude -p` with your own login, no API key.
+- **Opening your apps** from their `.desktop` files, your Steam games, your folders and the trash, and **your music**
+  through MPRIS (`playerctl`) and PipeWire (`wpctl`).
+
+Not there yet on Linux: sitting on your windows and possessing them, closing apps, and reacting to your PC.
+
+```bash
+npm install
+npm start -- --ozone-platform=x11
+```
+
+With Nix: `nix run --impure .#capri` (with `NIXPKGS_ALLOW_UNFREE=1`: her licence is non-commercial), or add the
+flake's `nixosModules.default` to your system, which also starts her with your session.
 
 ### Hook her up to Claude Code by hand
 

@@ -311,10 +311,9 @@ npm install
 npm start
 ```
 
-Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS ni Linux : elle devrait démarrer, mais les tours
+Garde ce terminal ouvert tant qu'elle tourne. Pas encore testé sur macOS : elle devrait démarrer, mais les tours
 avec les fenêtres (s'asseoir dessus, les posséder, t'afficher la réponse de Claude quand tu es ailleurs) ne marchent que
-sous Windows, et sous Linux le calque transparent marche mieux sous X11 (Wayland a du mal avec les fenêtres qui laissent
-passer les clics).
+sous Windows. Sous Linux (GNOME sur Wayland), voir la section Linux du [README anglais](README.md#linux-gnome-on-wayland-nixos).
 
 ### La brancher sur Claude Code à la main
 
