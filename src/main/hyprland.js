@@ -381,4 +381,4 @@ function lockerRunning(read = (p) => fs.readFileSync(p, 'utf8'), list = () => fs
 }
 const screensOff = (monitors) => Array.isArray(monitors) && monitors.length > 0 && monitors.every((m) => m.dpmsStatus === false);
 
-module.exports = { query, lockerRunning, screensOff, snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };
+module.exports = { request, query, lockerRunning, screensOff, snapshot, startWindowWatch, createHyprland, watchEvents, monitorFor, logical, socketPath, gameOf };

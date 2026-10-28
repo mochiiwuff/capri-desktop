@@ -149,6 +149,9 @@ const TINY = /[:-](0\.5b|1b|1\.5b|135m|270m|360m)\b/i;
 // her face when she greets you in a mood (bond.js)
 const MOOD_FACE = { angry: 'many', sulk: 'aside', dizzy: 'wide', thrown: 'wide', jealous: 'look', fun: 'laugh', happy: 'laugh', forgiven: 'smug' };
 
+// An open app as you'd call it: its menu name when there's one ("Dolphin", not org.kde.dolphin)
+const shown = (app) => app.display || app.name;
+
 // Text you had selected, in her field as a quote on one line, your question to type after it
 function quoteInto(input, text) {
   const flat = String(text || '').replace(/\s+/g, ' ').trim();
@@ -314,18 +317,29 @@ export class Chat {
     this.onMessage?.();
     // what you asked for plainly happens right away (the music, the volume, an app you named): her
     // line about it comes under her answer (Claude Code, answering her chat, does things its own way)
-    // With Claude Code answering, a plain "pause" or "next" still happens at once, here: it can't
-    // reach your player from her chat, and would take a while to say so.
-    const quick = this.agent && text.trim().split(/\s+/).length <= 3 ? this.asked(text) : null;
-    if (quick?.kind === 'media') {
-      const done = await this.doNow(quick);
+    // With Claude Code answering, a plain "pause", "open Dolphin" or "close Discord" still happens
+    // here, at once: Claude Code can't reach your player or your apps from her chat, and would take
+    // a while to say so. Closing still waits for your click.
+    const short = this.agent && text.trim().split(/\s+/).length <= 4;
+    let quick = short ? this.asked(text) : null;
+    if (short && !quick && CLOSE_ASK.test(text)) {
+      // an app opened since her chat did: the list of open ones, again
+      this.listApps();
+      await this.appsReady;
+      quick = this.asked(text);
+    }
+    if (['media', 'open', 'close'].includes(quick?.kind)) {
+      const done = quick.kind === 'close' ? null : await this.doNow(quick);
+      const closing = quick.kind === 'close' && await this.host.findApp(quick.name).catch(() => null);
       if (this.turn !== id) return;
       this.turn = 0;
-      const line = done?.line || this.t.failed;
+      const line = quick.kind === 'close' ? `${fmt(this.t.closeIt, { app: closing ? shown(closing) : quick.name })} ?` : done?.line || this.t.failed;
       this.remember({ role: 'assistant', content: line });
       this.panel.stream(line, { done: true });
       this.panel.setFace(done?.face || 'aside');
       this.panel.setChatBusy(false);
+      if (quick.kind === 'close') this.offerClose(quick.name, line);
+      this.listApps(); // fresh for the next message
       return;
     }
     const asked = this.agent ? null : this.asked(text);
@@ -751,7 +765,7 @@ export class Chat {
       return;
     }
     this.panel.setActions(
-      [{ id: 'close', label: fmt(t.closeIt, { app: app.name }), primary: true }, { id: 'no', label: t.no }],
+      [{ id: 'close', label: fmt(t.closeIt, { app: shown(app) }), primary: true }, { id: 'no', label: t.no }],
       (id) => (id === 'close' ? this.closeApp(app) : this.panel.setActions([])),
     );
   }
@@ -766,8 +780,8 @@ export class Chat {
     if (!this.open) return;
     let line;
     if (res.error) line = `${t.failed} ${res.error}`;
-    else if (!res.running) line = fmt(force ? t.forced : t.closed, { app: app.name });
-    else line = fmt(force ? t.unkillable : t.stillOpen, { app: app.name });
+    else if (!res.running) line = fmt(force ? t.forced : t.closed, { app: shown(app) });
+    else line = fmt(force ? t.unkillable : t.stillOpen, { app: shown(app) });
     this.panel.setFace(res.running || res.error ? 'aside' : 'laugh');
     this.panel.stream(line, { done: true });
     this.remember({ role: 'assistant', content: line });

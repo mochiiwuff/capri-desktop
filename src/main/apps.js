@@ -24,6 +24,7 @@ function powershell(script, timeout = 15000) {
 
 // [{ name, process, ids }]: one per program with a window open ("AM Music", "Discord"...)
 async function list() {
+  if (process.platform === 'linux') return linuxList();
   if (process.platform !== 'win32') return [];
   const out = await powershell(
     'Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } | '
@@ -62,6 +63,7 @@ async function find(wanted) {
 // Closes it like its close button would; `force` ends it outright (unsaved work is lost).
 // Resolves with what's left: { running } (true when it stayed open, or hid in the tray).
 async function close(name, { force = false } = {}) {
+  if (process.platform === 'linux') return linuxClose(name, { force });
   const app = (await list()).find((a) => a.process === name);
   if (!app) return { running: false };
   const ids = app.ids.join(',');
@@ -74,4 +76,37 @@ async function close(name, { force = false } = {}) {
   return { running: Number(out) > 0 };
 }
 
-module.exports = { list, find, close, powershell };
+// Linux, under Hyprland: the apps with a window, by window class, named after their .desktop entry
+// ("firefox-nightly" is "Firefox Nightly"). Never her own windows.
+const LINUX_KEEP = /^(capri|capri-desktop)$/i;
+
+async function linuxList({ query = require('./hyprland').query, entries = require('./desktop-entries').entries } = {}) {
+  const clients = await query('clients');
+  const names = new Map();
+  for (const e of entries()) {
+    for (const key of [e.wmClass, e.file, e.file.split('.').pop()]) if (key && !names.has(key.toLowerCase())) names.set(key.toLowerCase(), e.name);
+  }
+  const apps = new Map();
+  for (const c of clients) {
+    if (!c.mapped || c.pid === process.pid || !c.class || LINUX_KEEP.test(c.class)) continue;
+    const app = apps.get(c.class) || { name: c.class, process: c.class, label: names.get(c.class.toLowerCase()) || '', ids: [] };
+    app.ids.push(c.address);
+    apps.set(c.class, app);
+  }
+  return [...apps.values()];
+}
+
+// Its windows closed as their close button would (Hyprland asks them); `force` kills them.
+async function linuxClose(name, { force = false, hyprland = require('./hyprland') } = {}) {
+  const app = (await linuxList()).find((a) => a.process === name);
+  if (!app) return { running: false };
+  for (const address of app.ids) {
+    if (!/^0x[0-9a-f]{1,16}$/i.test(address)) continue;
+    const dsp = force ? 'kill' : 'close';
+    await hyprland.request(`dispatch hl.dsp.window.${dsp}({ window = "address:${address}" })`);
+  }
+  await new Promise((r) => setTimeout(r, force ? 600 : 2500));
+  return { running: (await linuxList()).some((a) => a.process === name) };
+}
+
+module.exports = { list, find, close, powershell, linuxList };

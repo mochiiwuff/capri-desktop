@@ -366,3 +366,31 @@ test('nobody looking: all screens off, or a screen locker running', () => {
   assert.equal(lockerRunning(read, () => ['12', 'self', '40', '77']), true);
   assert.equal(lockerRunning(read, () => ['12', '77']), false);
 });
+
+test('.desktop entries: the [Desktop Entry] group only, hidden ones left out, yours first', () => {
+  const { parse, entries } = require('../src/main/desktop-entries');
+  assert.deepEqual(parse('[Desktop Entry]\nName=Firefox\nName[fr]=Firefox FR\nType=Application\n[Desktop Action new]\nName=New'),
+    { Name: 'Firefox', Type: 'Application' });
+  const files = {
+    '/h/.local/share/applications': { 'a.desktop': '[Desktop Entry]\nType=Application\nName=Mine\n', 'hid.desktop': '[Desktop Entry]\nType=Application\nName=X\nNoDisplay=true' },
+    '/usr/share/applications': { 'a.desktop': '[Desktop Entry]\nType=Application\nName=System\n', 'b.desktop': '[Desktop Entry]\nType=Application\nName=Bee\nStartupWMClass=bee-app' },
+  };
+  const list = (d) => { if (!files[d]) throw new Error('none'); return Object.keys(files[d]); };
+  const read = (p) => files[p.slice(0, p.lastIndexOf('/'))][p.slice(p.lastIndexOf('/') + 1)];
+  const got = entries({ env: { HOME: '/h', XDG_DATA_DIRS: '/usr/share' }, list, read });
+  assert.deepEqual(got.map((e) => e.name), ['Mine', 'Bee']);
+  assert.equal(got[1].wmClass, 'bee-app');
+});
+
+test('open apps on Hyprland: grouped by class, named from .desktop, never hers', async () => {
+  const { linuxList } = require('../src/main/apps');
+  const clients = [
+    { class: 'firefox-nightly', address: '0x1', pid: 10, mapped: true },
+    { class: 'firefox-nightly', address: '0x2', pid: 10, mapped: true },
+    { class: 'capri-desktop', address: '0x3', pid: 11, mapped: true },
+    { class: 'kitty', address: '0x4', pid: 12, mapped: false },
+  ];
+  const got = await linuxList({ query: async () => clients,
+    entries: () => [{ name: 'Firefox Nightly', file: 'firefox-nightly', wmClass: '' }] });
+  assert.deepEqual(got, [{ name: 'firefox-nightly', process: 'firefox-nightly', label: 'Firefox Nightly', ids: ['0x1', '0x2'] }]);
+});

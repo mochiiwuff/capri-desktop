@@ -10,6 +10,7 @@ const { spawn, execFile } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { app, shell } = require('electron');
 const { powershell } = require('./apps');
+const desktop = require('./desktop-entries');
 
 const WIN = process.platform === 'win32';
 // not things to open from a chat: uninstallers, help pages and the like
@@ -27,6 +28,17 @@ const words = (text) => plain(text).split(/[^\p{L}\p{N}]+/u).filter((w) => w.len
 // Everything she can open: [{ name, kind: 'app' | 'steam' | 'epic', id }]
 async function launchables() {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.items;
+  if (process.platform === 'linux') {
+    const seen = new Set();
+    const items = desktop.entries().filter((e) => {
+      const key = words(e.name).join(' ');
+      if (!key || seen.has(key) || SKIP.test(e.name)) return false;
+      seen.add(key);
+      return true;
+    }).map((e) => ({ name: e.name, kind: 'desktop', id: e.id }));
+    cache = { at: Date.now(), items };
+    return items;
+  }
   if (!WIN) return [];
   const items = [];
   const seen = new Set();
@@ -204,6 +216,13 @@ async function launch({ kind, id } = {}) {
   if (!item) throw new Error('not found');
   if (kind === 'steam') return shell.openExternal(`steam://rungameid/${id}`);
   if (kind === 'epic') return shell.openExternal(`com.epicgames.launcher://apps/${encodeURIComponent(id)}?action=launch&silent=true`);
+  if (kind === 'desktop') {
+    // as the menu would (gio reads its Exec line), with your environment: not her own Claude's
+    const env = { ...process.env };
+    delete env.CLAUDE_CONFIG_DIR;
+    spawn('gio', ['launch', item.id], { detached: true, stdio: 'ignore', env }).on('error', () => {}).unref();
+    return undefined;
+  }
   spawn('explorer.exe', [`shell:AppsFolder\\${id}`], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   return undefined;
 }

@@ -1038,7 +1038,9 @@ function registerIpc() {
     ? setup.launchThroughOllama(integration)
     : { ok: false, code: 'unavailable', error: platformText(resolveLang(config.load().lang)).reasons.manualLaunch });
   // closing an app you asked her to close, once you've clicked to confirm (apps.js)
-  const appInfo = (app) => app && { name: app.process, label: app.label };
+  // `display`: what she calls it; on Linux its menu name, the window class being a technical one
+  const appInfo = (app) => app && { name: app.process, label: app.label,
+    display: (process.platform === 'linux' && app.label) || app.process };
   ipcMain.handle('apps:list', async () => (await apps.list().catch(() => [])).map(appInfo));
   ipcMain.handle('apps:find', async (_e, wanted) => appInfo(await apps.find(wanted).catch(() => null)));
   ipcMain.handle('apps:close', (_e, { name, force }) => apps.close(name, { force }).catch((err) => ({ error: err.message })));
