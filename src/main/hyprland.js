@@ -1,23 +1,78 @@
 'use strict';
 
-const { execFile } = require('node:child_process');
+const net = require('node:net');
+const path = require('node:path');
+const { execFile, execFileSync } = require('node:child_process');
+
+// Hyprland's IPC socket: one connection per request, as hyprctl does, without spawning a process
+// (her pointer is read this way twenty times a second).
+function socketPath(env = process.env) {
+  const sig = env.HYPRLAND_INSTANCE_SIGNATURE;
+  if (!sig || !/^[\w.-]+$/.test(sig)) return null;
+  return path.join(env.XDG_RUNTIME_DIR || `/run/user/${process.getuid()}`, 'hypr', sig, '.socket.sock');
+}
+
+function request(text, file = socketPath()) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('not running under Hyprland'));
+    const chunks = [];
+    const sock = net.createConnection(file, () => sock.end(text));
+    sock.setTimeout(2000, () => sock.destroy(new Error('Hyprland IPC timeout')));
+    sock.on('data', (chunk) => chunks.push(chunk));
+    sock.on('error', reject);
+    sock.on('close', () => resolve(Buffer.concat(chunks).toString('utf8')));
+  });
+}
+
+function hyprctl(command) {
+  return new Promise((resolve, reject) => {
+    execFile('hyprctl', ['-j', command], { timeout: 2000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => (
+      err ? reject(err) : resolve(out)));
+  });
+}
 
 function query(command) {
-  return new Promise((resolve, reject) => {
-    execFile('hyprctl', ['-j', command], { timeout: 2000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
-      if (err) return reject(err);
-      try { resolve(JSON.parse(out)); } catch (error) { reject(error); }
-    });
-  });
+  const read = socketPath() ? request(`j/${command}`) : hyprctl(command);
+  return read.then((out) => JSON.parse(out));
+}
+
+// A Lua config (Hyprland 0.55+) takes `hl.dsp.*` dispatchers, an older one its named dispatchers.
+async function dispatch(lua, legacy, call = request) {
+  if ((await call(`dispatch ${lua}`)).trim() === 'ok') return true;
+  return legacy ? (await call(`dispatch ${legacy}`)).trim() === 'ok' : false;
+}
+
+const OWN_TITLE = 'Capri Overlay';
+const ownWindow = (clients, pid) => clients.find((c) => c.pid === pid && c.title === OWN_TITLE && c.mapped) || null;
+
+// a monitor's size in the layout's (logical) pixels: rotated a quarter turn, its sides swap
+function logical(m) {
+  const [w, h] = m.transform % 2 ? [m.height, m.width] : [m.width, m.height];
+  return { name: m.name, x: m.x, y: m.y, width: Math.round(w / (m.scale || 1)), height: Math.round(h / (m.scale || 1)) };
+}
+
+// XWayland lays its outputs out its own way (often side by side from 0,0), so Electron's screens
+// and Hyprland's monitors don't share coordinates, and Electron gives no output names. A screen is
+// matched to the monitor of its size, in the same order among those of that size.
+function monitorFor(bounds, screens, monitors) {
+  const same = (a) => a.width === bounds.width && a.height === bounds.height;
+  const order = (a, b) => a.x - b.x || a.y - b.y;
+  const peers = screens.filter(same).sort(order);
+  const mons = monitors.map(logical).filter(same).sort(order);
+  const i = peers.findIndex((b) => b.x === bounds.x && b.y === bounds.y);
+  return mons[i] || (monitors.length === 1 && screens.length === 1 ? logical(monitors[0]) : null);
 }
 
 // Hyprland reports logical desktop coordinates. Exclude other workspaces and Capri;
 // never send window titles or process details to the renderer.
 function snapshot(clients, monitors, active, bounds, pid = process.pid) {
+  const own = ownWindow(clients, pid);
+  // her window where Hyprland really put it, not where XWayland says it is
+  if (own) bounds = { x: own.at[0], y: own.at[1], width: own.size[0], height: own.size[1] };
   const visible = new Set(monitors.flatMap((m) => [m.activeWorkspace?.id, m.specialWorkspace?.id])
     .filter((id) => Number.isInteger(id) && id !== 0));
   const wins = clients.filter((c) => c.mapped && !c.hidden && c.pid !== pid
-    && !/^capri$/i.test(c.class || '') && (c.pinned || visible.has(c.workspace?.id)))
+    && !/^capri(-desktop)?$/i.test(c.class || '') && (c.pinned || visible.has(c.workspace?.id)))
     .filter((c) => Array.isArray(c.at) && Array.isArray(c.size)
       && [...c.at, ...c.size].every(Number.isFinite) && c.size[0] > 0 && c.size[1] > 0)
     .map((c) => ({ id: c.address, x: c.at[0] - bounds.x, y: c.at[1] - bounds.y,
@@ -58,4 +113,113 @@ function startWindowWatch({ overlay, onUpdate, read = query }) {
   return { stop() { stopped = true; clearInterval(timer); }, refresh() { previous = ''; send(); } };
 }
 
-module.exports = { snapshot, startWindowWatch };
+// Her overlay as Hyprland sees it: put on the right monitor, the pointer read from the compositor
+// (XWayland only knows where it is over X windows, and hers lets it through), and the keyboard
+// handed to her chat and back.
+function createHyprland({ pid = process.pid, call = request } = {}) {
+  const ask = (command) => call(`j/${command}`).then((out) => JSON.parse(out));
+  let own = null; // { address, x, y, width, height }, in Hyprland's coordinates
+  let monitors = [];
+  let screens = []; // Electron's screen bounds, matched with `monitors`
+  let before = null; // the window that had the keyboard before her chat took it
+  let followMouse = null; // your input:follow_mouse, while her chat holds it at 2
+
+  async function place(bounds, area, all) {
+    screens = all;
+    const [mons, clients] = await Promise.all([ask('monitors'), ask('clients')]);
+    monitors = mons;
+    const mon = monitorFor(bounds, screens, monitors);
+    const win = ownWindow(clients, pid);
+    if (!mon || !win) return false;
+    const x = mon.x + area.x - bounds.x;
+    const y = mon.y + area.y - bounds.y;
+    const at = `window = "address:${win.address}"`;
+    if (win.size[0] !== area.width || win.size[1] !== area.height) {
+      await dispatch(`hl.dsp.window.resize({ x = ${area.width}, y = ${area.height}, ${at} })`,
+        `resizewindowpixel exact ${area.width} ${area.height},address:${win.address}`, call);
+    }
+    if (win.at[0] !== x || win.at[1] !== y) {
+      await dispatch(`hl.dsp.window.move({ x = ${x}, y = ${y}, ${at} })`,
+        `movewindowpixel exact ${x} ${y},address:${win.address}`, call);
+    }
+    own = { address: win.address, x, y, width: area.width, height: area.height };
+    return true;
+  }
+
+  // the pointer, over her window ({x, y} in it) and in Electron's screen coordinates (`screen`)
+  async function cursor() {
+    if (!own) return null;
+    const p = await ask('cursorpos');
+    if (!Number.isFinite(p?.x) || !Number.isFinite(p?.y)) return null;
+    const x = p.x - own.x;
+    const y = p.y - own.y;
+    let screen = null;
+    for (const b of screens) {
+      const m = monitorFor(b, screens, monitors);
+      if (m && p.x >= m.x && p.y >= m.y && p.x < m.x + m.width && p.y < m.y + m.height) {
+        screen = { x: b.x + p.x - m.x, y: b.y + p.y - m.y };
+        break;
+      }
+    }
+    return { x, y, inside: x >= 0 && y >= 0 && x < own.width && y < own.height, screen };
+  }
+
+  async function setFollowMouse(value) {
+    if ((await call(`eval hl.config({ input = { follow_mouse = ${value} } })`)).trim() !== 'ok') {
+      await call(`keyword input:follow_mouse ${value}`);
+    }
+  }
+
+  // While her chat is open, moving the pointer off it no longer takes the keyboard away from her
+  // (follow_mouse 1 → 2: focus on click); clicking another window still does. One at a time: a
+  // chat opened and given up at once would otherwise read follow_mouse after it was set to 2.
+  let queue = Promise.resolve();
+  function focus(on) {
+    const run = queue.then(() => handOver(on));
+    queue = run.catch(() => {});
+    return run;
+  }
+
+  async function handOver(on) {
+    if (!own) return false;
+    if (on) {
+      const active = await ask('activewindow').catch(() => null);
+      if (active?.address && active.address !== own.address) before = active.address;
+      if (followMouse === null) {
+        const option = await ask('getoption input:follow_mouse').catch(() => null);
+        if (option?.int === 1) {
+          followMouse = 1;
+          await setFollowMouse(2);
+        }
+      }
+      return dispatch(`hl.dsp.focus({ window = "address:${own.address}" })`, `focuswindow address:${own.address}`, call);
+    }
+    if (followMouse !== null) {
+      await setFollowMouse(followMouse);
+      followMouse = null;
+    }
+    const active = await ask('activewindow').catch(() => null);
+    const back = before;
+    before = null;
+    // the keyboard back where it was, unless you've since gone to another window yourself
+    if (back && active?.address === own.address) {
+      return dispatch(`hl.dsp.focus({ window = "address:${back}" })`, `focuswindow address:${back}`, call);
+    }
+    return true;
+  }
+
+  // quitting with her chat open: your follow_mouse back before she's gone
+  function restoreSync() {
+    if (followMouse === null) return;
+    const value = followMouse;
+    followMouse = null;
+    try {
+      const out = execFileSync('hyprctl', ['eval', `hl.config({ input = { follow_mouse = ${value} } })`], { timeout: 2000 });
+      if (String(out).trim() !== 'ok') execFileSync('hyprctl', ['keyword', 'input:follow_mouse', String(value)], { timeout: 2000 });
+    } catch { /* Hyprland gone: nothing to restore */ }
+  }
+
+  return { place, cursor, focus, restoreSync, get placed() { return Boolean(own); } };
+}
+
+module.exports = { snapshot, startWindowWatch, createHyprland, monitorFor, logical, socketPath };

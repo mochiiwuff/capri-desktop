@@ -140,19 +140,23 @@ async function boot() {
   };
   let lastMove = performance.now();
   let onBack = null; // (away ms) => you're back at your PC after a while (the bond, below)
-  window.addEventListener('mousemove', (e) => {
+  const pointerAt = (x, y) => {
     const now = performance.now();
     if (now - lastMove > AWAY_MS) onBack?.(now - lastMove);
     lastMove = now;
-    mouse = { x: e.clientX, y: e.clientY };
+    mouse = { x, y };
     refreshHit();
     hoverChip();
-  });
-  document.addEventListener('mouseleave', () => {
+  };
+  const pointerGone = () => {
     mouse = null;
     refreshHit();
     hoverChip();
-  });
+  };
+  window.addEventListener('mousemove', (e) => pointerAt(e.clientX, e.clientY));
+  document.addEventListener('mouseleave', pointerGone);
+  // Hyprland: the pointer as the compositor sees it, its moves only (main.js)
+  host.onPointer((p) => (p.inside ? pointerAt(p.x, p.y) : mouse && pointerGone()));
   // Where the pointer really is, every couple of seconds: if it moved over her window and no
   // mousemove came, the hook that brings it to her is gone (Windows drops it without a word, after
   // sleep say), and main.js puts in a new one.
@@ -637,6 +641,10 @@ async function boot() {
         break;
       case 'status':
         brain.status();
+        break;
+      case 'talk': // `capri --talk`, from a keybind: her chat, or closing it
+        if (chat.open) panel.hide();
+        else chat.start();
         break;
       case 'customize': // "Make her yours" in her menu
         custom.open();

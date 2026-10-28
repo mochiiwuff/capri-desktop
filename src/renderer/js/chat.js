@@ -180,6 +180,7 @@ export class Chat {
   async start() {
     const { capri, host, t } = this;
     if (this.open) {
+      host.focusOverlay(true); // the keyboard back, if another window took it
       this.panel.chatInput.focus();
       return;
     }

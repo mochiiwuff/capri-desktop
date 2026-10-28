@@ -14,6 +14,7 @@ const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
+const hyprland = require('./hyprland');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
@@ -52,6 +53,9 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+// under Hyprland: her window placed, the pointer read and the keyboard handed over by the compositor
+const hypr = process.platform === 'linux' && hyprland.socketPath() ? hyprland.createHyprland() : null;
+let pointerTimer = null;
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let platformInfo = null;
@@ -172,6 +176,41 @@ function fitOverlay() {
   const { area, gap } = overlayArea();
   overlay.setBounds(area);
   overlay.webContents.send('overlay:resize', { width: area.width, height: area.height, gap });
+  placeOnHyprland();
+}
+
+// XWayland's coordinates aren't Hyprland's: a window put at its screen's corner by Electron can land
+// beside it. Hyprland moves her there itself (again a moment later, once the window is mapped).
+function placeOnHyprland() {
+  if (!hypr || !overlay) return;
+  const { area } = overlayArea();
+  const { bounds } = targetDisplay();
+  const all = displays().map((d) => d.bounds);
+  for (const wait of [0, 300, 1500]) {
+    setTimeout(() => {
+      if (overlay && !overlay.isDestroyed()) {
+        hypr.place(bounds, area, all).catch((err) => console.error('[capri] Hyprland placement:', err.message));
+      }
+    }, wait);
+  }
+}
+
+// The pointer, read from Hyprland twenty times a second: her window lets it through, so it never
+// hears of it otherwise (Electron forwards it only on Windows and macOS).
+function startPointer() {
+  if (!hypr) return;
+  let last = '';
+  let busy = false;
+  pointerTimer = setInterval(async () => {
+    if (busy || !overlay || overlay.isDestroyed()) return;
+    busy = true;
+    try {
+      const p = await hypr.cursor();
+      const key = p ? `${p.x},${p.y}` : '';
+      if (p && key !== last) overlay.webContents.send('overlay:pointer', { x: p.x, y: p.y, inside: p.inside });
+      last = key;
+    } catch { /* Hyprland busy or restarting: the next tick tries again */ } finally { busy = false; }
+  }, 50);
 }
 
 // The pointer reaches her click-through window through a mouse hook, and Windows drops a hook that
@@ -212,7 +251,9 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // XWayland only lets a window take the keyboard if it said it could when it was mapped: under
+    // Hyprland she's focusable from the start, and the compositor decides when she gets it
+    focusable: Boolean(hypr),
     hasShadow: false,
     alwaysOnTop: true,
     type: process.platform === 'win32' ? 'toolbar' : undefined,
@@ -769,7 +810,9 @@ function registerIpc() {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
-  ipcMain.handle('overlay:cursor', () => {
+  ipcMain.handle('overlay:cursor', async () => {
+    const h = hypr && await hypr.cursor().catch(() => null);
+    if (h) return { x: h.x, y: h.y, inside: h.inside, display: h.screen ? displayAt(h.screen).id : targetDisplay().id };
     const p = screen.getCursorScreenPoint();
     const b = overlay.getBounds();
     const inside = p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height;
@@ -964,8 +1007,17 @@ function registerIpc() {
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
-    overlay.setFocusable(Boolean(on));
-    if (on) overlay.focus();
+    if (!hypr) overlay.setFocusable(Boolean(on));
+    // Hyprland doesn't let an X window take the keyboard by itself: it's handed over
+    if (hypr?.placed) {
+      hypr.focus(on).then(() => {
+        // and inside it, the page itself: X focus alone leaves its text field deaf
+        if (on && overlay && !overlay.isDestroyed()) {
+          overlay.focus();
+          overlay.webContents.focus();
+        }
+      }).catch((err) => console.error('[capri] Hyprland focus:', err.message));
+    } else if (on) overlay.focus();
     else overlay.blur();
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
@@ -1136,7 +1188,12 @@ function main() {
     app.quit();
     return;
   }
-  app.on('second-instance', () => sendCommand('status'));
+  // `capri --talk` (a Hyprland keybind, say): her chat opens, or closes; `--toggle`: as Ctrl+Alt+C
+  app.on('second-instance', (_e, argv) => {
+    if (argv.includes('--talk')) sendCommand('talk');
+    else if (argv.includes('--toggle')) toggleVisible();
+    else sendCommand('status');
+  });
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(async () => {
@@ -1169,6 +1226,7 @@ function main() {
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
+    startPointer();
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
@@ -1190,6 +1248,8 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
+    clearInterval(pointerTimer);
+    hypr?.restoreSync();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

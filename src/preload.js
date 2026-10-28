@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('host', {
   onCommand: on('capri:command'),
   onConfig: on('capri:config'),
   onResize: on('overlay:resize'),
+  onPointer: on('overlay:pointer'), // under Hyprland, where her window can't hear the pointer itself
   onWindows: on('windows:update'),
   setInteractive: (on) => ipcRenderer.send('overlay:interactive', Boolean(on)),
   rearm: () => ipcRenderer.send('overlay:rearm'),
