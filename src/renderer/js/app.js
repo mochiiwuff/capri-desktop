@@ -153,10 +153,18 @@ async function boot() {
     refreshHit();
     hoverChip();
   };
-  window.addEventListener('mousemove', (e) => pointerAt(e.clientX, e.clientY));
-  document.addEventListener('mouseleave', pointerGone);
-  // Hyprland: the pointer as the compositor sees it, its moves only (main.js)
-  host.onPointer((p) => (p.inside ? pointerAt(p.x, p.y) : mouse && pointerGone()));
+  // Hyprland: the pointer as the compositor sees it, its moves only (main.js). It has the last word:
+  // XWayland only knows where the pointer was last over an X window, so the moment her window stops
+  // letting it through, it sends her a move from there (often another screen) and a leave.
+  let compositor = null; // the last position from Hyprland
+  const stale = (x, y) => compositor && Math.hypot(x - compositor.x, y - compositor.y) > 48;
+  window.addEventListener('mousemove', (e) => stale(e.clientX, e.clientY) || pointerAt(e.clientX, e.clientY));
+  document.addEventListener('mouseleave', () => compositor || pointerGone());
+  host.onPointer((p) => {
+    compositor = { x: p.x, y: p.y };
+    if (p.inside) pointerAt(p.x, p.y);
+    else if (mouse) pointerGone();
+  });
   // Where the pointer really is, every couple of seconds: if it moved over her window and no
   // mousemove came, the hook that brings it to her is gone (Windows drops it without a word, after
   // sleep say), and main.js puts in a new one.
