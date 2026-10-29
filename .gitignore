@@ -7,3 +7,6 @@ Thumbs.db
 
 # local debug captures
 captures/
+
+# Compiled macOS helper (built from native/macos)
+native/bin/

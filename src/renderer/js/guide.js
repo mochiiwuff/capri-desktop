@@ -153,7 +153,7 @@ export class Guide {
 
   // Claude Code and Codex can run for free through Ollama (`ollama launch`): she offers it for those two
   get freeWay() {
-    return Boolean(this.setup) && ['claude', 'codex'].includes(this.brain.assistant);
+    return Boolean(this.setup) && (!this.host.platform || ['win32', 'darwin'].includes(this.host.platform)) && ['claude', 'codex'].includes(this.brain.assistant);
   }
 
   // "How does it work?" in her menu: what she can show you.

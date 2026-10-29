@@ -10,8 +10,10 @@ function adapt(evt) {
   const out = { ...evt, session_id: `codex:${evt.session_id || 'default'}` };
   if (evt.hook_event_name === 'PermissionRequest') {
     out.hook_event_name = 'Notification';
-    out.notification_type = 'permission_prompt';
-    out.message = evt.tool_input?.description || `Codex needs approval: ${evt.tool_name || 'tool'}`;
+    // This precedes approval resolution; another hook/reviewer can handle it without a UI prompt.
+    // The payload does not establish that the human is being asked, so do not raise a sticky alert.
+    out.notification_type = 'permission_review';
+    out.message = 'Codex is checking tool permissions.';
   }
   if (evt.tool_name === 'apply_patch') {
     out.tool_name = 'Edit';

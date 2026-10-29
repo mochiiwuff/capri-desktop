@@ -47,6 +47,10 @@ function hookCommand(eventType) {
   if (!process.versions.electron) {
     return `${quoteIfNeeded(process.execPath)} ${quoteIfNeeded(script)} ${eventType}`;
   }
+  if (process.platform === 'darwin') {
+    const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+    return `ELECTRON_RUN_AS_NODE=1 ${quote(process.execPath)} ${quote(script)} ${eventType}`;
+  }
   if (hasNode()) {
     return `node ${quoteIfNeeded(script)} ${eventType}`;
   }

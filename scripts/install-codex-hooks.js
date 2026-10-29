@@ -24,6 +24,17 @@ function status() {
   }
 }
 
+function hookCommand() {
+  const script = path.resolve(__dirname, '..', 'hooks', MARK)
+    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`).replace(/\\/g, '/');
+  if (process.platform === 'darwin' && process.versions.electron) {
+    // Finder-launched coding assistants may not have Node on PATH. Use the bundled runtime.
+    const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+    return `ELECTRON_RUN_AS_NODE=1 ${quote(process.execPath)} ${quote(script)}`;
+  }
+  return `node "${script}"`;
+}
+
 function configure(uninstall = false) {
   const file = settingsPath();
   const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
@@ -46,9 +57,7 @@ function configure(uninstall = false) {
     });
     if (!settings.hooks[event].length) delete settings.hooks[event];
   }
-  const script = path.resolve(__dirname, '..', 'hooks', MARK)
-    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`).replace(/\\/g, '/');
-  const command = `node "${script}"`;
+  const command = hookCommand();
   if (!uninstall) {
     for (const event of EVENTS) {
       settings.hooks[event] ||= [];
@@ -65,7 +74,7 @@ function configure(uninstall = false) {
   return { file, command };
 }
 
-module.exports = { configure, EVENTS, status, install: () => configure(), uninstall: () => configure(true) };
+module.exports = { hookCommand, configure, EVENTS, status, install: () => configure(), uninstall: () => configure(true) };
 if (require.main === module) {
   try {
     const uninstall = process.argv.includes('--uninstall');

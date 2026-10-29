@@ -111,4 +111,18 @@ const TRAY = {
   },
 };
 
-module.exports = { TRAY, LANGS: Object.keys(TRAY) };
+const MAC_LABELS = {
+  en: ['Sitting at the screen edge', 'Like macOS', 'Start at login', 'Media controls: Accessibility settings…'],
+  fr: ['Assise au bord de l’écran', 'Comme macOS', 'Lancer à la connexion', 'Contrôles multimédias : réglages d’accessibilité…'],
+  es: ['Sentada al borde de la pantalla', 'Como macOS', 'Iniciar al acceder', 'Controles multimedia: ajustes de accesibilidad…'],
+  pt: ['Sentada na borda da tela', 'Como o macOS', 'Iniciar ao entrar', 'Controles de mídia: ajustes de acessibilidade…'],
+  ru: ['Сидеть у края экрана', 'Как в macOS', 'Запускать при входе', 'Управление медиа: настройки универсального доступа…'],
+};
+function trayLabels(lang, platform) {
+  const base = TRAY[lang] || TRAY.en;
+  if (platform !== 'darwin') return base;
+  const [restTaskbar, motionAuto, startup, mediaPermissions] = MAC_LABELS[lang] || MAC_LABELS.en;
+  return { ...base, restTaskbar, motionAuto, startup, mediaPermissions };
+}
+
+module.exports = { TRAY, LANGS: Object.keys(TRAY), trayLabels };

@@ -45,16 +45,40 @@ const headers = (key) => ({ 'content-type': 'application/json', ...(key && { aut
 async function failure(res) {
   const body = await res.text().catch(() => '');
   let message = body.slice(0, 200) || `answered ${res.status}`;
+  let apiCode;
+  let apiType;
   try {
     const parsed = JSON.parse(body);
     const err = (Array.isArray(parsed) ? parsed[0] : parsed)?.error;
-    if (err) message = typeof err === 'string' ? err : err.message || message;
+    if (err) {
+      message = typeof err === 'string' ? err : err.message || message;
+      apiCode = err.code;
+      apiType = err.type;
+    }
   } catch {
     // not JSON: the start of the body says it
   }
-  const code = res.status === 429 || res.status === 503 || /overloaded|high demand|unavailable/i.test(message) ? 'busy'
+  // Billing failures can also be HTTP 429. Retrying or switching models cannot fix them.
+  const quota = apiType === 'insufficient_quota' || [
+    'insufficient_quota', 'credit_balance_exhausted', 'billing_hard_limit_reached',
+    'organization_spend_limit_exceeded', 'project_spend_limit_exceeded',
+    'organization_usage_limit_exceeded', 'usage_limit_exceeded',
+  ].includes(apiCode);
+  const code = quota ? 'quota'
+    : res.status === 429 || res.status === 503 || /overloaded|high demand|unavailable/i.test(message) ? 'busy'
     : res.status === 404 ? 'gone' : null;
   return Object.assign(new Error(message), { status: res.status, code });
+}
+
+// The OpenAI catalog also contains speech/image/embedding and Responses-only models.
+// Keep text-chat families; specialized variants need a different endpoint or payload.
+function openaiModels(names) {
+  return names.filter((name) => {
+    const base = name.replace(/^ft:/, '').split(':')[0];
+    return /^(gpt-|chatgpt-|o\d)/.test(base)
+      && !/(?:^|[-_])(audio|realtime|transcribe|tts|instruct|image|codex|pro|deep-research)(?:[-_]|$)/.test(base)
+      && !/^o1-(mini|preview)(?:-|$)/.test(base);
+  });
 }
 
 // Gemini lists every model it has (embeddings, speech, images…): only the ones to chat with, a current
@@ -80,7 +104,7 @@ async function models(id, cfg) {
   const body = await res.json();
   const list = Array.isArray(body) ? body : body.data || body.models || [];
   const names = list.map((m) => (typeof m === 'string' ? m : m.id || m.name)).filter(Boolean);
-  return id === 'gemini' ? geminiModels(names) : names;
+  return id === 'gemini' ? geminiModels(names) : id === 'openai' ? openaiModels(names) : names;
 }
 
 function warm(id, model) {

@@ -13,6 +13,7 @@ const { safeStorage } = require('electron');
 const ollama = require('./ollama');
 
 const WIN = process.platform === 'win32';
+const MAC = process.platform === 'darwin';
 
 // The models she offers for her chat, with what they weigh (as Ollama lists them)
 const MODELS = [
@@ -39,6 +40,11 @@ function which(cmd) {
 
 // Ollama's own app (it runs the server from the tray) and its command, where its installer puts them
 function ollamaFiles() {
+  if (MAC) {
+    const app = ['/Applications/Ollama.app', path.join(os.homedir(), 'Applications', 'Ollama.app')].find((p) => fs.existsSync(p));
+    const cli = [app && path.join(app, 'Contents', 'Resources', 'ollama'), '/opt/homebrew/bin/ollama', '/usr/local/bin/ollama'].filter(Boolean).find((p) => fs.existsSync(p));
+    return { app: app || '', cli: cli || 'ollama' };
+  }
   const dir = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Programs', 'Ollama');
   return { app: path.join(dir, 'ollama app.exe'), cli: path.join(dir, 'ollama.exe') };
 }
@@ -48,11 +54,13 @@ async function ollamaState() {
   const models = await ollama.models().catch(() => null);
   if (models) return { running: true, installed: true, models, winget: false };
   const [onPath, winget] = await Promise.all([which('ollama'), WIN ? which('winget') : null]);
-  return { running: false, installed: fs.existsSync(ollamaFiles().cli) || Boolean(onPath), models: null, winget: Boolean(winget) };
+  const files = ollamaFiles();
+  return { running: false, installed: (MAC && Boolean(files.app)) || fs.existsSync(files.cli) || Boolean(onPath), models: null, winget: Boolean(winget) };
 }
 
 // Installs Ollama with winget (Windows' own package manager); onLine(text) for what it prints.
 function installOllama(onLine) {
+  if (!WIN) return Promise.resolve({ ok: false, error: 'Install Ollama from https://ollama.com/download, then try again.' });
   return new Promise((resolve) => {
     const child = spawn('winget', [
       'install', '--id', 'Ollama.Ollama', '--exact', '--silent',
@@ -71,7 +79,8 @@ function installOllama(onLine) {
 async function startOllama() {
   const { app, cli } = ollamaFiles();
   const run = (file, args) => spawn(file, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref();
-  if (fs.existsSync(app)) run(app, []);
+  if (MAC && app) run('/usr/bin/open', ['-a', app]);
+  else if (fs.existsSync(app)) run(app, []);
   else run(fs.existsSync(cli) ? cli : 'ollama', ['serve']);
   for (let i = 0; i < 40; i++) {
     if (await ollama.models().catch(() => null)) return { ok: true };
@@ -118,7 +127,16 @@ async function pullModel(name, onProgress, signal) {
 // Claude Code (or Codex) through Ollama, in a window of its own: Ollama fetches what's missing and
 // asks which model to use. She sees it like any other session, through her hooks.
 function launchThroughOllama(integration) {
-  if (!WIN || !['claude', 'codex'].includes(integration)) return { ok: false };
+  if (!['claude', 'codex'].includes(integration)) return { ok: false };
+  if (MAC) {
+    const { cli } = ollamaFiles();
+    // Pass the command as argv, then shell-quote its executable: no AppleScript or shell interpolation.
+    const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+    const command = `${quote(cli)} launch ${integration}`;
+    const script = 'on run argv\ntell application "Terminal"\nactivate\ndo script (item 1 of argv)\nend tell\nend run';
+    return new Promise((resolve) => execFile('/usr/bin/osascript', ['-e', script, command], { timeout: 15000 }, (err) => resolve(err ? { ok: false, error: err.message } : { ok: true })));
+  }
+  if (!WIN) return { ok: false };
   const { cli } = ollamaFiles();
   // `start` opens a new console window (its first quoted argument is the window's title); cmd /k
   // strips the outer quotes of what follows, so a path with spaces in it keeps its own
@@ -131,6 +149,7 @@ function launchThroughOllama(integration) {
 
 // API keys are kept encrypted in config.json, with your Windows account (DPAPI): "enc:<base64>".
 function sealKey(key) {
+  if (MAC && !safeStorage.isEncryptionAvailable()) throw new Error('macOS Keychain is unavailable. Unlock your login keychain and try again.');
   return safeStorage.isEncryptionAvailable() ? `enc:${safeStorage.encryptString(key).toString('base64')}` : key;
 }
 

@@ -23,7 +23,7 @@ const DECODE_STEP_MS = 28;
 const COUNT_MS = 700; // her report's numbers counting up
 
 export class Panel {
-  constructor({ panel, ticker, labels }) {
+  constructor({ panel, ticker, labels, focusChat }) {
     this.el = panel;
     this.tickerEl = ticker;
     this.labels = labels;
@@ -64,6 +64,11 @@ export class Panel {
     this.chatSend = panel.querySelector('.panel__send');
     this.chatClose = panel.querySelector('.panel__close');
     this.note = panel.querySelector('.panel__note');
+    // A Mac accessory window can lose native keyboard focus while its input stays DOM-focused.
+    // Reclaim it only on an explicit click in a visible text panel, including setup/key fields.
+    if (focusChat) this.el.addEventListener('pointerdown', (e) => {
+      if (e.button === 0 && this.visible && this.current?.chat && !this.chatClose.contains(e.target)) focusChat();
+    }, true);
     this.chatForm.addEventListener('click', (e) => e.stopPropagation());
     this.chatForm.addEventListener('submit', (e) => {
       e.preventDefault();

@@ -24,6 +24,7 @@ const CODE = ['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'map', 'lock', 'ym
 // Windows Search: names first (every word in the name, of one of `exts` if any), then what's in
 // documents (not code). null if the index can't be asked.
 async function indexed(terms, exts) {
+  if (process.platform !== 'win32') return null; // use the bounded folder search, without launching PowerShell
   const safe = terms.map((t) => t.replace(/[^\p{L}\p{N}.]/gu, '')).filter(Boolean);
   const types = exts.map((e) => e.replace(/[^a-z0-9]/gi, '')).filter(Boolean);
   if (!safe.length && !types.length) return [];
@@ -49,30 +50,32 @@ async function indexed(terms, exts) {
 }
 
 // The walk, when the index isn't there: your usual folders, a few levels down, by name and type.
-function walked(terms, exts) {
+async function walked(terms, exts) {
   const roots = ['desktop', 'documents', 'downloads', 'pictures', 'music', 'videos'].map((k) => app.getPath(k));
   const onedrive = process.env.OneDrive;
   if (onedrive) roots.push(onedrive);
   const hits = [];
   const queue = roots.map((dir) => [dir, 0]);
+  let next = 0;
   let seen = 0;
-  while (queue.length && hits.length < LIMIT * 3 && seen < 40000) {
-    const [dir, depth] = queue.shift();
-    let entries = [];
+  while (next < queue.length && hits.length < LIMIT * 3 && seen < 40000) {
+    const [dir, depth] = queue[next++];
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const e of entries) {
-      seen++;
-      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
-      const full = path.join(dir, e.name);
-      const name = words(e.name).join(' ');
-      const ext = path.extname(e.name).slice(1).toLowerCase();
-      if (terms.every((t) => name.includes(t)) && (!exts.length || exts.includes(ext))) hits.push(full);
-      if (e.isDirectory() && depth < 5) queue.push([full, depth + 1]);
-    }
+      // Stream entries so a huge folder does not allocate an unbounded array.
+      const entries = await fs.promises.opendir(dir);
+      for await (const e of entries) {
+        if (seen >= 40000 || hits.length >= LIMIT * 3) break;
+        seen++;
+        // A single large directory must not monopolize Electron's main process.
+        if (seen % 256 === 0) await new Promise(setImmediate);
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+        const full = path.join(dir, e.name);
+        const name = words(e.name).join(' ');
+        const ext = path.extname(e.name).slice(1).toLowerCase();
+        if (terms.every((t) => name.includes(t)) && (!exts.length || exts.includes(ext))) hits.push(full);
+        if (e.isDirectory() && depth < 5) queue.push([full, depth + 1]);
+      }
+    } catch { /* unreadable or removed folder: continue with the remaining roots */ }
   }
   return hits;
 }
@@ -83,8 +86,8 @@ async function search({ query = '', exts = [] } = {}) {
   const terms = words(query);
   if (!terms.length && !exts.length) return [];
   const paths = await indexed(terms, exts);
-  const results = listed(paths?.length ? paths : walked(terms, exts));
-  return results.length || !paths?.length ? results : listed(walked(terms, exts));
+  const results = listed(paths?.length ? paths : await walked(terms, exts));
+  return results.length || !paths?.length ? results : listed(await walked(terms, exts));
 }
 
 function listed(paths) {

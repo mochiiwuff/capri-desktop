@@ -18,7 +18,13 @@
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
     "test:hooks": "node --test tests/hooks.test.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "native:mac": "node scripts/build-macos.js",
+    "prestart": "node scripts/build-macos.js",
+    "predev": "node scripts/build-macos.js",
+    "dist:mac": "node scripts/build-macos.js --universal && electron-builder --mac --universal",
+    "test:platform": "node --test tests/platform.test.js",
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [
     "claude-code",
@@ -65,6 +71,24 @@
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
       "artifactName": "Capri-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.entertainment",
+      "minimumSystemVersion": "13.0",
+      "extraResources": [
+        {
+          "from": "native/bin/capri-macos",
+          "to": "capri-macos"
+        }
+      ],
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Capri opens coding assistant sessions in Terminal only when you ask."
+      },
+      "icon": "native/bin/capri.png"
     }
   }
 }

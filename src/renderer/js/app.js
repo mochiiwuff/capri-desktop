@@ -79,6 +79,7 @@ async function boot() {
     panel: document.getElementById('panel'),
     ticker: document.getElementById('ticker'),
     labels: linesFor(config.lang, config.assistant),
+    focusChat: host.platform === 'darwin' ? () => host.focusOverlay(true) : undefined,
   });
 
   const capri = new Capri({

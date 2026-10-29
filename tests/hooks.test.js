@@ -32,7 +32,7 @@ function moduleUrl(file) {
   return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 }
 
-test('Codex activity, approval, completion travel through the real bridge and Brain; Claude still works', async (t) => {
+test('Codex permission checks stay passive, explicit questions alert, and Claude still works', async (t) => {
   globalThis.matchMedia = () => ({ matches: false });
   t.after(() => { delete globalThis.matchMedia; });
   const { Brain } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/brain.js')));
@@ -62,9 +62,16 @@ test('Codex activity, approval, completion travel through the real bridge and Br
   assert.equal(session.count, 1);
   assert.equal(panel.ticker.target, 'npm test');
   await send('PermissionRequest', { tool_name: 'Bash', tool_input: { description: 'Allow tests?' } });
+  assert.equal(session.waiting, false); // review may finish automatically, with no human prompt
+  assert.notEqual(capri.mode, 'alert');
+  assert.equal(messages.at(-1).kind, 'info');
+  assert.equal(messages.at(-1).line, 'Codex is checking tool permissions.');
+  assert.equal(messages.at(-1).hold, 5000);
+  await send('PreToolUse', { tool_name: 'request_user_input', tool_input: { questions: [{ question: 'Which test suite?' }] } });
   assert.equal(session.waiting, true);
   assert.equal(capri.mode, 'alert');
-  assert.equal(messages.at(-1).quote, 'Allow tests?');
+  assert.equal(messages.at(-1).quote, 'Which test suite?');
+  assert.doesNotMatch(messages.at(-1).line, /approve|permission|green light/);
   await send('PostToolUse', { tool_name: 'Bash' });
   assert.equal(session.waiting, false);
   assert.equal(capri.mode, 'work');
@@ -93,6 +100,11 @@ test('Codex activity, approval, completion travel through the real bridge and Br
   await send('PreToolUse', { tool_name: 'Read', tool_input: { file_path: '/a.js' } }, 'capri-hook.js');
   assert.equal(brain.sessions.get('shared').count, 1);
   assert.equal(events.at(-1).session_id, 'shared');
+  await send('Notification', { notification_type: 'permission_prompt', message: 'Allow Claude?' }, 'capri-hook.js');
+  assert.equal(brain.sessions.get('shared').waiting, true);
+  assert.equal(messages.at(-1).kind, 'alert');
+  await send('PostToolUse', { tool_name: 'Read' }, 'capri-hook.js');
+  assert.equal(brain.sessions.get('shared').waiting, false);
   const count = events.length;
   for (const raw of ['invalid', 'null', '[]']) await invoke('capri-codex-hook.js', raw, port);
   assert.equal(events.length, count);
@@ -110,7 +122,8 @@ test('Codex onboarding, guide, and chat use Codex in every language; Claude text
   const { LINES, linesFor } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { Guide } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/guide.js')));
   const { Chat } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/chat.js')));
-  const strings = (value) => typeof value === 'string' ? [value] : Object.values(value).flatMap(strings);
+  const strings = (value) => typeof value === 'string' ? [value]
+    : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : [];
   for (const lang of Object.keys(LINES)) {
     const text = linesFor(lang, 'codex');
     assert.doesNotMatch(strings(text).join('\n'), /Claude|settings\.json|\.claude/);

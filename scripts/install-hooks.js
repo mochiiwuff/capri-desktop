@@ -49,6 +49,10 @@ function hookCommand() {
   const script = path.resolve(__dirname, '..', 'hooks', 'capri-hook.js')
     .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`)
     .replace(/\\/g, '/');
+  if (process.platform === 'darwin' && process.versions.electron) {
+    const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+    return `ELECTRON_RUN_AS_NODE=1 ${quote(process.execPath)} ${quote(script)}`;
+  }
   if (process.versions.electron && !hasNode()) {
     return `ELECTRON_RUN_AS_NODE=1 "${process.execPath.replace(/\\/g, '/')}" "${script}"`;
   }

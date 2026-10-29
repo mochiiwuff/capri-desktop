@@ -16,6 +16,7 @@ const { screen } = require('electron');
 const SCRIPT = path.join(__dirname, 'windows.ps1').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
 function startWindowWatch({ overlay, onUpdate }) {
+  if (process.platform === 'darwin') return require('./macos').startWindowWatch({ overlay, onUpdate });
   if (process.platform !== 'win32') return { stop() {}, refresh() {} };
 
   let child = null;

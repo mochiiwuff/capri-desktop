@@ -267,7 +267,7 @@ export class Setup {
     }
     if (!(await this.ollamaUp())) return false;
     const res = await this.host.launchThroughOllama(integration);
-    if (!res.ok) return this.fail(t.failed, '');
+    if (!res.ok) return this.fail(t.failed, res.error || '');
     this.voice.play('hello');
     this.capri.perform('hop');
     await this.guide.ask({ kind: 'done', face: 'look', line: t.freeOpened, quote: fmt(t.freeOpenedHow, { name }), actions: [{ id: 'ok', label: t.ok, primary: true }] });

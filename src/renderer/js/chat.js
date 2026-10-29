@@ -179,6 +179,7 @@ export class Chat {
   async start() {
     const { capri, host, t } = this;
     if (this.open) {
+      if (host.platform === 'darwin') host.focusOverlay(true);
       this.panel.chatInput.focus();
       return;
     }
@@ -640,6 +641,7 @@ export class Chat {
     this.capri.pulse();
     const ok = await this.host.media(action);
     if (ok) this.addLine(answer, this.t.media[action], 'smug');
+    else if (this.host.platform === 'darwin') this.addLine(answer, this.t.mediaUnavailable, 'aside');
   }
 
   // A Spotify search, in the app if it's there.
@@ -693,7 +695,7 @@ export class Chat {
       return;
     }
     this.panel.setActions(
-      [{ id: 'close', label: fmt(t.closeIt, { app: app.name }), primary: true }, { id: 'no', label: t.no }],
+      [{ id: 'close', label: fmt(t.closeIt, { app: this.host.platform === 'darwin' ? app.label || app.name : app.name }), primary: true }, { id: 'no', label: t.no }],
       (id) => (id === 'close' ? this.closeApp(app) : this.panel.setActions([])),
     );
   }
@@ -706,10 +708,11 @@ export class Chat {
     capri.zap(h.x + capri.towardCenter() * 280, h.y - 170);
     const res = await this.host.closeApp(app.name, force);
     if (!this.open) return;
+    const name = this.host.platform === 'darwin' ? app.label || app.name : app.name;
     let line;
     if (res.error) line = `${t.failed} ${res.error}`;
-    else if (!res.running) line = fmt(force ? t.forced : t.closed, { app: app.name });
-    else line = fmt(force ? t.unkillable : t.stillOpen, { app: app.name });
+    else if (!res.running) line = fmt(force ? t.forced : t.closed, { app: name });
+    else line = fmt(force ? t.unkillable : t.stillOpen, { app: name });
     this.panel.setFace(res.running || res.error ? 'aside' : 'laugh');
     this.panel.stream(line, { done: true });
     this.remember({ role: 'assistant', content: line });

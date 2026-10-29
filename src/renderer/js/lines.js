@@ -1,3 +1,5 @@
+import { platformCopy } from './platform-copy.js';
+
 // What Capri says. She's a personality construct — dozens of minds in one — so she
 // sometimes talks as "we". Slang is Night City's: choom, preem, nova, flatline.
 
@@ -1805,11 +1807,11 @@ const OTHERS = {
   },
 };
 const converted = new Map();
-export function linesFor(lang, assistant = 'claude') {
-  const base = LINES[lang] || LINES.fr;
+export function linesFor(lang, assistant = 'claude', platform = globalThis.window?.host?.platform || 'win32') {
+  const base = platformCopy(LINES[lang] || LINES.fr, lang, platform);
   const other = OTHERS[assistant];
   if (!other) return base;
-  const key = `${assistant}:${lang}`;
+  const key = `${assistant}:${lang}:${platform}`;
   if (converted.has(key)) return converted.get(key);
   // French drops the e of "de" and "que" before a vowel: "la fenêtre d'Antigravity"
   const elide = lang === 'fr' && /^[aeiouy]/i.test(other.name);

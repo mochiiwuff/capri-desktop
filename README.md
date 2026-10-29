@@ -38,7 +38,7 @@ glitches, comments on every action, comes to find you when it needs your permiss
   the summary (`12 actions · 3 files changed · 2m 14s`) and Claude's last sentence.
 - **When Claude answers and you're on another window**: she shows you its whole answer, in a wider panel that
   scrolls (paragraphs, lists and code kept). It goes away when you're back on Claude's window, or when you click it.
-  Claude's window is the one you typed your prompt in. Windows only, like the window tracking.
+  Claude's window is the one you typed your prompt in. Associating the session with that exact window remains Windows-only.
 - **The rest of the time**: she floats, her mane sways and sheds shards, she drifts from one corner to another,
   turns around and cocks her head when your mouse comes near (or, little menace, zaps it with red lightning and a sly grin),
   looks up at the satellite, and falls asleep after 10 quiet minutes.
@@ -99,8 +99,8 @@ glitches, comments on every action, comes to find you when it needs your permiss
 
 ![Asleep down to her mask, waking up, and put away bottom left](docs/sleep.png)
 
-Window tracking is Windows-only for now (a tiny PowerShell helper reads window positions, never their contents; the title of the one in front is only used to spot another AI, see "She gets attached", and its program's folder to tell a game; the USB sticks plugged in are seen by their drive letter, other devices by the name Windows gives them).
-On macOS and Linux she still floats, peeks, falls and wanders.
+Window tracking works on Windows and macOS. The macOS helper reads window positions without titles or contents. On Windows, the PowerShell helper also uses the foreground title to spot another AI, the program's folder to recognize games, and device information for USB reactions; those extra signals remain Windows-only.
+On Linux she still floats, peeks, falls and wanders. See the [macOS guide](docs/macos.md) for supported integrations, permissions, and validation limits.
 
 ### She shows you around
 
@@ -295,9 +295,10 @@ npm install
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+Keep that terminal open while she runs. On macOS, source builds also need Apple's Command Line Tools
+(`xcode-select --install`) to compile the native helper. See [macOS setup, packaging, and testing](docs/macos.md)
+for requirements and validation status. Linux is still untested; the transparent overlay works best on X11
+(Wayland can struggle with click-through windows), and window tracking and app controls are not implemented there.
 
 ### Hook her up to Claude Code by hand
 
@@ -322,8 +323,11 @@ for Claude Code. Then:
 - **Antigravity**: start a new conversation. Her hooks go in `~/.gemini/config/hooks.json`.
 
 She follows one of them at a time, the one picked in her menu, and her lines, her guide and her chat use its name.
-She only watches: when Codex or Antigravity asks for approval, you still answer it there. From the command line:
-`npm run hooks:codex:install` or `npm run hooks:agy:install` (`:uninstall` to remove them), and `npm run test:hooks`
+She only watches: when Codex or Antigravity asks for approval, you still answer it there.
+
+Codex permission checks appear as brief status messages: that hook runs before resolution and cannot tell Capri whether a human prompt remains. Explicit Codex questions still raise an attention alert.
+
+From the command line: `npm run hooks:codex:install` or `npm run hooks:agy:install` (`:uninstall` to remove them), and `npm run test:hooks`
 runs the tests of both adapters. **Watch** › **Nothing, just keep me company**: she stops talking about any of them.
 
 ### Try it without Claude

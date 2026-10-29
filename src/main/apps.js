@@ -24,6 +24,7 @@ function powershell(script, timeout = 15000) {
 
 // [{ name, process, ids }]: one per program with a window open ("AM Music", "Discord"...)
 async function list() {
+  if (process.platform === 'darwin') return require('./macos').run('apps');
   if (process.platform !== 'win32') return [];
   const out = await powershell(
     'Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } | '
@@ -64,6 +65,7 @@ async function find(wanted) {
 async function close(name, { force = false } = {}) {
   const app = (await list()).find((a) => a.process === name);
   if (!app) return { running: false };
+  if (process.platform === 'darwin') return require('./macos').run('close', app.process, force ? 'force' : 'normal');
   const ids = app.ids.join(',');
   const out = await powershell(force
     ? `Stop-Process -Id ${ids} -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 600; `
