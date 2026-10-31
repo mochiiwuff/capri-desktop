@@ -109,6 +109,27 @@ const TRAY = {
     pcReact: 'Реагировать на мой ПК',
     cloudFree: 'бесплатно, онлайн', cloudSignin: 'Войти в Ollama (бесплатные облачные модели)…',
   },
+  de: {
+    name: 'Deutsch',
+    online: (port) => `Capri — lauscht auf Port ${port}`,
+    teleport: 'Teleportieren', satellite: 'Den Satelliten ansehen', demo: 'Demo abspielen', help: 'Wie funktioniert das?',
+    report: 'Missionsbericht', talk: 'Mit ihr reden', custom: 'Mach sie zu deiner…', chatModel: 'KI-Modell', aiSetup: 'Mit ihr einrichten…', apiKey: 'API-Schlüssel oder Adresse…', noOllama: 'Ollama nicht gefunden',
+    rest: 'Wenn sie sich ausruht', restCorner: 'In ihrer Ecke', restTaskbar: 'Auf der Taskleiste sitzen', watch: 'Beobachten', watchNone: 'Nichts, leiste mir einfach Gesellschaft',
+    motion: 'Animationen', motionAuto: 'Wie Windows', motionFull: 'Alle', motionReduced: 'Reduziert',
+    display: 'Darstellung', displayAuto: 'Normal', displayGl: 'OpenGL (wenn ihr Hintergrund schwarz ist)', displaySoftware: 'Ohne Grafikkarte (wenn er immer noch schwarz ist)',
+    show: 'Hol sie zurück', hide: 'Wegpacken',
+    size: 'Größe', small: 'Klein', medium: 'Mittel', large: 'Groß', sound: 'Ton', mute: 'Stumm',
+    soundsDir: 'Ordner für eigene Sounds öffnen', screen: 'Bildschirm', wander: 'Herumlaufen, wenn nichts los ist',
+    possess: 'Meine Fenster übernehmen', lang: 'Sprache', auto: 'Automatisch (System)', startup: 'Mit Windows starten',
+    hooksOn: 'Claude-Code-Hooks: installiert', hooksOff: 'Claude-Code-Hooks installieren',
+    hooksRemove: 'Claude-Code-Hooks entfernen', forget: 'Unsere Gespräche vergessen', quit: 'Beenden',
+    sync: (percent, stage) => `Du und sie: ${percent} % · ${stage}`, stages: ['Schwaches Signal', 'Kontakt', 'Synchron', 'Verbunden', 'Verschmolzen'],
+    reminders: 'Erinnerungen', noReminders: 'Keine Erinnerungen (frag sie in ihrem Chat)', cancelReminder: 'Diese Erinnerung löschen',
+    follow: 'Mir über alle Bildschirme folgen', jealous: 'Eifersüchtig auf andere KIs',
+    lookNow: 'Schau auf meinen Bildschirm', lookAuto: 'Ab und zu auf meinen Bildschirm schauen',
+    pcReact: 'Auf meinen PC reagieren',
+    cloudFree: 'kostenlos, online', cloudSignin: 'Bei Ollama anmelden (kostenlose Cloud-Modelle)…',
+  },
 };
 
 module.exports = { TRAY, LANGS: Object.keys(TRAY) };

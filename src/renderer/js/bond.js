@@ -32,8 +32,8 @@ const FEELINGS = {
   happy: ['You feel closer to the user than ever (your sync with them just reached {percent}%). You are happy, and a little shy about it.', 5],
   forgiven: ['The user just said sorry. You forgive them, a little grudgingly, and you are nicer to them again.', 3],
 };
-// "sorry", in her five languages
-const SORRY = /(?<![\p{L}])(sorry|my bad|i apologi[sz]e|pardon|d[ée]sol[ée]e?|dsl|excuse[- ]moi|je m['’]excuse|lo siento|perd[oó]n|disculpa|desculp[ae]|foi mal|прости|извини)(?![\p{L}])/iu;
+// "sorry", in her six languages
+const SORRY = /(?<![\p{L}])(sorry|my bad|i apologi[sz]e|pardon|d[ée]sol[ée]e?|dsl|excuse[- ]moi|je m['’]excuse|lo siento|perd[oó]n|disculpa|desculp[ae]|foi mal|прости|извини|entschuldigung|entschuldige|tut mir leid|verzeih(?:ung)?)(?![\p{L}])/iu;
 
 export class Bond {
   constructor({ host, data }) {

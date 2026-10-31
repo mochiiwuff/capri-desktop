@@ -257,7 +257,7 @@ She only catches the mouse on her actual body (pixel-precise): the rest of the s
   model, wander, possess your windows, jealous of other AIs, react to my PC, language, start with Windows, hooks. At the very top:
   where you two stand.
 
-She speaks **French, English, Spanish, Brazilian Portuguese and Russian**, and picks the language of your system on her
+She speaks **French, English, Spanish, Brazilian Portuguese, Russian and German**, and picks the language of your system on her
 own. You can choose another one in her menu.
 
 ## Install
