@@ -1790,6 +1790,8 @@ export const LINES = {
       'Fertig. Dutzende von uns haben zugeschaut, nichts sah komisch aus.',
     ],
     permission: ['Hey! Claude braucht deine Erlaubnis.', 'Choom, du musst was freigeben.', 'Ich warte auf dein grünes Licht.'],
+    question: ['Claude hat eine Frage an dich.', 'Choom, Claude will, dass du entscheidest.', 'Eine Frage für dich. Such dir was aus.'],
+    plan: ['Claude hat einen Plan. Gibst du ihn frei?', 'Der Plan steht. Grünes Licht?', 'Claude will, dass du dir seinen Plan ansiehst.'],
     waiting: ['Claude wartet auf deine Antwort.', 'Du bist dran, choom.'],
     error: ['Autsch. {tool} ist abgestürzt.', '{tool} hat geflatlined. Claude versucht es nochmal.', '{tool} ist fehlgeschlagen. Nichts Schlimmes… glaube ich.'],
     interrupted: ['Unterbrochen. Planänderung?', 'Abgewürgt. Ich bleib hier.'],
