@@ -31,6 +31,10 @@ const GRAB = {
   socket: 48, iris: 34, pupil: 13.5, // the ink inside her green rings, her blue iris, her white pupil
   irisColor: '#026ffe', pupilColor: '#fdfdfb', inkColor: '#010207', // the picture's own colours
   tag: { x: 1110, y: 175 }, // where "hi" pops, by her face
+  // the black lock over her eye on the right ends flat, cut by the top of the frame it comes
+  // from: drawn on to its point (grabbed), which is then the top of her
+  lock: [[926, 20], [983, 20], [978, -48]],
+  top: -48,
   hands: [{ x: 0, y: 610 }, { x: 1672, y: 520 }], // where her hands hold the edges of the screen
 };
 const INTRO_T = { hands: 6, right: 8, reach: 10, grab: 16, hold: 21, blink: 29, hi: 34, wave: 46, regrab: 63, happy: 65, glance: 75, slip: 80, antic: 86, shrink: 88, land: 98, end: 101 };
@@ -622,7 +626,15 @@ export class FxLayer {
     if (!this.grab || !this.size) return Promise.resolve();
     const { w, h } = this.size;
     const s = Math.max(w / GRAB.w, h / GRAB.h); // filling the screen, her hands on its edges
-    const at = { x: (w - GRAB.w * s) / 2 + GRAB.face.x * s, y: (h - GRAB.h * s) / 2 + GRAB.face.y * s };
+    // Her face low enough for all of her mane to show while she holds on, close up (that much
+    // wider than the screen, the picture is taller than it too: what's left over goes off the
+    // bottom), as long as her lower hand stays on the edge.
+    const k = 1.07;
+    const low = Math.min(
+      (GRAB.face.y - GRAB.top) * s * k + 8,
+      h - 40 - (Math.max(...GRAB.hands.map((p) => p.y)) - GRAB.face.y) * s * k,
+    );
+    const at = { x: (w - GRAB.w * s) / 2 + GRAB.face.x * s, y: Math.max((h - GRAB.h * s) / 2 + GRAB.face.y * s, low) };
     // the dive swings out a little toward the middle of the screen on its way down to her
     const ctrl = { x: lerp(at.x, to.x, 0.25) - (to.x - at.x) * 0.2, y: lerp(at.y, to.y, 0.15) };
     return new Promise((land) => {
@@ -688,6 +700,11 @@ export class FxLayer {
       ctx.drawImage(this.grabFrames[cel] || this.grab, 0, 0);
       if (!OWN_EYES.has(cel) || !this.grabFrames[cel]) GRAB.eyes.forEach((e) => this.grabEye(e, look, open));
     }
+    // the point of her lock, in the colour she's drawn in
+    ctx.fillStyle = flat ? COLORS[flat] : GRAB.inkColor;
+    ctx.beginPath();
+    GRAB.lock.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.fill();
     ctx.restore();
   }
 
