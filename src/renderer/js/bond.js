@@ -169,7 +169,8 @@ const DOWNLOAD_AFTER = 1500;         // a page to download one of them: she does
 const WARN_MS = 3000;
 const WARN_DOWNLOAD_MS = 2000;
 const SPARE_MS = 10 * 60 * 1000;     // you stopped her: she leaves its pages alone this long
-const RETRY_MS = 60 * 1000;          // the page still there after she went for it
+const RETRY_MS = 60 * 1000;          // she zapped it and it's still there: not again right away
+const AGAIN_MS = 3000;               // she couldn't go just then (busy, or you were elsewhere)
 
 export class Jealousy {
   constructor({ capri, panel, brain, bond, chat, guide, host }) {
@@ -189,8 +190,8 @@ export class Jealousy {
     this.sulk = null;       // { key, until, clicks }
     this.chasing = false;   // on her way to close one of their pages
     this.closing = null;    // her warning before she closes it: { stop }
-    this.spared = {};       // key -> until when she leaves its pages alone
-    this.tried = {};        // key -> when she last went to close one of its pages
+    this.wait = {};         // key -> until when she leaves its pages be (you stopped her, or she just tried)
+    this.last = '';         // how her last go at one ended (for --dev)
     try {
       this.tally = JSON.parse(localStorage.getItem(TALLY)) || null;
     } catch {
@@ -252,7 +253,7 @@ export class Jealousy {
     if (this.acted.date !== today()) this.acted = { at: 0, date: today(), n: 0 };
     const stage = this.bond.stage;
     const on = now - f.since;
-    if (f.page && this.closePages && !(this.spared[f.key] > now) && now - (this.tried[f.key] || 0) > RETRY_MS) {
+    if (f.page && this.closePages && now >= (this.wait[f.key] || 0)) {
       // one of their pages: a word about it first, then she goes and closes it
       if (on >= (f.page === 'download' ? DOWNLOAD_AFTER : CLOSE_AFTER)) this.close(f);
       else if (f.page === 'site' && on >= NOTICE_AFTER && now - (this.noticed[f.key] || 0) > NOTICE_EVERY) this.notice(f.key, f.id);
@@ -309,38 +310,45 @@ export class Jealousy {
   async close(f) {
     const win = this.capri.windows.wins.find((w) => w.id === f.id);
     if (!win) return;
-    this.tried[f.key] = this.noticed[f.key] = Date.now();
+    this.wait[f.key] = Date.now() + AGAIN_MS; // a moment, if she can't go just now
     this.chasing = true;
     try {
-      await this.chase(f, win);
+      this.last = await this.chase(f, win);
     } finally {
       this.chasing = false;
     }
   }
 
+  // Her go at it: how it ended ('closed', 'spared', 'busy', 'left', or why it didn't close).
   async chase(f, win) {
     const { key, page } = f;
     const rival = RIVALS[key];
     const t = this.t;
-    this.panel.hide();
-    if (!(await this.capri.jealous(win, { takeOver: false })) || !this.still(f)) return;
+    if (!(await this.capri.jealous(win, { takeOver: false }))) return 'busy';
+    if (!this.still(f)) return 'left'; // she starts over once you're back on it
+    this.noticed[key] = Date.now();
     const download = page === 'download';
     if (await this.warn(fmt(pick(download ? t.download : t.close), { rival }), download ? WARN_DOWNLOAD_MS : WARN_MS)) {
-      this.spared[key] = Date.now() + SPARE_MS;
+      this.wait[key] = Date.now() + SPARE_MS;
       this.sulk = { key, until: Date.now() + SULK_MS, clicks: 0 };
       this.bond.feel('sulk', { rival });
       this.capri.perform('huff', this.capri.towardCenter());
       this.panel.say({ kind: 'idle', face: 'aside', line: fmt(pick(t.spared), { rival }), hold: 3500 });
-      return;
+      return 'spared';
     }
-    if (!this.still(f)) return this.panel.hide(); // you left it on your own
+    if (!this.still(f)) {
+      this.panel.hide();
+      return 'left';
+    }
+    this.wait[key] = Date.now() + RETRY_MS;
     const at = this.capri.windows.wins.find((w) => w.id === f.id) || win;
     const why = await this.capri.zapShut(at, async () => {
       const why = await this.shut(f.id, key);
       if (why === '') this.panel.say({ kind: 'info', face: 'smug', line: fmt(pick(t.closed), { rival }), hold: 3500 });
       return why;
     });
-    if (why !== '') this.panel.hide(); // not closed: you left it, or held a key down
+    if (why !== '') this.panel.hide(); // not closed: a key held down, say
+    return why || 'closed';
   }
 
   // What closes it (windows.js): '' once done, else why not. Swapped for a fake one in tests.
