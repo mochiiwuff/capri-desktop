@@ -17,10 +17,11 @@ const ASSISTANTS = {
 // Which one she watches: the one picked, else the one her hooks are in, else the one that's installed.
 function resolveAssistant(preference) {
   if (ASSISTANTS[preference]) return preference;
-  if (codex.status().events.length) return 'codex';
+  const codexHooks = codex.status();
+  if (codexHooks.installed) return 'codex';
   if (claude.status().installed) return 'claude';
   if (agy.status().installed) return 'agy';
-  return fs.existsSync(path.dirname(codex.status().file)) ? 'codex' : 'claude';
+  return fs.existsSync(path.dirname(codexHooks.file)) ? 'codex' : 'claude';
 }
 
 function assistant(preference) {

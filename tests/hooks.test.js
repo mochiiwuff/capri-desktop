@@ -110,7 +110,7 @@ test('Codex onboarding, guide, and chat use Codex in every language; Claude text
   const { LINES, linesFor } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { Guide } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/guide.js')));
   const { Chat } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/chat.js')));
-  const strings = (value) => typeof value === 'string' ? [value] : Object.values(value).flatMap(strings);
+  const strings = (value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : []);
   for (const lang of Object.keys(LINES)) {
     const text = linesFor(lang, 'codex');
     assert.doesNotMatch(strings(text).join('\n'), /Claude|settings\.json|\.claude/);
