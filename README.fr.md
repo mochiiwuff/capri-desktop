@@ -269,8 +269,8 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   (ou refais Ctrl+Alt+C) pour la faire revenir.
 - **Son menu** : clic droit sur elle (il est aussi sur son icône près de l'horloge) : téléporter, regarder le satellite,
   démo, comment ça marche, rapport de mission, lui parler, regarder ton écran, rappels, taille, son, écran (et te suivre d'un écran à
-  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, langue, lancement au démarrage, hooks.
-  Tout en haut : où vous en êtes, elle et toi.
+  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, style de ses fenêtres (Night City,
+  ou Classique : ses premières), langue, lancement au démarrage, hooks. Tout en haut : où vous en êtes, elle et toi.
 
 Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton
 système. Tu peux en choisir une autre dans son menu.
