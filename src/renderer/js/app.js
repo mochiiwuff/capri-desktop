@@ -58,6 +58,11 @@ async function boot() {
   };
   applyMotion(config.motion);
   reducedMotion.onSystemChange(() => applyMotion(reducedMotion.setting));
+  // her windows: Night City, or her first ones (her menu, classic.css)
+  const applyTheme = (theme) => {
+    document.documentElement.dataset.theme = theme || 'nightcity';
+  };
+  applyTheme(config.theme);
 
   const fx = new FxLayer(document.getElementById('fx'), {
     cutins: Object.fromEntries(CUTINS.map((name, i) => [name, cutins[i]])),
@@ -603,6 +608,7 @@ async function boot() {
     capri.possessWindows = cfg.possess;
     capri.restOn = cfg.rest || 'corner';
     applyMotion(cfg.motion);
+    applyTheme(cfg.theme);
     if ((cfg.claude === false && brain.watching) || cfg.assistant !== brain.assistant) {
       guide.answer(null);
       panel.hide();

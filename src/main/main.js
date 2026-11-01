@@ -448,6 +448,12 @@ function rebuildTray() {
       ],
     },
     {
+      label: t.theme,
+      submenu: [['nightcity', 'Night City'], ['classic', t.themeClassic]].map(([theme, label]) => ({
+        label, type: 'radio', checked: cfg.theme === theme, click: () => updateConfig({ theme }),
+      })),
+    },
+    {
       label: t.motion,
       submenu: [['auto', t.motionAuto], ['full', t.motionFull], ['reduced', t.motionReduced]].map(([motion, label]) => ({
         label, type: 'radio', checked: cfg.motion === motion, click: () => updateConfig({ motion, motionAsked: true }),
