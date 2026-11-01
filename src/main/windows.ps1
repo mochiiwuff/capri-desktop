@@ -71,16 +71,18 @@ public static class CapriWindows {
   };
 
   // A browser's title is its tab's, then its own: "ChatGPT - Google Chrome", "Chat - Claude -
-  // Personal - Microsoft Edge", "Gemini <em dash> Mozilla Firefox". Their own pages have their name
+  // Personal - Microsoft Edge", "Gemini <em dash> Mozilla Firefox"; Edge adds "and 3 more pages" in
+  // your language ("et 3", "e mais 3", "i eshche 3"). Their own pages have their name
   // as a whole part of it, not inside a sentence ("ChatGPT is down - YouTube" is no page of theirs).
-  const string SEP = @"(?: [-|:\u2013\u2014] |: | and \d+ more)";
+  const string SEP = @"(?: [-|:\u2013\u2014] |: |(?: \p{L}{1,5}){1,2} \d+ (?=.*Edge$))";
   public static bool Site(string[] ai, string title) {
     return Regex.IsMatch(title, @"(?:^|" + SEP + @")(?:" + ai[3] + @")(?:" + SEP + @"|$)", RegexOptions.IgnoreCase);
   }
 
-  // A page to download or install something, in her languages: download, telecharger, descargar,
-  // baixar / transferir, install, setup, and the Russian skach-, zagruz-, ustanov-.
-  static readonly Regex DL = new Regex(@"download|t.l.charg|descarg|baixar|transferir|install|setup|\u0441\u043a\u0430\u0447|\u0437\u0430\u0433\u0440\u0443\u0437|\u0443\u0441\u0442\u0430\u043d\u043e\u0432", RegexOptions.IgnoreCase);
+  // A page to download or install something, in her languages (download, install, setup,
+  // telecharger, descargar / descargalo, baixar / baixe, transferir / transfira, and the Russian
+  // skach-, zagruz-, ustanov-) and in German and Italian (herunterladen, scarica).
+  static readonly Regex DL = new Regex(@"download|t.l.charg|desc.rg|baix(?:ar|e|a|ando)|transf(?:erir|ira|ere)|herunterlad|scaric|install|setup|\u0441\u043a\u0430\u0447|\u0437\u0430\u0433\u0440\u0443\u0437|\u0443\u0441\u0442\u0430\u043d\u043e\u0432", RegexOptions.IgnoreCase);
 
   // That AI's own page, or a page to download it: what she closes.
   public static bool Closable(string[] ai, string title) {
