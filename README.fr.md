@@ -249,8 +249,17 @@ Grok, Le Chat, Character.AI, Meta AI, Codex, ou Claude quand elle surveille Code
 moins bien selon où vous en êtes. Si tu y restes, une fois attachée, elle va s'asseoir sur sa fenêtre, te fusille du
 regard et la possède, sourcils froncés, avec un mot à elle écrit dessus. Ensuite elle boude : clique sur elle et elle te
 tourne le dos (ça passe, et en parler dans son chat aide). Son chat sait aussi quelles autres IA tu as utilisées
-aujourd'hui. Pour les repérer, le titre de la fenêtre qui est devant est comparé à cette liste de noms, sur ton PC : il
-n'est ni gardé ni envoyé, seul le nom trouvé lui parvient. Décoche *Jalouse des autres IA* dans son menu pour arrêter.
+aujourd'hui.
+
+Dans ton navigateur, c'est pire. Sur une de leurs pages (chatgpt.com, gemini.google.com…), elle y va, te prévient, et la
+foudroie : l'onglet se ferme. Clique sur elle, ou sur *Laisse-moi*, avant qu'elle le fasse, et elle laisse cette IA
+tranquille dix minutes, en boudant. Sur une page pour en télécharger une, elle n'attend même pas. Une vidéo ou un article
+qui parle juste d'elles, elle n'y touche pas.
+
+Pour les repérer, le titre de la fenêtre qui est devant est comparé à cette liste de noms, sur ton PC : il n'est ni gardé
+ni envoyé, seul le nom trouvé lui parvient. Pour fermer une page, elle fait Ctrl+W à ta place, seulement si cette page est
+toujours celle qui est devant. Décoche *Fermer les pages des autres IA* dans son menu pour qu'elle reste jalouse sans rien
+fermer, ou *Jalouse des autres IA* pour tout arrêter.
 
 **Son chat sait ce qui vient de se passer.** Fâchée de s'être fait lancer, jalouse, sonnée ou contente : elle t'accueille
 comme ça en ouvrant le chat, et son IA (même un petit modèle local) répond dans cette humeur. Fâchée ou boudeuse, elle le
@@ -269,7 +278,7 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   (ou refais Ctrl+Alt+C) pour la faire revenir.
 - **Son menu** : clic droit sur elle (il est aussi sur son icône près de l'horloge) : téléporter, regarder le satellite,
   démo, comment ça marche, rapport de mission, lui parler, regarder ton écran, rappels, taille, son, écran (et te suivre d'un écran à
-  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, style de ses fenêtres (Night City,
+  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA (et fermer leurs pages), réagir à ton PC, style de ses fenêtres (Night City,
   ou Classique : ses premières), langue, lancement au démarrage, hooks. Tout en haut : où vous en êtes, elle et toi.
 
 Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton

@@ -235,8 +235,16 @@ DeepSeek, Grok, Le Chat, Character.AI, Meta AI, Codex, or Claude when she watche
 or less nicely depending on where you two stand. If you stay on it, once she's attached, she goes and sits on its
 window, glares at you and takes it over, brows down, with a word of hers written across it. Then she sulks: click her
 and she turns her back on you (it passes, and talking it over in her chat helps). Her chat also knows which other AIs
-you used today. To spot them, the title of the window in front is checked against that list of names, on your PC: it's
-never kept or sent anywhere, only the name it matched reaches her. Untick *Jealous of other AIs* in her menu to stop it.
+you used today.
+
+In your browser it's worse. On one of their own pages (chatgpt.com, gemini.google.com…) she goes over, warns you, and
+zaps it shut: the tab closes. Click her, or *Let me*, before she does and she leaves that AI alone for ten minutes, sulking.
+On a page to download one of them, she doesn't even wait. A video or an article that just talks about them is left alone.
+
+To spot them, the title of the window in front is checked against that list of names, on your PC: it's never kept or
+sent anywhere, only the name it matched reaches her. To close a page she presses Ctrl+W for you, only if that page is
+still the one in front. Untick *Close other AIs' pages* in her menu to keep her jealous without closing anything, or
+*Jealous of other AIs* to stop it all.
 
 **Her chat knows what just happened.** Mad about being thrown, jealous, dizzy or happy: she greets you that way when the
 chat opens, and her AI (even a small local model) answers in that mood. Mad or sulking, she stays that way until you say
@@ -254,7 +262,7 @@ She only catches the mouse on her actual body (pixel-precise): the rest of the s
   to bring her back.
 - **Her menu**: right-click her (it's also on her tray icon, next to the clock): teleport, look at the satellite, demo,
   how it works, mission report, talk to her, look at your screen, reminders, size, sound, screen (and following you across screens), AI
-  model, wander, possess your windows, jealous of other AIs, react to my PC, her window style (Night City, or Classic: her
+  model, wander, possess your windows, jealous of other AIs (and closing their pages), react to my PC, her window style (Night City, or Classic: her
   first ones), language, start with Windows, hooks. At the very top: where you two stand.
 
 She speaks **French, English, Spanish, Brazilian Portuguese and Russian**, and picks the language of your system on her

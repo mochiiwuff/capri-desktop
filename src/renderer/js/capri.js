@@ -1045,6 +1045,7 @@ export class Capri {
           this.fx.burst(x, y, { count: 8, power: 0.35, spread: 16 });
           this.fx.ring(x, y, { size: 0.22 });
           this.voice.play('bolt');
+          this.zapAt.onHit?.(); // a page of another AI: it closes right on the bolt (zapShut)
         }
         break;
       case 'grin':
@@ -2518,6 +2519,34 @@ export class Capri {
     await sleep(260);
     this.busy = false;
     return true;
+  }
+
+  // One of their pages in `win`, once she's there (jealous): her arm shoots out at it, red lightning
+  // into the page, and it tears apart as `onHit` closes it, right on the bolt. Resolves to what
+  // onHit said ('' once closed), or 'cut' if something took her over before.
+  async zapShut(win, onHit) {
+    // well into the page, on the side away from her (sitting on it, she's above its middle)
+    const dir = this.pos.x > win.x + win.w / 2 ? -1 : 1;
+    const at = {
+      x: clamp(win.x + win.w * (dir > 0 ? 0.72 : 0.28), 40, this.view.w - 40),
+      y: clamp(win.y + Math.min(win.h * 0.5, 320), 40, this.view.floor - 40),
+    };
+    if (this.hidden || this.stowed || this.dormant || reducedMotion.matches) return onHit();
+    const side = this.armToward(dir);
+    const reach = () => {
+      const sh = this.limb(side).shoulder;
+      return clamp(Math.atan2(sh.y - at.y, Math.abs(at.x - sh.x)) + 0.52, -0.3, 1.6);
+    };
+    const zap = { ...at, side, dir, hit: null };
+    zap.onHit = () => {
+      this.fx.slices(win.x, win.y, win.w, Math.min(win.h, 420), { count: 10, life: 260 });
+      this.fx.crackle(at, { life: 800, radius: 70, count: 4 });
+      zap.hit = onHit();
+    };
+    this.zapAt = zap;
+    await this.perform('zap', dir, { reach });
+    if (this.zapAt === zap) this.zapAt = null;
+    return zap.hit ?? 'cut';
   }
 
   // Let go of her: onto a ledge if her hips are right at one, otherwise she falls.

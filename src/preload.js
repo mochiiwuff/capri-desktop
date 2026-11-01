@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('host', {
   claudeFound: () => ipcRenderer.invoke('claude:found'),
   openClaudeHelp: () => ipcRenderer.send('claude:help'),
   windowsNow: () => ipcRenderer.invoke('windows:get'),
+  closePage: (id, key) => ipcRenderer.invoke('windows:closePage', { id, key }),
   trayPlace: () => ipcRenderer.invoke('guide:tray'),
   openClaudeFolder: () => ipcRenderer.invoke('guide:claudeFolder'),
   copyImage: (rect) => ipcRenderer.invoke('panel:copy', rect),

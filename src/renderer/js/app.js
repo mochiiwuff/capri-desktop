@@ -245,8 +245,9 @@ async function boot() {
   brain.bond = bond;
   chat.bond = bond;
   capri.fondness = bond.stage;
-  const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide });
+  const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide, host });
   jealousy.enabled = config.jealous !== false;
+  jealousy.closePages = config.closePages !== false;
   chat.jealousy = jealousy;
   brain.onRival = (key) => jealousy.onRivalEvent(key);
   const reminders = new Reminders({ host, list: config.reminders || [] });
@@ -263,7 +264,9 @@ async function boot() {
   pc.wantsOut = () => wantsOut;
 
   // Clicking her: what's going on, or she offers to talk. Sulking, she turns her back on you.
+  // About to close one of your other AIs' pages, she leaves it.
   capri.onClick = () => {
+    if (jealousy.spare()) return;
     if (panel.visible) panel.hide();
     else if (!jealousy.onClick()) {
       brain.status();
@@ -599,6 +602,7 @@ async function boot() {
   host.onConfig((cfg) => {
     voice.configure(cfg);
     jealousy.enabled = cfg.jealous !== false;
+    jealousy.closePages = cfg.closePages !== false;
     followOn = cfg.follow !== false;
     look.configure(cfg);
     pc.enabled = cfg.pcReact !== false;
