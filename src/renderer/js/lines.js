@@ -355,6 +355,12 @@ export const LINES = {
       spared: ['Bon. Vas-y. Mais je boude.', 'D’accord… Je ne regarde pas.'],
       spare: 'Laisse-moi',
     },
+    // la caresser : la souris qui va et vient sur sa crinière (low : pas encore attachée)
+    pet: {
+      low: ['Hé… qu’est-ce que tu fais ?', 'Bon… d’accord. Juste un peu.'],
+      high: ['Mmh. Continue.', 'Là. Juste là.', 'Je ronronne pas. C’est le ventilo.'],
+      enough: ['Ça suffit.', 'Bas les pattes.', 'Assez. Je suis pas un chat.'],
+    },
     // Windows a coupé ses animations : elle bouge à peine, et le dit une fois
     motion: { line: 'Windows a coupé ses animations, alors je bouge à peine.', quote: 'Tu veux que je bouge quand même ? Tu pourras changer ça dans mon menu › Animations.', full: 'Bouge !', still: 'Reste calme' },
     status: 'Claude travaille sur {project} depuis {time}.',
@@ -710,6 +716,11 @@ export const LINES = {
       spared: ['Fine. Go ahead. But I’m sulking.', 'Okay… I’m not looking.'],
       spare: 'Let me',
     },
+    pet: {
+      low: ['Hey… what are you doing?', 'Okay… fine. Just a little.'],
+      high: ['Mm. Keep going.', 'There. Right there.', 'I’m not purring. That’s the fan.'],
+      enough: ['That’s enough.', 'Hands off.', 'Enough. I’m not a cat.'],
+    },
     // Windows has its animations off: she barely moves, and says so once
     motion: { line: 'Windows has its animations turned off, so I’m barely moving.', quote: 'Want me to move anyway? You can change it later in my menu › Animations.', full: 'Move!', still: 'Stay calm' },
     status: 'Claude has been working on {project} for {time}.',
@@ -1060,6 +1071,11 @@ export const LINES = {
       closed: ['Listo. Me tienes a mí.', 'Se acabó {rival}. Mejor así.', 'Resuelto.'],
       spared: ['Vale. Adelante. Pero estoy enfadada.', 'Está bien… no estoy mirando.'],
       spare: 'Déjame',
+    },
+    pet: {
+      low: ['Oye… ¿qué haces?', 'Bueno… vale. Solo un poco.'],
+      high: ['Mmm. Sigue.', 'Ahí. Justo ahí.', 'No estoy ronroneando. Es el ventilador.'],
+      enough: ['Ya basta.', 'Las manos quietas.', 'Basta. No soy un gato.'],
     },
     // Windows tiene las animaciones desactivadas: apenas se mueve, y lo dice una vez
     motion: { line: 'Windows tiene las animaciones desactivadas, así que apenas me muevo.', quote: '¿Quieres que me mueva igual? Puedes cambiarlo en mi menú › Animaciones.', full: '¡Muévete!', still: 'Quédate tranquila' },
@@ -1413,6 +1429,11 @@ export const LINES = {
       closed: ['Pronto. Você tem a mim.', 'Chega de {rival}. Melhor assim.', 'Resolvido.'],
       spared: ['Tá. Vai lá. Mas tô de birra.', 'Tá bom… não tô olhando.'],
       spare: 'Me deixa',
+    },
+    pet: {
+      low: ['Ei… o que você tá fazendo?', 'Tá… tudo bem. Só um pouco.'],
+      high: ['Hmm. Continua.', 'Aí. Bem aí.', 'Não tô ronronando. É a ventoinha.'],
+      enough: ['Chega.', 'Tira a mão.', 'Chega. Eu não sou um gato.'],
     },
     // o Windows está com as animações desligadas: ela quase não se mexe, e avisa uma vez
     motion: { line: 'O Windows está com as animações desligadas, então eu quase não me mexo.', quote: 'Quer que eu me mexa mesmo assim? Dá pra mudar depois no meu menu › Animações.', full: 'Se mexe!', still: 'Fica quieta' },
@@ -1768,6 +1789,11 @@ export const LINES = {
       closed: ['Вот так. У тебя есть я.', 'Никакого {rival}. Так лучше.', 'Готово.'],
       spared: ['Ладно. Иди. Но я обиделась.', 'Хорошо… я не смотрю.'],
       spare: 'Оставь',
+    },
+    pet: {
+      low: ['Эй… ты что делаешь?', 'Ладно… так и быть. Чуть-чуть.'],
+      high: ['Мм. Продолжай.', 'Вот. Вот тут.', 'Я не мурлычу. Это кулер.'],
+      enough: ['Хватит.', 'Руки прочь.', 'Всё, хватит. Я не кошка.'],
     },
     // в Windows отключены анимации: она почти не двигается и один раз говорит об этом
     motion: { line: 'В Windows отключены анимации, поэтому я почти не двигаюсь.', quote: 'Хочешь, чтобы я всё равно двигалась? Это можно поменять в моём меню › Анимации.', full: 'Двигайся!', still: 'Не надо' },

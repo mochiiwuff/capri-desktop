@@ -606,6 +606,24 @@ export const ACTS = {
   },
 
   // sulking: head turned away from you, mane down, arms in
+  // Petted: she leans her head into your hand, a little squashed with it, her mane bristling and
+  // settling on threes, held while the strokes go on
+  petted: {
+    priority: 1,
+    directional: true,
+    keys: [
+      [2, { head: 0.1, mane: 0.12, tilt: 1, sy: 0.98, sx: 1.01 }],
+      [3, { head: 0.22, mane: 0.22, tilt: 2.5, sy: 0.96, sx: 1.03, bob: 2 }],
+      [3, { head: 0.24, mane: 0.15, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [3, { head: 0.23, mane: 0.24, tilt: 2.6, sy: 0.965, sx: 1.025, bob: 2 }],
+      [3, { head: 0.25, mane: 0.15, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [3, { head: 0.23, mane: 0.23, tilt: 2.6, sy: 0.965, sx: 1.025, bob: 2 }],
+      [3, { head: 0.24, mane: 0.16, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [2, { head: 0.12, mane: 0.08, tilt: 1.2 }],
+      [1, {}],
+    ],
+  },
+
   huff: {
     priority: 2,
     directional: true,

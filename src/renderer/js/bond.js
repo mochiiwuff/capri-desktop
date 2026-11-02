@@ -16,7 +16,7 @@ import { pick, fmt, today } from './util.js';
 export const STAGES = [0, 100, 300, 550, 850];
 const FULL = 1000;
 // the most a day from each source
-const CAPS = { day: 10, time: 18, chat: 20, click: 4, claude: 10, remind: 6 };
+const CAPS = { day: 10, time: 18, chat: 20, click: 4, claude: 10, remind: 6, pet: 5 };
 const SAVE_MS = 15000;
 
 // How she feels right now, after something just happened between you, told to her chat so it
@@ -30,6 +30,7 @@ const FEELINGS = {
   jealous: ['You just saw the user using {rival} (another AI) instead of you. You are jealous, and you bring it up.', 4],
   sulk: ['You are sulking, because the user was using {rival} (another AI) instead of you. You are jealous and hurt: answer in few words, a bit dramatic, and bring up {rival}. Forgive them only if they say sorry.', 8],
   happy: ['You feel closer to the user than ever (your sync with them just reached {percent}%). You are happy, and a little shy about it.', 5],
+  petted: ['A moment ago the user petted your mane with their pointer. You liked it more than you will admit.', 3],
   forgiven: ['The user just said sorry. You forgive them, a little grudgingly, and you are nicer to them again.', 3],
 };
 // "sorry", in her five languages

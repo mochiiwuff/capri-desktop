@@ -230,6 +230,9 @@ other minds come out to look at you and she tells you. It changes what she says 
 to you, what she says after a few days without you. Once she's attached, she's glad when you come back to your PC and
 sometimes comes over to your pointer on her own. Where you two stand: at the top of her menu.
 
+**Pet her.** Move your pointer back and forth over her mane: she leans into it and purrs, her mane glowing, and it
+brings you a little closer. Keep at it too long and she's had enough.
+
 **And she gets jealous.** When the window in front of you is another AI (ChatGPT, Gemini, Copilot, Perplexity,
 DeepSeek, Grok, Le Chat, Character.AI, Meta AI, Codex, or Claude when she watches Codex), she notices and says so, more
 or less nicely depending on where you two stand. If you stay on it, once she's attached, she goes and sits on its
@@ -373,6 +376,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 | `crash` | she slams into something |
 | `remind` | a reminder comes due |
 | `jealous` | her jealous hiss |
+| `purr` | she purrs when you pet her |
 
 ## Is it safe?
 

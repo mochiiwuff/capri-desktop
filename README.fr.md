@@ -244,6 +244,9 @@ qu'elle te dit quand tu cliques sur elle, comment son chat te parle, ce qu'elle 
 fois attachée, elle est contente quand tu reviens à ton PC et vient parfois d'elle-même près de ta souris. Où vous en
 êtes : en haut de son menu.
 
+**La caresser.** Passe ta souris d'avant en arrière sur sa crinière : elle s'appuie contre et ronronne, sa crinière
+brille, et ça vous rapproche un peu. Insiste trop longtemps et elle en a assez.
+
 **Et elle est jalouse.** Quand la fenêtre devant toi est une autre IA (ChatGPT, Gemini, Copilot, Perplexity, DeepSeek,
 Grok, Le Chat, Character.AI, Meta AI, Codex, ou Claude quand elle surveille Codex), elle le remarque et le dit, plus ou
 moins bien selon où vous en êtes. Si tu y restes, une fois attachée, elle va s'asseoir sur sa fenêtre, te fusille du
@@ -392,6 +395,7 @@ avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 | `crash` | elle s'écrase contre quelque chose |
 | `remind` | un rappel tombe |
 | `jealous` | elle siffle de jalousie |
+| `purr` | elle ronronne quand tu la caresses |
 
 ## C'est sûr ?
 

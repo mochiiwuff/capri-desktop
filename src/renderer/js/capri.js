@@ -35,7 +35,13 @@ const SPUN = new Set(['held', 'fly', 'down']);
 // do lying there (anything else, she sits back up for it first).
 const LIE = 60;
 const LIE_LIFT = 18;
-const LYING_ACTS = new Set(['talk', 'look', 'split']);
+const LYING_ACTS = new Set(['talk', 'look', 'split', 'petted']);
+// Petting her: your pointer going back and forth over her mane, each way at least STROKE px (at
+// her full size), turning within PET_GAP of the last turn. Three turns and she's being petted;
+// a while of it nonstop and she's had enough.
+const STROKE = 22;
+const PET_GAP = 700;
+const PET_ENOUGH = 8000;
 
 const UPLINK_DAY = 'capri.uplinkDay'; // the last day she sent the red light up
 
@@ -80,6 +86,8 @@ export class Capri {
     this.override = null; // a pose laid over her acts, drawing by drawing (getting back up)
     this.throwId = 0;     // bumped by every throw and every grab: what was going on after a throw stops
     this.refuseUntil = 0; // thrown once too often: she won't let you pick her up before then
+    this.pet = null;      // your pointer stroking her mane: { x, dir, run, turns, last, since, end }
+    this.petRefuseUntil = 0; // petted too long: not again before then
     this.fondness = 0;    // how close she is to you, 0 to 4 (bond.js stages)
 
     this.p = {
@@ -1871,6 +1879,7 @@ export class Capri {
         }
         return;
       }
+      this.stroke(e.clientX, e.clientY);
       this.notice(e.clientX, e.clientY);
     });
     window.addEventListener('mouseup', () => {
@@ -2565,6 +2574,65 @@ export class Capri {
     }
     if (this.pos.y < this.floor - 2) this.fall();
     else this.perform('land');
+  }
+
+  // Your pointer stroking her mane (no button down), back and forth a few times running: she
+  // leans into it and purrs, her specks glowing (onPet 'start', then 'end' once the strokes stop).
+  // Too long nonstop and she's had enough ('enough'): not again for a while.
+  stroke(x, y) {
+    const now = performance.now();
+    const s = this.scale;
+    const free = !this.busy && !this.dragging && !this.hidden && !this.stowed && !this.dormant && !this.sky
+      && !SPUN.has(this.stance) && this.stance !== 'fall' && now >= this.petRefuseUntil;
+    if (!free || y > this.head().y + 30 * s || !this.hit(x, y)) return;
+    const pet = this.pet;
+    if (!pet) {
+      this.pet = { x, dir: 0, run: 0, turns: 0, last: now, since: 0, purred: 0, end: 0 };
+      return;
+    }
+    const dx = x - pet.x;
+    pet.x = x;
+    if (!dx) return;
+    if (Math.sign(dx) === pet.dir || !pet.dir) {
+      pet.dir = Math.sign(dx);
+      pet.run += Math.abs(dx);
+      return;
+    }
+    // a turn: it counts if that stroke was long enough, and a stroke soon after the last one
+    if (pet.run >= STROKE * s) {
+      pet.turns = now - pet.last <= PET_GAP ? pet.turns + 1 : 1;
+      pet.last = now;
+    }
+    pet.dir = Math.sign(dx);
+    pet.run = Math.abs(dx);
+    if (pet.turns < 3) return;
+    clearTimeout(pet.end);
+    pet.end = setTimeout(() => this.unpet(), PET_GAP + 300);
+    if (!pet.since) {
+      pet.since = now;
+      tween(this.p, { sparkle: 1.7 }, 400, ease.out);
+      this.onPet?.('start');
+    } else if (now - pet.since > PET_ENOUGH) {
+      this.petRefuseUntil = now + 30000;
+      this.unpet();
+      this.onPet?.('enough');
+      return;
+    }
+    if (now - pet.purred > 1500) {
+      pet.purred = now;
+      this.voice.play('purr');
+    }
+    if (this.act?.player.name !== 'petted') this.perform('petted', x < this.pos.x ? -1 : 1);
+  }
+
+  // The strokes stopped (or she's had enough): her specks back to normal.
+  unpet() {
+    const pet = this.pet;
+    this.pet = null;
+    if (!pet?.since) return;
+    clearTimeout(pet.end);
+    tween(this.p, { sparkle: 1 }, 600, ease.inOut);
+    this.onPet?.('end');
   }
 
   // When the pointer comes close she turns around to face it and cocks her head;

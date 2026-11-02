@@ -326,6 +326,28 @@ async function boot() {
   };
   capri.onDodge = () => panel.say({ kind: 'info', face: 'smug', line: pick(brain.t.thrown.dodge), hold: 2500 });
 
+  // Petted (your pointer back and forth over her mane): she purrs, says something now and then
+  // (shy before she's attached to you), and it brings you a little closer. Too long and she's had
+  // enough: a zap at your pointer.
+  let petTalk = 0;
+  capri.onPet = (phase) => {
+    const t = brain.t.pet;
+    const quiet = !chat.open && (!panel.visible || ['idle', 'info'].includes(panel.current?.kind));
+    if (phase === 'start') {
+      bond.add('pet', 1);
+      if (!['angry', 'sulk'].includes(bond.feeling)) bond.feel('petted');
+      const now = performance.now();
+      if (quiet && now - petTalk > 90000) {
+        petTalk = now;
+        const attached = bond.stage >= 2;
+        panel.say({ kind: 'info', face: attached ? 'smug' : 'wide', line: pick(attached ? t.high : t.low), hold: 3000 });
+      }
+    } else if (phase === 'enough') {
+      if (quiet) panel.say({ kind: 'info', face: 'many', line: pick(t.enough), hold: 3000 });
+      if (!mouse || !capri.zap(mouse.x, mouse.y)) capri.perform('huff', capri.towardCenter());
+    }
+  };
+
   // A new stage with you: her minds come out to look at you, and she says so, the sync bar under it.
   // At a quiet moment, so it isn't missed.
   let newStage = 0;
