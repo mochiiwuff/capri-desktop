@@ -156,13 +156,13 @@ const risky = (item) => item?.kind === 'file' && RUNS.test(item.id);
 
 // Folders asked for by what they are ("ouvre mes téléchargements", "open the file explorer").
 const FOLDERS = [
-  ['explorer', /explorateur|file explorer|\bexplorer\b|ce pc|this pc|explorador|проводник/i],
-  ['recycle', /corbeille|recycle bin|\btrash\b|papelera|lixeira|корзин/i],
+  ['explorer', /explorateur|file explorer|\bexplorer\b|ce pc|this pc|explorador|проводник|dieser pc/i],
+  ['recycle', /corbeille|recycle bin|\btrash\b|papelera|lixeira|корзин|papierkorb/i],
   ['downloads', /t[ée]l[ée]chargements?|downloads?|descargas|transfer[êe]ncias|загрузк/i],
-  ['desktop', /\bbureau\b|\bdesktop\b|escritorio|[áa]rea de trabalho|рабоч\S* стол/i],
-  ['documents', /\bdocuments?\b|documentos|документ/i],
-  ['pictures', /\bimages\b|\bphotos\b|\bpictures\b|im[áa]genes|\bfotos\b|imagens|изображени|фото/i],
-  ['music', /dossier (de )?musique|music folder|carpeta de m[úu]sica|pasta de m[úu]sica|папк\S* (с )?музык/i],
+  ['desktop', /\bbureau\b|\bdesktop\b|escritorio|[áa]rea de trabalho|рабоч\S* стол|schreibtisch/i],
+  ['documents', /\bdocuments?\b|documentos|документ|dokumente/i],
+  ['pictures', /\bimages\b|\bphotos\b|\bpictures\b|im[áa]genes|\bfotos\b|imagens|изображени|фото|\bbilder\b/i],
+  ['music', /dossier (de )?musique|music folder|carpeta de m[úu]sica|pasta de m[úu]sica|папк\S* (с )?музык|musikordner|ordner (für )?musik/i],
   ['videos', /\bvid[ée]os\b|v[íi]deos|видео/i],
 ];
 
