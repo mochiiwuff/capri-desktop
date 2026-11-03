@@ -192,6 +192,12 @@ fan d'elle, et le panneau du chat le dit à chaque fois.
   capture d'écran » : sans elle dessus, rangée dans Images › Screenshots). Elle sait aussi la date et l'heure.
 - **Un jeu Roblox par son nom** (« lance Steal a Brainrot sur Roblox », « in my roblox play grow a garden ») : elle le
   trouve sur Roblox et te lance directement dedans (ou ouvre sa page si Roblox n'est pas installé).
+- **Ton PC lui-même** : une page des paramètres (« ouvre le Bluetooth », « paramètres du son », « mises à jour ») ; ce qui
+  reste (« combien de batterie ? », « combien de place sur mon disque ? », la RAM, ton IP sur ton réseau) ; le son
+  (« mets le son à 30 % », « coupe le son ») ; un minuteur (« minuteur 10 minutes », décompté dans son bandeau) ;
+  « capture une zone » ; « range mes fenêtres » (elle les balaie, « remets mes fenêtres » les fait revenir) ; « mets Discord
+  à gauche et Chrome à droite » ; le mode sombre ou clair. Verrouiller, mettre en veille, éteindre ou redémarrer
+  (« éteins le PC dans une heure ») attendent toujours ton clic sur son bouton, et « annule l'extinction » l'arrête.
 - **La musique** : « pause », « suivante », « plus fort », « coupe le son »… appuient sur les touches multimédia, donc
   ça marche avec Spotify et la plupart des lecteurs, dès que tu envoies. « Mets Bohemian Rhapsody » ou « mets-moi du
   Daft Punk sur YouTube » ouvre le bon clip sur YouTube, directement (pas une recherche). « Mets la musique que tu

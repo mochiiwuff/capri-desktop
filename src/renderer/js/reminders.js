@@ -159,8 +159,9 @@ export class Reminders {
     return [...this.list].sort((a, b) => a.at - b.at);
   }
 
-  add(at, text) {
-    const r = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, at, text, made: Date.now() };
+  // extra: { timer: true } for a timer from her chat (its countdown shows in her ticker)
+  add(at, text, extra = {}) {
+    const r = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, at, text, made: Date.now(), ...extra };
     this.list = [...this.list, r];
     this.save();
     return r;

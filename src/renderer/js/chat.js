@@ -72,6 +72,88 @@ const FILE_WORD = /fichier|dossier|document|photo|image|vid[ée]o|\bpdf\b|\bfile
 const WEB_WORD = /google|internet|\ble web\b|the web|\bonline\b|en ligne|в интернете|в гугле/i;
 // "fais une capture d'écran", "take a screenshot"
 const SHOT_ASK = /capture d['’][ée]cran|screenshot|screen ?shot|captura de (?:pantalla|tela)|скриншот|снимок экрана/i;
+
+// Your PC itself (system.js). One of its settings pages: a settings word, or an open verb, before it.
+const SETTINGS_WORD = /param[eè]tres?|r[ée]glages?|settings|configuraci[oó]n|configura[çc][õo]es|ajustes|настройк/i;
+const SETTINGS_PAGES = [
+  ['bluetooth', /bluetooth/i],
+  ['wifi', /wi-?fi|wlan/i],
+  ['update', /mises? [àa] jour|\bupdates?\b|actualizaci|atualiza[çc]|обновлени/i],
+  ['notifications', /notifications?|notificaci|notifica[çc]|уведомлен/i],
+  ['background', /fond d['’][ée]cran|wallpaper|background|fondo de pantalla|papel de parede|обо(?:и|ев)\b/i],
+  ['storage', /stockage|storage|almacenamiento|armazenamento|хранилищ/i],
+  ['mouse', /souris|\bmouse\b|rat[oó]n|мыш/i],
+  ['battery', /batterie|battery|bater[ií]a|батаре/i],
+  ['power', /alimentation|\bpower\b|energ[ií]a|питани/i],
+  ['display', /[ée]cran|display|pantalla|\btela\b|экран|дисплей/i],
+  ['network', /r[ée]seau|network|(?<![\p{L}])rede?(?![\p{L}])|сет[ьи]/iu],
+  ['sound', /\bson\b|\bsound\b|audio|sonido|\bsom\b|звук/i],
+];
+// what's left of it: asked as a question
+const INFO_ASK = [
+  ['battery', /batterie|battery|bater[ií]a|заряд|батаре/i],
+  ['disk', /disque|\bdisk\b|\bdrive\b|stockage|storage|espace (?:libre|disque|restant)|de (?:la )?place|space left|free space|espacio|\bdisco\b|espa[çc]o|диск|места/i],
+  ['ram', /\bram\b|m[ée]moire|memory|memoria|mem[óo]ria|памят|озу/i],
+  ['ip', /\bip\b|айпи/i],
+];
+const QUESTION = /\?|combien|\bquel(?:le)?\b|c['’]est quoi|\breste\b|how much|how many|what(?:'s| is)|\bleft\b|cu[aá]nt|\bqu[eé]\b|quanto|\bqual\b|сколько|как(?:ой|ая|ое)|осталось/i;
+// its sound: "mets le son à 30 %", "volume 50"; off and back on
+const VOLUME_ASK = /(?:\bson\b|volume|\bsound\b|volumen|\bsom\b|звук|громкост\w*)\D{0,14}?(\d{1,3})\s*(?:%|pour ?cent|percent|por ?ciento|por ?cento|процент)?/i;
+const MUTE_ASK = /coupe le son|mets? (?:le son )?en muet|\bmute\b|silencia|tira o som|sem som|выключи звук/i;
+const UNMUTE_ASK = /remets? le son|r[ée]active le son|unmute|sound (?:back )?on|quita el silencio|activa el sonido|volta o som|liga o som|включи звук/i;
+// a timer, counted down in her ticker
+const TIMER_ASK = /minuteur|\btimer\b|temporizador|cron[oó]metro|таймер/i;
+// Windows' snip of an area (not her own screenshot of all of it)
+const SNIP_ASK = /capture (?:d['’])?une (?:zone|partie)|zone de l['’][ée]cran|\bsnip\b|(?:capture|screenshot|captura) (?:of |de )?(?:an? |una |uma |la |a )?(?:area|region|part|zona|[aá]rea|parte)|снимок области|область экрана/i;
+// its windows: out of the way, back, or side by side
+const TIDY_ASK = /range (?:mes|les|toutes les) fen[êe]tres|cache (?:mes|les|toutes les) fen[êe]tres|montre(?:-moi)? (?:le|mon) bureau|r[ée]duis (?:tout|toutes les fen[êe]tres)|tidy (?:up )?(?:my |the )?windows|minimi[sz]e (?:all|everything|my windows|the windows)|show (?:me )?(?:the |my )?desktop|ordena (?:mis |las )?ventanas|minimiza (?:todo|todas)|muestra el escritorio|organiza (?:minhas |as )?janelas|minimiza tudo|mostra a [áa]rea de trabalho|сверни (?:все|окна)|убери окна|покажи рабочий стол/i;
+const UNTIDY_ASK = /(?:remets|ressors|rends-moi|rouvre) (?:mes|les) fen[êe]tres|(?:bring|put) (?:my |the )?windows back|restore (?:my |the )?windows|devu[ée]lve(?:me)? (?:mis |las )?ventanas|restaura (?:mis |las )?ventanas|volta (?:minhas |as )?janelas|traz (?:minhas |as )?janelas de volta|верни окна/i;
+const PLACE_VERB = /^\s*(?:mets?|place|bouge|d[ée]place|put|move|snap|pon|coloca|mueve|bota|поставь|перемести|сдвинь)\s+/i;
+const SIDE = [
+  ['left', /\s*(?:[àa] |on the |to the |a la |na |[àa] la )?(?:gauche|left|izquierda|esquerda|слева|влево|налево)\b/i],
+  ['right', /\s*(?:[àa] |on the |to the |a la |na |[àa] la )?(?:droite|right|derecha|direita|справа|вправо|направо)\b/i],
+];
+// dark or light
+const DARK_ASK = /mode sombre|th[eè]me sombre|mode nuit|dark mode|dark theme|modo oscuro|tema oscuro|modo escuro|tema escuro|т[её]мн(?:ая|ую) тем|т[её]мный режим/i;
+const LIGHT_ASK = /mode clair|th[eè]me clair|light mode|light theme|modo claro|tema claro|светл(?:ая|ую) тем|светлый режим/i;
+// its power: always behind a button of hers but the cancel
+const PC_WORD = /(?<![\p{L}])(?:pc|ordi\p{L}*|computer|ordenador|computador|компьютер\p{L}*|пк)(?![\p{L}])/iu;
+const POWER_ASK = [
+  ['cancel', /annule (?:l['’])?(?:extinction|arr[êe]t|red[ée]marrage)|cancel (?:the )?(?:shut ?down|restart)|cancela (?:el |o )?(?:apagado|desligamento|reinicio)|отмени (?:выключение|перезагрузку)/i],
+  ['restart', /red[ée]marre|reboot|restart|reinicia|reinicie|перезагру/i],
+  ['shutdown', /[ée]teins|shut ?down|turn off|power off|\bapaga\b|desliga|выключи/i],
+  ['sleep', /\bveille\b|\bsleep\b|suspend|suspen[dc]|спящ/i],
+  ['lock', /verrouill|\block\b|bloquea|bloqueia|заблокир/i],
+];
+
+// How long a timer is: "10 minutes", "1h30", "45 s" (else "dans une heure", as for a reminder).
+function duration(text) {
+  const hm = /(\d+)\s*h\s*(\d{1,2})\b/i.exec(text);
+  if (hm) return (Number(hm[1]) * 60 + Number(hm[2])) * 60000;
+  let ms = 0;
+  for (const m of text.matchAll(/(\d+(?:[.,]\d+)?)\s*(h|heures?|hours?|horas?|час\p{L}*|min\p{L}*|m|мин\p{L}*|s|sec\p{L}*|seg\p{L}*|сек\p{L}*)(?![\p{L}])/giu)) {
+    const unit = m[2].toLowerCase();
+    ms += Number(m[1].replace(',', '.')) * (/^(?:h|час)/.test(unit) ? 3600000 : /^(?:m|мин)/.test(unit) ? 60000 : 1000);
+  }
+  if (ms) return ms;
+  const when = parseWhen(text);
+  return when ? Math.max(0, when.at - Date.now()) : 0;
+}
+
+// 1 h 30, 10 min, 45 s
+function span(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} s`;
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`;
+}
+
+// what's left, in her ticker: 9:59, 1:02:03
+function left(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const two = (n) => String(n).padStart(2, '0');
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}` : `${Math.floor(s / 60)}:${two(s % 60)}`;
+}
 // the words that aren't what to look for
 const NOT_SEARCHED = new Set(('stp svp please pls peux tu can you could would puedes pode можешь moi me le la les l mon ma mes '
   + 'un une des du de d the my a an for of el mi mis o meu minha meus мой мою мои sur dans on in en no na на в pc ordi ordinateur '
@@ -410,6 +492,8 @@ export class Chat {
     const memo = MEMO_ASK.exec(text)?.[1]?.trim();
     if (memo) return { kind: 'memo', text: memo };
     if (this.look && LOOK_ASK.test(text)) return { kind: 'look' };
+    const pc = this.askedPc(text, count);
+    if (pc) return pc;
     if (SHOT_ASK.test(text)) return { kind: 'shot' };
     const roblox = robloxGame(text);
     if (roblox) return { kind: 'roblox', game: roblox };
@@ -441,8 +525,166 @@ export class Chat {
     return null;
   }
 
+  // Something to do to your PC itself (system.js), read off your message: { kind: 'pc', what, ... }
+  askedPc(text, count) {
+    const pc = (what, more = {}) => ({ kind: 'pc', what, ...more });
+    const power = POWER_ASK.find(([, re]) => re.test(text))?.[0];
+    if (power === 'cancel') return pc('power', { power });
+    if (power && (PC_WORD.test(text) || (['lock', 'sleep'].includes(power) && count <= 4))) {
+      const when = ['shutdown', 'restart'].includes(power) && parseWhen(text);
+      return pc('power', { power, seconds: when ? Math.round((when.at - Date.now()) / 1000) : 30 });
+    }
+    if (SNIP_ASK.test(text)) return pc('snip');
+    if (UNTIDY_ASK.test(text)) return pc('tidy', { back: true });
+    if (TIDY_ASK.test(text)) return pc('tidy');
+    if (DARK_ASK.test(text)) return pc('theme', { dark: true });
+    if (LIGHT_ASK.test(text)) return pc('theme', { dark: false });
+    if (TIMER_ASK.test(text)) {
+      const ms = duration(text);
+      if (ms >= 1000) return pc('timer', { ms });
+    }
+    if (count <= 10) {
+      const level = VOLUME_ASK.exec(text)?.[1];
+      if (level && Number(level) <= 100) return pc('volume', { level: Number(level) });
+      if (UNMUTE_ASK.test(text)) return pc('volume', { mute: false });
+      if (MUTE_ASK.test(text)) return pc('volume', { mute: true });
+    }
+    // "mets Discord à gauche et Chrome à droite"
+    if (PLACE_VERB.test(text) && SIDE.some(([, re]) => re.test(text))) {
+      const places = text.split(/\s+(?:et|and|y|e|и)\s+/i).map((part) => {
+        const side = SIDE.find(([, re]) => re.test(part));
+        if (!side) return null;
+        const name = part.replace(PLACE_VERB, '').replace(side[1], '').replace(/\b(?:la|le|les|l['’]|the|el|o|a|fen[êe]tre|window|ventana|janela|окно)\b/gi, '').replace(/[\s.!?,]+/g, ' ').trim();
+        return name.length >= 2 ? { name, side: side[0] } : null;
+      }).filter(Boolean);
+      if (places.length) return pc('arrange', { places });
+    }
+    if (count <= 12) {
+      const page = SETTINGS_PAGES.find(([, re]) => re.test(text))?.[0];
+      if (page && SETTINGS_WORD.test(text)) return pc('settings', { page });
+      const info = INFO_ASK.find(([, re]) => re.test(text))?.[0];
+      if (info && (QUESTION.test(text) || count <= 3)) return pc('info', { info });
+      if (page && OPEN_ASK.test(text)) return pc('settings', { page });
+    }
+    return null;
+  }
+
+  // Doing it to your PC (system.js through host.pcDo): her line about it, a button first for its power.
+  async pcNow(asked) {
+    const t = this.t.pc;
+    const run = (req) => this.host.pcDo(req);
+    const gb = (bytes) => `${(bytes / 1024 ** 3).toFixed(bytes < 100 * 1024 ** 3 ? 1 : 0)} ${t.gb}`;
+    switch (asked.what) {
+      case 'settings':
+        this.zap();
+        return (await run({ action: 'settings', page: asked.page })) ? { line: fmt(t.settings, { page: t.pages[asked.page] }), face: 'smug' } : null;
+      case 'info': {
+        const r = await run({ action: 'info', what: asked.info });
+        if (!r) return null;
+        if (asked.info === 'battery') {
+          if (r.none) return { line: t.noBattery, face: 'look' };
+          return { line: fmt(r.charging ? t.charging : t.battery, { percent: r.percent }), face: r.percent < 20 && !r.charging ? 'wide' : 'look' };
+        }
+        if (asked.info === 'disk') return { line: fmt(t.disk, { free: gb(r.free), total: gb(r.total), drive: r.drive }), face: 'look' };
+        if (asked.info === 'ram') return { line: fmt(t.ram, { used: gb(r.used), total: gb(r.total) }), face: 'look' };
+        return { line: r.ip ? fmt(t.ip, { ip: r.ip }) : t.noIp, face: 'look' };
+      }
+      case 'volume': {
+        this.capri.pulse();
+        const r = await run({ action: 'volume', level: asked.level, mute: asked.mute });
+        if (!r) return null;
+        return { line: asked.mute === true ? t.muted : asked.mute === false ? t.unmuted : fmt(t.volume, { level: r.level }), face: 'smug' };
+      }
+      case 'timer': {
+        const time = span(asked.ms);
+        const r = this.reminders.add(Date.now() + asked.ms, fmt(t.timerDone, { time }), { timer: true });
+        this.countdown();
+        return { line: fmt(t.timer, { time }), face: 'smug', reminder: r.id };
+      }
+      case 'snip':
+        // she'd be in it: out of the way while you pick
+        document.documentElement.style.visibility = 'hidden';
+        setTimeout(() => { document.documentElement.style.visibility = ''; }, 2500);
+        return (await run({ action: 'snip' })) ? { line: t.snip, face: 'smug' } : null;
+      case 'tidy': {
+        if (asked.back) return (await run({ action: 'tidy', back: true })) ? { line: t.back, face: 'smug' } : null;
+        // she sweeps them off one after the other, front first, then they go
+        const wins = this.capri.windows.wins.slice(0, 6);
+        this.zap();
+        wins.forEach((w, i) => setTimeout(() => {
+          this.capri.fx.slices(w.x, w.y, w.w, Math.min(w.h, 500), { count: 8, life: 220 });
+          this.voice.play('bolt', { soft: true });
+        }, 120 + i * 110));
+        await new Promise((r) => setTimeout(r, 200 + wins.length * 110));
+        return (await run({ action: 'tidy' })) ? { line: t.tidy, face: 'laugh' } : null;
+      }
+      case 'arrange': {
+        this.zap();
+        const lines = [];
+        for (const { name, side } of asked.places) {
+          const r = await run({ action: 'arrange', name, side });
+          lines.push(r?.found ? fmt(t.placed, { app: r.name, side: t.sides[side] }) : fmt(t.notOpen, { app: name }));
+        }
+        return { line: lines.join('\n'), face: 'smug' };
+      }
+      case 'theme':
+        this.zap();
+        return (await run({ action: 'theme', dark: asked.dark })) ? { line: asked.dark ? t.dark : t.light, face: 'smug' } : null;
+      case 'power': {
+        if (asked.power === 'cancel') {
+          await run({ action: 'power', what: 'cancel' });
+          this.shutdown = null;
+          return { line: t.cancelled, face: 'look' };
+        }
+        const timed = ['shutdown', 'restart'].includes(asked.power);
+        const when = timed && asked.seconds > 35 ? fmt(t.in, { time: span(asked.seconds * 1000) }) : t.now;
+        return { line: fmt(t.ask[asked.power], { when }), face: 'many', confirm: { ...asked, seconds: timed ? Math.max(30, asked.seconds) : 0, when } };
+      }
+      default:
+        return null;
+    }
+  }
+
+  // Your click on her button for your PC's power: done, or left alone.
+  async powerNow(confirm, answer) {
+    const t = this.t.pc;
+    this.panel.setActions([]);
+    if (!(await this.host.pcDo({ action: 'power', what: confirm.power, seconds: confirm.seconds }))) return;
+    if (['shutdown', 'restart'].includes(confirm.power)) {
+      this.shutdown = { at: Date.now() + confirm.seconds * 1000, what: confirm.power };
+      this.countdown();
+      this.addLine(answer, fmt(t.planned[confirm.power], { when: confirm.when }), 'smug');
+    }
+  }
+
+  // Her countdowns in her ticker (a timer, the PC about to shut down), the soonest, whenever it
+  // isn't showing Claude at work.
+  countdown() {
+    clearInterval(this.counting);
+    const tick = () => {
+      const t = this.t.pc;
+      const now = Date.now();
+      const timer = this.reminders?.upcoming.find((r) => r.timer && r.at > now);
+      const items = [
+        timer && { at: timer.at, verb: t.timerVerb },
+        this.shutdown?.at > now && { at: this.shutdown.at, verb: t.powerVerb[this.shutdown.what] },
+      ].filter(Boolean).sort((a, b) => a.at - b.at);
+      const shown = this.panel.tickerAction;
+      if (!items.length) {
+        clearInterval(this.counting);
+        if (shown?.countdown) this.panel.setTicker(null);
+        return;
+      }
+      if (shown && !shown.countdown) return; // Claude at work comes first
+      this.panel.setTicker({ verb: items[0].verb, target: left(items[0].at - now), thinking: true, countdown: true });
+    };
+    tick();
+    this.counting = setInterval(tick, 1000);
+  }
+
   // Doing it now. Resolves with her line about it ({ line, face }), or null if there was nothing to do.
   async doNow(asked) {
+    if (asked.kind === 'pc') return this.pcNow(asked);
     const { t } = this;
     const custom = this.brain.custom;
     if (asked.kind === 'remind') {
@@ -566,6 +808,17 @@ export class Chat {
       return undefined;
     }
     if (done?.offer) return this.launch(done.offer, answer); // it would run something: your click first
+    if (done?.confirm) {
+      // your PC's power: her two buttons
+      this.addLine(answer, done.line, done.face);
+      const t = this.t.pc;
+      this.panel.setActions([{ id: 'yes', label: t.yes[done.confirm.power], primary: true }, { id: 'no', label: t.no }], (id) => {
+        if (id === 'yes') return this.powerNow(done.confirm, answer);
+        this.panel.setActions([]);
+        return this.addLine(answer, t.kept, 'look');
+      });
+      return undefined;
+    }
     if (done?.files) {
       // what she found (or the screenshot): a button to open the first, and to see where it is
       this.addLine(answer, done.line, done.face);

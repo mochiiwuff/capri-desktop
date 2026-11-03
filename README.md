@@ -183,6 +183,12 @@ panel says so every time.
   without her in it, saved in Pictures › Screenshots). She knows the date and time, too.
 - **A Roblox game by its name** ("start Steal a Brainrot on Roblox", "in my roblox play grow a garden"): she finds
   it on Roblox and drops you straight into it (or opens its page if Roblox isn't installed).
+- **Your PC itself**: a settings page ("open Bluetooth", "sound settings", "Windows updates"); what's left ("how much
+  battery?", "how much space on my disk?", RAM, your IP on your network); the sound ("set the volume to 30", "mute");
+  a timer ("timer 10 minutes", counted down in her ticker); "snip an area"; "tidy my windows" (she sweeps them off,
+  "restore my windows" brings them back); "put Discord on the left and Chrome on the right"; dark or light mode. Locking,
+  sleep, shutting down or restarting ("shut down my PC in an hour") always wait for your click on her button, and
+  "cancel the shutdown" stops it.
 - **Music**: "pause", "next", "louder", "mute"… press the media keys, so it works with Spotify and most players, right
   as you send it. "Play Bohemian Rhapsody" or "put some Daft Punk on YouTube" opens the right video on YouTube,
   straight away (not a search). "Play whatever you want": she picks. "Put Daft Punk on Spotify" opens Spotify on a

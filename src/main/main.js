@@ -18,6 +18,7 @@ const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
 const apps = require('./apps');
+const system = require('./system');
 const launch = require('./launch');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
@@ -862,6 +863,8 @@ function registerIpc() {
   });
   ipcMain.handle('apps:launch', (_e, item) => launch.launch(item).then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message })));
   ipcMain.handle('apps:media', (_e, action) => launch.media(action));
+  // your PC itself, from her chat: settings, what's left, sound, snip, windows, theme, power
+  ipcMain.handle('pc:do', (_e, req) => Promise.resolve(system.act(req, { display: targetDisplay() })).catch(() => null));
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
