@@ -31,9 +31,28 @@ const GRAB = {
   socket: 48, iris: 34, pupil: 13.5, // the ink inside her green rings, her blue iris, her white pupil
   irisColor: '#026ffe', pupilColor: '#fdfdfb', inkColor: '#010207', // the picture's own colours
   tag: { x: 1110, y: 175 }, // where "hi" pops, by her face
+  // the black lock over her eye on the right ends flat, cut by the top of the frame it comes
+  // from: drawn on to its point (grabbed), the top of her head
+  lock: [[926, 20], [983, 20], [978, -48]],
+  top: -48,
+  // her mane, behind her (the pictures are her alone): as big as in the show, shards hooked all
+  // the same way, its outline walked round her head from her left, over the top and well past
+  // the top of the picture, to her right
+  mane: [
+    [531, 480], [322, 472], [240, 444], [192, 440], [62, 415], [337, 371], [339, 299], [245, 245],
+    [222, 229], [132, 170], [381, 214], [380, 137], [326, 62], [311, 39], [249, -47], [471, 81],
+    [344, -142], [331, -256], [302, -321], [297, -435], [516, -153], [609, -203], [647, -286],
+    [653, -328], [682, -459], [757, -155], [857, -288], [934, -360], [959, -396], [1049, -510],
+    [989, -203], [1124, -240], [1226, -280], [1282, -330], [1403, -388], [1214, -121], [1208, 15],
+    [1318, -8], [1382, -34], [1491, -47], [1247, 108], [1277, 174], [1350, 196], [1382, 200],
+    [1493, 215], [1256, 268], [1278, 331], [1329, 372], [1380, 387], [1468, 435], [1243, 410],
+    [1129, 480], [1030, 590], [630, 590]
+  ],
   hands: [{ x: 0, y: 610 }, { x: 1672, y: 520 }], // where her hands hold the edges of the screen
 };
 const INTRO_T = { hands: 6, right: 8, reach: 10, grab: 16, hold: 21, blink: 29, hi: 34, wave: 46, regrab: 63, happy: 65, glance: 75, slip: 80, antic: 86, shrink: 88, land: 98, end: 101 };
+// her mane's red and the specks of its grain; apart, for her colours pulled apart
+const MANE = { red: '#fa0448', specks: ['#fc288c', '#fc40a0', '#f00038', '#fc146e'], channels: ['#fa0000', '#000400', '#000048'] };
 // her close-up's drawings (assets/capri/intro-<name>.webp), the same picture with only her mouth,
 // her eyes or her right arm changed: at rest, her mouth ajar, half open and wide open, waving (her
 // hand tilted left, right, straight up), her arm a smear between the edge and her face, and her
@@ -622,7 +641,15 @@ export class FxLayer {
     if (!this.grab || !this.size) return Promise.resolve();
     const { w, h } = this.size;
     const s = Math.max(w / GRAB.w, h / GRAB.h); // filling the screen, her hands on its edges
-    const at = { x: (w - GRAB.w * s) / 2 + GRAB.face.x * s, y: (h - GRAB.h * s) / 2 + GRAB.face.y * s };
+    // Her face low enough for all of her mane to show while she holds on, close up (that much
+    // wider than the screen, the picture is taller than it too: what's left over goes off the
+    // bottom), as long as her lower hand stays on the edge.
+    const k = 1.07;
+    const low = Math.min(
+      (GRAB.face.y - GRAB.top) * s * k + 8,
+      h - 40 - (Math.max(...GRAB.hands.map((p) => p.y)) - GRAB.face.y) * s * k,
+    );
+    const at = { x: (w - GRAB.w * s) / 2 + GRAB.face.x * s, y: Math.max((h - GRAB.h * s) / 2 + GRAB.face.y * s, low) };
     // the dive swings out a little toward the middle of the screen on its way down to her
     const ctrl = { x: lerp(at.x, to.x, 0.25) - (to.x - at.x) * 0.2, y: lerp(at.y, to.y, 0.15) };
     return new Promise((land) => {
@@ -654,6 +681,17 @@ export class FxLayer {
       violet: copy(COLORS.violet, 'source-in'),
       channels: ['#ff0000', '#00ff00', '#0000ff'].map((c) => copy(c, 'multiply')),
     };
+    // her mane's red, its grain of specks on a tile
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = 128;
+    const t = tile.getContext('2d');
+    t.fillStyle = MANE.red;
+    t.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 180; i++) {
+      t.fillStyle = MANE.specks[Math.floor(hash(i, 3) * MANE.specks.length)];
+      t.fillRect(Math.floor(hash(i, 1) * 128), Math.floor(hash(i, 2) * 128), hash(i, 4) < 0.5 ? 1 : 2, hash(i, 5) < 0.5 ? 1 : 2);
+    }
+    this.maneFill = this.ctx.createPattern(tile, 'repeat');
   }
 
   // Her close-up, its face at (x, y), `k` times its size on screen (squashed sx, sy), turned `rot`:
@@ -675,19 +713,39 @@ export class FxLayer {
       ctx.clip();
     }
     ctx.imageSmoothingQuality = 'high';
+    // her mane first, behind her
+    const mane = (fill, dx = 0, dy = 0) => {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      GRAB.mane.forEach(([mx, my], i) => (i ? ctx.lineTo(mx + dx, my + dy) : ctx.moveTo(mx + dx, my + dy)));
+      ctx.fill();
+    };
     if (flat) {
+      mane(COLORS[flat]);
       ctx.drawImage(c[flat], 0, 0);
     } else if (split) {
       const d = split / (it.s * k);
+      ctx.globalCompositeOperation = 'lighter';
+      mane(MANE.channels[0], -d, d * 0.3);
+      mane(MANE.channels[1]);
+      mane(MANE.channels[2], d, -d * 0.3);
+      ctx.globalCompositeOperation = 'destination-out'; // her in front of it: none of its red through her
+      ctx.drawImage(c.ink, 0, 0);
       ctx.globalCompositeOperation = 'lighter';
       ctx.drawImage(c.channels[0], -d, d * 0.3);
       ctx.drawImage(c.channels[1], 0, 0);
       ctx.drawImage(c.channels[2], d, -d * 0.3);
       ctx.globalCompositeOperation = 'source-over';
     } else {
+      mane(this.maneFill);
       ctx.drawImage(this.grabFrames[cel] || this.grab, 0, 0);
       if (!OWN_EYES.has(cel) || !this.grabFrames[cel]) GRAB.eyes.forEach((e) => this.grabEye(e, look, open));
     }
+    // the point of her lock, in the colour she's drawn in
+    ctx.fillStyle = flat ? COLORS[flat] : GRAB.inkColor;
+    ctx.beginPath();
+    GRAB.lock.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.fill();
     ctx.restore();
   }
 

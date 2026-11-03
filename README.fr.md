@@ -192,6 +192,12 @@ fan d'elle, et le panneau du chat le dit à chaque fois.
   capture d'écran » : sans elle dessus, rangée dans Images › Screenshots). Elle sait aussi la date et l'heure.
 - **Un jeu Roblox par son nom** (« lance Steal a Brainrot sur Roblox », « in my roblox play grow a garden ») : elle le
   trouve sur Roblox et te lance directement dedans (ou ouvre sa page si Roblox n'est pas installé).
+- **Ton PC lui-même** : une page des paramètres (« ouvre le Bluetooth », « paramètres du son », « mises à jour ») ; ce qui
+  reste (« combien de batterie ? », « combien de place sur mon disque ? », la RAM, ton IP sur ton réseau) ; le son
+  (« mets le son à 30 % », « coupe le son ») ; un minuteur (« minuteur 10 minutes », décompté dans son bandeau) ;
+  « capture une zone » ; « range mes fenêtres » (elle les balaie, « remets mes fenêtres » les fait revenir) ; « mets Discord
+  à gauche et Chrome à droite » ; le mode sombre ou clair. Verrouiller, mettre en veille, éteindre ou redémarrer
+  (« éteins le PC dans une heure ») attendent toujours ton clic sur son bouton, et « annule l'extinction » l'arrête.
 - **La musique** : « pause », « suivante », « plus fort », « coupe le son »… appuient sur les touches multimédia, donc
   ça marche avec Spotify et la plupart des lecteurs, dès que tu envoies. « Mets Bohemian Rhapsody » ou « mets-moi du
   Daft Punk sur YouTube » ouvre le bon clip sur YouTube, directement (pas une recherche). « Mets la musique que tu
@@ -244,13 +250,25 @@ qu'elle te dit quand tu cliques sur elle, comment son chat te parle, ce qu'elle 
 fois attachée, elle est contente quand tu reviens à ton PC et vient parfois d'elle-même près de ta souris. Où vous en
 êtes : en haut de son menu.
 
+**La caresser.** Passe ta souris d'avant en arrière sur sa crinière : elle s'appuie contre et ronronne, sa crinière
+brille, et ça vous rapproche un peu. Insiste trop longtemps et elle en a assez.
+
 **Et elle est jalouse.** Quand la fenêtre devant toi est une autre IA (ChatGPT, Gemini, Copilot, Perplexity, DeepSeek,
 Grok, Le Chat, Character.AI, Meta AI, Codex, ou Claude quand elle surveille Codex), elle le remarque et le dit, plus ou
 moins bien selon où vous en êtes. Si tu y restes, une fois attachée, elle va s'asseoir sur sa fenêtre, te fusille du
 regard et la possède, sourcils froncés, avec un mot à elle écrit dessus. Ensuite elle boude : clique sur elle et elle te
 tourne le dos (ça passe, et en parler dans son chat aide). Son chat sait aussi quelles autres IA tu as utilisées
-aujourd'hui. Pour les repérer, le titre de la fenêtre qui est devant est comparé à cette liste de noms, sur ton PC : il
-n'est ni gardé ni envoyé, seul le nom trouvé lui parvient. Décoche *Jalouse des autres IA* dans son menu pour arrêter.
+aujourd'hui.
+
+Dans ton navigateur, c'est pire. Sur une de leurs pages (chatgpt.com, gemini.google.com…), elle y va, te prévient, et la
+foudroie : l'onglet se ferme. Clique sur elle, ou sur *Laisse-moi*, avant qu'elle le fasse, et elle laisse cette IA
+tranquille dix minutes, en boudant. Sur une page pour en télécharger une, elle n'attend même pas. Une vidéo ou un article
+qui parle juste d'elles, elle n'y touche pas.
+
+Pour les repérer, le titre de la fenêtre qui est devant est comparé à cette liste de noms, sur ton PC : il n'est ni gardé
+ni envoyé, seul le nom trouvé lui parvient. Pour fermer une page, elle fait Ctrl+W à ta place, seulement si cette page est
+toujours celle qui est devant. Décoche *Fermer les pages des autres IA* dans son menu pour qu'elle reste jalouse sans rien
+fermer, ou *Jalouse des autres IA* pour tout arrêter.
 
 **Son chat sait ce qui vient de se passer.** Fâchée de s'être fait lancer, jalouse, sonnée ou contente : elle t'accueille
 comme ça en ouvrant le chat, et son IA (même un petit modèle local) répond dans cette humeur. Fâchée ou boudeuse, elle le
@@ -269,8 +287,8 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   (ou refais Ctrl+Alt+C) pour la faire revenir.
 - **Son menu** : clic droit sur elle (il est aussi sur son icône près de l'horloge) : téléporter, regarder le satellite,
   démo, comment ça marche, rapport de mission, lui parler, regarder ton écran, rappels, taille, son, écran (et te suivre d'un écran à
-  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA, réagir à ton PC, langue, lancement au démarrage, hooks.
-  Tout en haut : où vous en êtes, elle et toi.
+  l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA (et fermer leurs pages), réagir à ton PC, style de ses fenêtres (Night City,
+  ou Classique : ses premières), langue, lancement au démarrage, hooks. Tout en haut : où vous en êtes, elle et toi.
 
 Elle parle **français, anglais, espagnol, portugais du Brésil, russe et allemand**, et choisit toute seule la langue de ton
 système. Tu peux en choisir une autre dans son menu.
@@ -383,6 +401,7 @@ avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 | `crash` | elle s'écrase contre quelque chose |
 | `remind` | un rappel tombe |
 | `jealous` | elle siffle de jalousie |
+| `purr` | elle ronronne quand tu la caresses |
 
 ## C'est sûr ?
 

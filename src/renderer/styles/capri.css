@@ -1,7 +1,9 @@
 /* ------------------------------------------------------------------
    Capri overlay
    Flat, hard-edged, no gradients, no soft shadows: Trigger cel style.
-   Every panel casts a violet misregistered copy, like her outline.
+   Her windows are Night City HUD, the way cyberpunk.net draws it:
+   near-black plates outlined in neon yellow, one corner cut off,
+   code-like labels, and a cyan copy knocked out of register.
 ------------------------------------------------------------------- */
 
 @font-face {
@@ -53,16 +55,16 @@
 }
 
 :root {
-  /* palette sampled from the show */
-  --ink: oklch(0.17 0.035 300);
-  --ink-2: oklch(0.23 0.045 300);
-  --paper: oklch(0.97 0.012 350);
-  --paper-2: oklch(0.84 0.025 340);
-  --paper-3: oklch(0.66 0.035 320);
-  --red: oklch(0.65 0.245 15);
-  --green: oklch(0.88 0.24 148);
-  --violet: oklch(0.55 0.255 292);
-  --blue: oklch(0.6 0.2 260);
+  /* Night City: warm near-black, the neon yellow, cyan data, red for danger (cyberpunk.net) */
+  --ink: oklch(0.155 0.006 100);
+  --ink-2: oklch(0.215 0.01 100);
+  --paper: oklch(0.96 0.012 100);
+  --paper-2: oklch(0.84 0.012 100);
+  --paper-3: oklch(0.64 0.012 100);
+  --yellow: oklch(0.931 0.197 105.3);
+  --cyan: oklch(0.87 0.148 202.9);
+  --red: oklch(0.632 0.254 21.8);
+  --line: oklch(0.96 0.012 100 / 0.1);
 
   --font-display: 'Chakra Petch', 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -72,7 +74,7 @@
   --text-data: 11px;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --cut: 14px;
+  --cut: 18px;
 }
 
 *,
@@ -134,26 +136,64 @@ body {
 /* ---------- transmission panel ---------- */
 
 .panel {
-  --accent: var(--violet);
+  --accent: var(--yellow); /* her badge, the main button, what you type */
+  --frame: var(--yellow);  /* the outline round the plate and its tail */
+  --echo: var(--cyan);     /* the copy knocked out of register behind it */
   position: absolute;
   left: 0;
   top: 0;
   z-index: 3;
   width: clamp(290px, 21vw, 380px);
   color: var(--paper);
-  filter: drop-shadow(6px 6px 0 var(--violet));
   will-change: transform;
 }
 
-.panel[data-kind='work'] { --accent: var(--green); }
-.panel[data-kind='done'] { --accent: var(--green); }
-.panel[data-kind='alert'] { --accent: var(--red); }
-.panel[data-kind='error'] { --accent: var(--red); }
-.panel[data-kind='idle'] { --accent: var(--paper-3); }
-.panel[data-kind='remind'] { --accent: var(--blue); }
+.panel[data-kind='done'],
+.panel[data-kind='remind'] { --accent: var(--cyan); --frame: var(--cyan); --echo: var(--yellow); }
+.panel[data-kind='alert'],
+.panel[data-kind='error'] { --accent: var(--red); --frame: var(--red); }
+.panel[data-kind='idle'] { --accent: var(--paper-3); --frame: var(--paper-3); }
 
+/* corner brackets framing it, like the site's sections */
+.panel::before,
+.panel::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  width: 11px;
+  height: 11px;
+  border: 0 solid var(--frame);
+  pointer-events: none;
+}
+
+.panel::before {
+  left: -8px;
+  border-width: 2px 0 0 2px;
+}
+
+.panel::after {
+  right: -8px;
+  border-width: 2px 2px 0 0;
+}
+
+.panel[data-below='true']::before,
+.panel[data-below='true']::after {
+  top: auto;
+  bottom: -8px;
+  border-width: 0 0 2px 2px;
+}
+
+.panel[data-below='true']::after {
+  border-width: 0 2px 2px 0;
+}
+
+/* the outline: hard copies of the plate and its tail all round it, then the cyan one behind */
 .panel__frame {
   position: relative;
+  filter:
+    drop-shadow(2px 0 0 var(--frame)) drop-shadow(-2px 0 0 var(--frame))
+    drop-shadow(0 2px 0 var(--frame)) drop-shadow(0 -2px 0 var(--frame))
+    drop-shadow(5px 5px 0 var(--echo));
 }
 
 .panel.is-entering .panel__frame {
@@ -181,14 +221,17 @@ body {
   display: grid;
   grid-template-columns: 58px 1fr;
   gap: 12px;
-  padding: 14px 16px 16px 14px;
-  background: var(--ink);
-  /* chamfered corners and one jagged bite in the top edge */
+  padding: 14px 16px 18px 14px;
+  /* a little barcode under her face */
+  background:
+    repeating-linear-gradient(90deg, var(--ink-2) 0 2px, transparent 2px 3px, var(--ink-2) 3px 4px, transparent 4px 7px)
+      left 14px bottom 9px / 46px 6px no-repeat,
+    var(--ink);
+  /* square corners but one, cut off, and a shallow tab taken out of the top edge */
   clip-path: polygon(
-    0 var(--cut), var(--cut) 0,
-    61% 0, 63% 7px, 65.5% 0,
-    calc(100% - 30px) 0, 100% 30px,
-    100% 100%, 22px 100%, 0 calc(100% - 22px)
+    0 0, 57% 0, 59% 4px, 75% 4px, 77% 0,
+    100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    0 100%
   );
 }
 
@@ -196,8 +239,8 @@ body {
   margin: 2px 0 0;
   width: 58px;
   height: 58px;
-  background: var(--violet);
-  clip-path: polygon(14% 0, 100% 0, 100% 80%, 84% 100%, 0 100%, 0 16%);
+  background: var(--frame);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
 }
 
 .panel__face img {
@@ -205,7 +248,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  clip-path: polygon(14% 4%, 96% 4%, 96% 79%, 82% 96%, 4% 96%, 4% 18%);
+  clip-path: polygon(2px 2px, calc(100% - 2px) 2px, calc(100% - 2px) calc(100% - 13px), calc(100% - 13px) calc(100% - 2px), 2px calc(100% - 2px));
 }
 
 .panel.is-entering .panel__face img,
@@ -254,9 +297,15 @@ body {
   white-space: nowrap;
 }
 
+/* "/// CAPRI.BASH", the way the site labels its modules */
 .panel__who {
-  color: var(--paper);
+  color: var(--cyan);
   font-weight: 600;
+}
+
+.panel__who::before {
+  content: '/// ';
+  letter-spacing: 0;
 }
 
 .panel__tag {
@@ -264,21 +313,26 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--paper-3);
+  margin-left: -8px; /* sticks to her name: CAPRI.BASH */
 }
 
 .panel__tag:not(:empty)::before {
-  content: '/ ';
-  color: var(--violet);
+  content: '.';
+  color: var(--cyan);
 }
 
 .panel__state {
   margin-left: auto;
-  padding: 2px 6px 1px;
+  padding: 2px 9px 1px 7px;
   background: var(--accent);
   color: var(--ink);
   font-weight: 600;
   letter-spacing: 0.12em;
-  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+}
+
+.panel__state:empty {
+  display: none;
 }
 
 .panel[data-kind='alert'] .panel__state {
@@ -304,7 +358,7 @@ body {
 .panel__quote {
   margin: 9px 0 0;
   padding-left: 9px;
-  border-left: 2px solid var(--violet);
+  border-left: 2px solid var(--cyan);
   font-family: var(--font-mono);
   font-size: var(--text-data);
   line-height: 1.5;
@@ -315,19 +369,19 @@ body {
   overflow: hidden;
 }
 
-/* how far a download is (setup.js): a hard-edged green bar with her violet copy, filling on twos */
+/* how far a download is (setup.js): a loading bar in segments, filling on twos */
 .panel__progress {
   position: relative;
-  height: 7px;
-  margin: 10px 3px 3px 0;
+  height: 8px;
+  margin: 10px 0 2px;
   background: var(--ink-2);
-  box-shadow: 3px 3px 0 var(--violet);
+  mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
 }
 
 .panel__bar {
   position: absolute;
   inset: 0;
-  background: var(--green);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
   transition: transform 166ms steps(2, end);
@@ -356,7 +410,7 @@ html[data-motion='reduced'] .panel__bar {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   scrollbar-width: thin;
-  scrollbar-color: var(--violet) transparent;
+  scrollbar-color: var(--accent) transparent;
 }
 
 /* her welcome / help panel: the explanation is read whole, and it has buttons */
@@ -371,31 +425,55 @@ html[data-motion='reduced'] .panel__bar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0 2px;
+  margin: 13px 0 2px;
 }
 
+/* the site's buttons: an outline with its corner cut off (the cut drawn too) and a notch on the
+   left; the main one filled */
 .panel__action {
+  --btn: var(--cyan);
+  --notch: var(--cyan);
+  position: relative;
   appearance: none;
   border: 0;
-  padding: 7px 12px 6px;
-  background: var(--ink-2);
-  color: var(--paper);
-  font-family: var(--font-mono);
-  font-size: var(--text-data);
-  font-weight: 600;
+  padding: 7px 15px 6px 14px;
+  background:
+    linear-gradient(to top left, transparent calc(50% - 1px), var(--btn) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px))
+      right bottom / 9px 9px no-repeat,
+    var(--ink);
+  box-shadow: inset 0 0 0 2px var(--btn);
+  color: var(--btn);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
-  transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.panel__action::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: calc(50% - 1px);
+  width: 5px;
+  height: 2px;
+  background: var(--notch);
 }
 
 .panel__action:hover {
-  background: var(--violet);
+  background: var(--btn);
+  color: var(--ink);
+  --notch: var(--ink);
 }
 
 .panel__action.is-primary {
-  background: var(--accent);
+  --btn: var(--accent);
+  --notch: var(--ink);
+  background: var(--btn);
   color: var(--ink);
 }
 
@@ -425,7 +503,7 @@ html[data-motion='reduced'] .panel__bar {
   margin: 10px 0 0;
   padding: 8px 0 0;
   list-style: none;
-  border-top: 1px solid oklch(0.97 0.012 350 / 0.08);
+  border-top: 1px solid var(--line);
   font-family: var(--font-mono);
   font-size: var(--text-data);
   line-height: 1.6;
@@ -461,17 +539,15 @@ html[data-motion='reduced'] .panel__bar {
 
 /* ---------- her report card (mission log) ---------- */
 
-.panel[data-kind='report'] { --accent: var(--green); }
-
 .panel.has-report {
   width: clamp(340px, 26vw, 440px);
 }
 
+/* a card with a yellow band on top, like the site's */
 .panel__report {
   margin: 12px 0 0;
-  padding: 10px 12px 9px;
+  padding: 0 12px 9px;
   background: var(--ink-2);
-  border-top: 2px solid var(--accent);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
 }
 
@@ -487,16 +563,23 @@ html[data-motion='reduced'] .panel__bar {
 }
 
 .report__head {
+  margin: 0 -12px 8px;
+  padding: 5px 12px 4px;
+  background: var(--yellow);
   font-size: var(--text-meta);
-  color: var(--paper-3);
+  color: var(--ink);
 }
 
 .report__title {
-  color: var(--accent);
   font-weight: 600;
 }
 
-/* the day in one number: big, tight, with her violet misregistered copy behind it */
+.report__title::before {
+  content: '/// ';
+  letter-spacing: 0;
+}
+
+/* the day in one number: big, tight, yellow, with a cyan copy knocked out of register behind it */
 .report__hero {
   display: flex;
   align-items: baseline;
@@ -511,7 +594,7 @@ html[data-motion='reduced'] .panel__bar {
   line-height: 0.88;
   letter-spacing: -0.04em;
   color: var(--accent);
-  text-shadow: 3px 3px 0 var(--violet);
+  text-shadow: 3px 3px 0 var(--cyan);
   font-variant-numeric: tabular-nums;
 }
 
@@ -528,7 +611,7 @@ html[data-motion='reduced'] .panel__bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin: 0;
-  border-top: 1px solid oklch(0.97 0.012 350 / 0.08);
+  border-top: 1px solid var(--line);
 }
 
 .report__cell {
@@ -537,7 +620,7 @@ html[data-motion='reduced'] .panel__bar {
 
 .report__cell + .report__cell {
   padding-left: 10px;
-  border-left: 1px solid oklch(0.97 0.012 350 / 0.08);
+  border-left: 1px solid var(--line);
 }
 
 .report__cell .report__label {
@@ -604,14 +687,14 @@ html[data-motion='reduced'] .panel__bar {
   row-gap: 3px;
   margin-top: 9px;
   padding-top: 6px;
-  border-top: 1px solid oklch(0.97 0.012 350 / 0.08);
+  border-top: 1px solid var(--line);
   font-size: 9px;
   color: var(--paper-3);
 }
 
 .report__sign {
   margin-left: auto;
-  color: var(--violet);
+  color: var(--cyan);
   font-weight: 600;
 }
 
@@ -624,13 +707,11 @@ html[data-motion='reduced'] .panel__bar {
 .snap-plate {
   position: fixed;
   z-index: 2;
-  background: oklch(0.12 0.03 300);
+  background: var(--ink);
   pointer-events: none;
 }
 
 /* ---------- talking to her (chat) ---------- */
-
-.panel[data-kind='chat'] { --accent: var(--green); }
 
 .panel.is-chat {
   width: clamp(320px, 24vw, 420px);
@@ -664,7 +745,7 @@ html[data-motion='reduced'] .panel__bar {
   padding-block: 2px; /* the display face's glyphs reach past its line box: no scrollbar for that */
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--violet) transparent;
+  scrollbar-color: var(--accent) transparent;
 }
 
 /* her answer arrived: a short jolt of split colours and sideways slices, on twos */
@@ -673,12 +754,12 @@ html[data-motion='reduced'] .panel__bar {
 }
 
 @keyframes line-glitch {
-  0% { text-shadow: -3px 0 var(--red), 3px 0 var(--blue); transform: translateX(2px) skewX(-6deg); clip-path: inset(0 0 55% 0); }
-  14% { text-shadow: 2px 0 var(--red), -2px 0 var(--green); transform: translateX(-3px); clip-path: inset(40% 0 0 0); }
-  28% { text-shadow: -2px 0 var(--red), 2px 0 var(--blue); transform: none; clip-path: none; }
-  46% { text-shadow: 1px 0 var(--violet), -1px 0 var(--green); transform: translateX(1px) skewX(4deg); clip-path: inset(10% 0 20% 0); }
+  0% { text-shadow: -3px 0 var(--red), 3px 0 var(--cyan); transform: translateX(2px) skewX(-6deg); clip-path: inset(0 0 55% 0); }
+  14% { text-shadow: 2px 0 var(--red), -2px 0 var(--yellow); transform: translateX(-3px); clip-path: inset(40% 0 0 0); }
+  28% { text-shadow: -2px 0 var(--red), 2px 0 var(--cyan); transform: none; clip-path: none; }
+  46% { text-shadow: 1px 0 var(--cyan), -1px 0 var(--yellow); transform: translateX(1px) skewX(4deg); clip-path: inset(10% 0 20% 0); }
   62% { text-shadow: none; transform: none; clip-path: none; }
-  78% { text-shadow: -1px 0 var(--red), 1px 0 var(--blue); }
+  78% { text-shadow: -1px 0 var(--red), 1px 0 var(--cyan); }
   100% { text-shadow: none; }
 }
 
@@ -696,20 +777,22 @@ html[data-motion='reduced'] .panel__bar {
   margin: 12px 0 0;
 }
 
+/* a field with a notch on the left and a line under it, the caret in her accent */
 .panel__input {
   flex: 1;
   min-width: 0;
-  padding: 7px 10px 6px;
+  padding: 7px 10px 6px 14px;
   border: 0;
   border-bottom: 2px solid var(--accent);
-  background: var(--ink-2);
+  background:
+    linear-gradient(var(--accent), var(--accent)) left 2px center / 5px 2px no-repeat,
+    var(--ink-2);
   color: var(--paper);
   font-family: var(--font-mono);
   font-size: calc(var(--text-data) + 1px);
   caret-color: var(--accent);
   user-select: text;
   outline: none;
-  clip-path: polygon(7px 0, 100% 0, 100% 100%, 0 100%, 0 7px);
 }
 
 .panel__input::placeholder {
@@ -717,7 +800,7 @@ html[data-motion='reduced'] .panel__bar {
 }
 
 .panel__input:focus {
-  background: oklch(0.27 0.05 300);
+  background-color: oklch(0.255 0.012 100);
 }
 
 .panel__input:disabled {
@@ -729,6 +812,8 @@ html[data-motion='reduced'] .panel__bar {
 }
 
 .panel__chat .panel__action:disabled {
+  --btn: var(--paper-3);
+  --notch: var(--paper-3);
   background: var(--ink-2);
   color: var(--paper-3);
   cursor: default;
@@ -751,8 +836,8 @@ html[data-motion='reduced'] .panel__bar {
 .panel__note b {
   margin-right: 4px;
   padding: 1px 5px 0;
-  background: var(--violet);
-  color: var(--paper);
+  background: var(--cyan);
+  color: var(--ink);
   font-weight: 600;
   letter-spacing: 0.12em;
 }
@@ -778,13 +863,20 @@ html[data-motion='reduced'] .panel__bar {
 /* ---------- ticker ---------- */
 
 .ticker {
+  --frame: var(--yellow);
   position: absolute;
   left: 0;
   top: 0;
   z-index: 3;
-  filter: drop-shadow(3px 3px 0 var(--violet));
+  filter:
+    drop-shadow(2px 0 0 var(--frame)) drop-shadow(-2px 0 0 var(--frame))
+    drop-shadow(0 2px 0 var(--frame)) drop-shadow(0 -2px 0 var(--frame))
+    drop-shadow(3px 3px 0 var(--cyan));
   will-change: transform;
 }
+
+.ticker[data-error='true'] { --frame: var(--red); }
+.ticker[data-thinking='true'] { --frame: var(--cyan); }
 
 .ticker__plate {
   display: flex;
@@ -796,7 +888,7 @@ html[data-motion='reduced'] .panel__bar {
   font-family: var(--font-mono);
   font-size: var(--text-data);
   white-space: nowrap;
-  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
 }
 
 .ticker.is-flash .ticker__plate {
@@ -804,7 +896,7 @@ html[data-motion='reduced'] .panel__bar {
 }
 
 @keyframes ticker-flash {
-  0% { background: var(--green); color: var(--ink); }
+  0% { background: var(--frame); color: var(--ink); }
   100% { background: var(--ink); }
 }
 
@@ -812,16 +904,12 @@ html[data-motion='reduced'] .panel__bar {
   flex: none;
   width: 6px;
   height: 6px;
-  background: var(--green);
+  background: var(--frame);
   animation: blink 700ms steps(2, jump-none) infinite;
 }
 
-.ticker[data-error='true'] .ticker__dot {
-  background: var(--red);
-}
-
 .ticker__verb {
-  color: var(--green);
+  color: var(--frame);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -834,9 +922,8 @@ html[data-motion='reduced'] .panel__bar {
   color: var(--paper-2);
 }
 
-/* Claude thinking, nothing to show yet: her violet, a slower pulse, the seconds counting up */
+/* Claude thinking, nothing to show yet: cyan, a slower pulse, the seconds counting up */
 .ticker[data-thinking='true'] .ticker__dot {
-  background: var(--violet);
   animation-duration: 1400ms;
 }
 

@@ -58,6 +58,11 @@ async function boot() {
   };
   applyMotion(config.motion);
   reducedMotion.onSystemChange(() => applyMotion(reducedMotion.setting));
+  // her windows: Night City, or her first ones (her menu, classic.css)
+  const applyTheme = (theme) => {
+    document.documentElement.dataset.theme = theme || 'nightcity';
+  };
+  applyTheme(config.theme);
 
   const fx = new FxLayer(document.getElementById('fx'), {
     cutins: Object.fromEntries(CUTINS.map((name, i) => [name, cutins[i]])),
@@ -240,8 +245,9 @@ async function boot() {
   brain.bond = bond;
   chat.bond = bond;
   capri.fondness = bond.stage;
-  const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide });
+  const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide, host });
   jealousy.enabled = config.jealous !== false;
+  jealousy.closePages = config.closePages !== false;
   chat.jealousy = jealousy;
   brain.onRival = (key) => jealousy.onRivalEvent(key);
   const reminders = new Reminders({ host, list: config.reminders || [] });
@@ -258,7 +264,9 @@ async function boot() {
   pc.wantsOut = () => wantsOut;
 
   // Clicking her: what's going on, or she offers to talk. Sulking, she turns her back on you.
+  // About to close one of your other AIs' pages, she leaves it.
   capri.onClick = () => {
+    if (jealousy.spare()) return;
     if (panel.visible) panel.hide();
     else if (!jealousy.onClick()) {
       brain.status();
@@ -317,6 +325,28 @@ async function boot() {
     capri.refuseUntil = 0;
   };
   capri.onDodge = () => panel.say({ kind: 'info', face: 'smug', line: pick(brain.t.thrown.dodge), hold: 2500 });
+
+  // Petted (your pointer back and forth over her mane): she purrs, says something now and then
+  // (shy before she's attached to you), and it brings you a little closer. Too long and she's had
+  // enough: a zap at your pointer.
+  let petTalk = 0;
+  capri.onPet = (phase) => {
+    const t = brain.t.pet;
+    const quiet = !chat.open && (!panel.visible || ['idle', 'info'].includes(panel.current?.kind));
+    if (phase === 'start') {
+      bond.add('pet', 1);
+      if (!['angry', 'sulk'].includes(bond.feeling)) bond.feel('petted');
+      const now = performance.now();
+      if (quiet && now - petTalk > 90000) {
+        petTalk = now;
+        const attached = bond.stage >= 2;
+        panel.say({ kind: 'info', face: attached ? 'smug' : 'wide', line: pick(attached ? t.high : t.low), hold: 3000 });
+      }
+    } else if (phase === 'enough') {
+      if (quiet) panel.say({ kind: 'info', face: 'many', line: pick(t.enough), hold: 3000 });
+      if (!mouse || !capri.zap(mouse.x, mouse.y)) capri.perform('huff', capri.towardCenter());
+    }
+  };
 
   // A new stage with you: her minds come out to look at you, and she says so, the sync bar under it.
   // At a quiet moment, so it isn't missed.
@@ -594,6 +624,7 @@ async function boot() {
   host.onConfig((cfg) => {
     voice.configure(cfg);
     jealousy.enabled = cfg.jealous !== false;
+    jealousy.closePages = cfg.closePages !== false;
     followOn = cfg.follow !== false;
     look.configure(cfg);
     pc.enabled = cfg.pcReact !== false;
@@ -603,6 +634,7 @@ async function boot() {
     capri.possessWindows = cfg.possess;
     capri.restOn = cfg.rest || 'corner';
     applyMotion(cfg.motion);
+    applyTheme(cfg.theme);
     if ((cfg.claude === false && brain.watching) || cfg.assistant !== brain.assistant) {
       guide.answer(null);
       panel.hide();

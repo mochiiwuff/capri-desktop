@@ -30,6 +30,18 @@ const THROW_GRAVITY = 2500;
 const LEAP_GRAVITY = 3000;
 // the stances where she's turned by her own spin (this.spin) instead of her acts' lean
 const SPUN = new Set(['held', 'fly', 'down']);
+// Lying back on the ledge she sits on (lieDown): how far she's turned over (degrees), how far up
+// that puts her so she rests on it instead of sinking into it (sprite px), and the acts she can
+// do lying there (anything else, she sits back up for it first).
+const LIE = 60;
+const LIE_LIFT = 18;
+const LYING_ACTS = new Set(['talk', 'look', 'split', 'petted']);
+// Petting her: your pointer going back and forth over her mane, each way at least STROKE px (at
+// her full size), turning within PET_GAP of the last turn. Three turns and she's being petted;
+// a while of it nonstop and she's had enough.
+const STROKE = 22;
+const PET_GAP = 700;
+const PET_ENOUGH = 8000;
 
 const UPLINK_DAY = 'capri.uplinkDay'; // the last day she sent the red light up
 
@@ -68,15 +80,18 @@ export class Capri {
     this.held = null;     // { at: the sprite point you're holding her by, w: how fast she swings }
     this.flight = null;   // thrown, or jumping to another screen (see throwHer)
     this.lying = null;    // knocked down: { c: her middle on screen, side }
+    this.lounge = null;   // lying back on her ledge: { side, angle, rising }
     this.skid = null;     // sliding on her feet after landing a throw: { v, last }
     this.squash = null;   // flattened against what she just hit, on screen
     this.override = null; // a pose laid over her acts, drawing by drawing (getting back up)
     this.throwId = 0;     // bumped by every throw and every grab: what was going on after a throw stops
     this.refuseUntil = 0; // thrown once too often: she won't let you pick her up before then
+    this.pet = null;      // your pointer stroking her mane: { x, dir, run, turns, last, since, end }
+    this.petRefuseUntil = 0; // petted too long: not again before then
     this.fondness = 0;    // how close she is to you, 0 to 4 (bond.js stages)
 
     this.p = {
-      seed: 0, boil: 0.9, hair: 0, head: 0, mane: 0, armL: 0, armR: 0, longL: 1, longR: 1, sit: 0, kickL: 0, kickR: 0,
+      seed: 0, boil: 0.9, hair: 0, head: 0, mane: 0, armL: 0, armR: 0, longL: 1, longR: 1, sit: 0, bend: 0, kickL: 0, kickR: 0,
       smear: [0, 0], echo: [0, 0],
       glitch: 0, glitchSeed: 0, split: 0, collapse: 0, dissolve: 0, sparkle: 1, grade: 1,
       sil: INK, silAmount: 0, misreg: [-2.6, 2.2], alpha: 1,
@@ -255,7 +270,18 @@ export class Capri {
     }
     this.root.style.transform = move;
     this.canvas.style.transform = `rotate(${this.turn.toFixed(2)}deg) scale(${(this.facing * this.sx).toFixed(3)}, ${this.sy.toFixed(3)})`;
+    // lying on her ledge, she rests on it: nothing of her shows below its edge
+    const edge = this.lyingOn();
+    this.root.style.clipPath = edge === null ? '' : `polygon(-9999px -9999px, 9999px -9999px, 9999px ${edge - top}px, -9999px ${edge - top}px)`;
     this.onMove?.(this.head());
+  }
+
+  // Lying down on her ledge (all the way over: on the way, her legs still hang in front of it):
+  // the y of its edge on screen, else null.
+  lyingOn() {
+    if (!this.lounge || Math.abs(this.lounge.angle) < LIE - 6 || !this.perch) return null;
+    const win = this.perchWin(this.perch.id);
+    return win ? win.y + 1 : null;
   }
 
   // her face on screen, plus `top`: the tips of her mane
@@ -268,7 +294,7 @@ export class Capri {
       const y = at.y + dy + bob;
       return { x: at.x - dx, y, top: y - 30 * s };
     }
-    if (at === this.pos && SPUN.has(this.stance) && this.tilt) {
+    if (at === this.pos && (SPUN.has(this.stance) || this.lounge) && this.tilt) {
       // turned around (held, thrown, lying there): her face where it really is, the tips of her mane above it
       const face = this.screenPoint(SPRITE.head.x, SPRITE.head.y);
       return { ...face, top: face.y - 70 * s };
@@ -280,9 +306,18 @@ export class Capri {
   hit(x, y) {
     if (this.hidden || this.p.alpha < 0.5) return false;
     if (this.perch?.id === 'taskbar' && y > this.view.floor) return false; // the taskbar under her legs stays clickable
+    if (y > (this.lyingOn() ?? Infinity)) return false; // lying on a window: what's cut off under her is the window's
     const at = this.spritePoint(x, y);
-    const sx = at.x;
+    let sx = at.x;
     let sy = at.y;
+    if (this.p.bend && sy > SPRITE.hip - 16) {
+      // same hips as the shader: legs swung around her hip, easing in over the waist
+      const k = clamp((sy - (SPRITE.hip - 16)) / 24, 0, 1);
+      const a = -this.p.bend * k * k * (3 - 2 * k);
+      const dx = sx - MID.x, dy = sy - SPRITE.hip;
+      sx = MID.x + dx * Math.cos(a) - dy * Math.sin(a);
+      sy = SPRITE.hip + dx * Math.sin(a) + dy * Math.cos(a);
+    }
     if (this.p.sit > 0 && sy > SPRITE.hip) {
       // same fold as the shader: short thighs, legs ridden up
       const c = lerp(1, 0.3, this.p.sit);
@@ -457,8 +492,14 @@ export class Capri {
       }
     }
     const pose = { ...NEUTRAL, ...base, ...act };
+    if (this.lounge && act) {
+      // lying there, her head stays up on her arm: a look or a nod moves it from there
+      pose.head = (base.head ?? 0) + (act.head ?? 0);
+      pose.mane = (base.mane ?? 0) + (act.mane ?? 0);
+    }
     if (this.mode === 'sleep' && this.stance === 'sit' && !act) {
-      Object.assign(pose, { head: 0.12, mane: -0.1, kickL: 0.03, kickR: 0.03, armL: -0.45, armR: -0.45 }); // dozing on the ledge
+      if (this.lounge) Object.assign(pose, { head: -0.62, mane: -0.14, kickL: 0.22 }); // dozing off lying there, head drooping
+      else Object.assign(pose, { head: 0.12, mane: -0.1, kickL: 0.03, kickR: 0.03, armL: -0.45, armR: -0.45 }); // dozing on the ledge
     }
     if (this.stance === 'fly') this.flyPose(pose);
     else if (this.stance === 'held') this.heldPose(pose);
@@ -473,6 +514,7 @@ export class Capri {
     p.longR = pose.longR;
     p.kickL = pose.kickL;
     p.kickR = pose.kickR;
+    p.bend = pose.bend;
     p.smear = pose.smear;
     p.echo = pose.echo;
     // on a ledge she stays seated: no lifting off it, no sinking through it
@@ -480,6 +522,11 @@ export class Capri {
     const spun = SPUN.has(this.stance);
     this.bob = spun || this.dragging ? 0 : bob;
     this.tilt = spun ? this.spin + pose.tilt : pose.tilt;
+    if (this.lounge) {
+      const { side, angle } = this.lounge;
+      this.tilt += side * angle;
+      this.bob -= LIE_LIFT * this.scale * Math.max(0, Math.sin(angle * DEG));
+    }
     this.sx = pose.sx;
     this.sy = pose.sy;
     if (this.debug) Object.assign(p, this.debug); // --dev pose overrides
@@ -563,6 +610,10 @@ export class Capri {
         return;
       }
     }
+    if (this.lounge) {
+      this.flourish(); // lying there: she stays a while longer, or gets back up
+      return;
+    }
     if (this.stance === 'sit' && this.perch?.id === 'taskbar') {
       // nothing to hop off or take over down there: a flourish, or off for a bit (she comes back)
       if (Math.random() < 0.6) this.flourish();
@@ -586,8 +637,73 @@ export class Capri {
   }
 
   flourish() {
-    if (this.stance === 'sit') this.perform(pick(['look', 'look', 'split']));
-    else this.perform(pick(['spin', 'look', 'hop', 'curious', 'split']), this.towardCenter());
+    if (this.lounge) {
+      if (Math.random() < 0.5) this.perform('look');
+      else this.getUp();
+    } else if (this.stance === 'sit') {
+      if (Math.random() < 0.3) this.lieDown();
+      else this.perform(pick(['look', 'look', 'split', 'stretch']));
+    } else this.perform(pick(['spin', 'look', 'hop', 'curious', 'split']), this.towardCenter());
+  }
+
+  // Bored on her ledge, she lies back on it: a little lean the other way, then she lets herself
+  // go over sideways, folding her arms away into her while her legs swing up along the ledge and
+  // her head stays up; a small squash as she settles, and she stays like that (the 'lounge' cycle).
+  async lieDown() {
+    if (this.lounge || this.stance !== 'sit' || this.busy || this.act || this.pointing || this.mode === 'work') return;
+    const lounge = { side: this.facing, angle: 0, rising: null };
+    this.lounge = lounge;
+    const done = await this.playLying(lounge, [
+      [3, -4, { bend: 0, head: 0.06, mane: 0.06, armL: -0.5, longL: 1, armR: -0.5, longR: 1, kickL: 0.04, kickR: 0.04 }, 1],
+      [2, 22, { bend: 0.16, head: -0.3, mane: 0.1, armL: -0.62, longL: 0.7, armR: -0.3, longR: 0.7, kickL: 0.06, kickR: 0 }, 0.6],
+      [2, 44, { bend: 0.34, head: -0.64, mane: 0.06, armL: -0.75, longL: 0.35, armR: -0.15, longR: 0.35, kickL: 0.14, kickR: 0 }, 0.2],
+      [2, LIE + 4, { bend: 0.5, head: -0.95, mane: -0.08, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, kickR: 0, sy: 0.95, sx: 1.04 }, 0, 'land'],
+      [2, LIE, { bend: 0.52, head: -0.9, mane: -0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, kickR: 0 }, 0],
+    ]);
+    if (!done) return;
+    lounge.angle = LIE;
+    this.p.sit = 0;
+    this.base = this.restBase();
+  }
+
+  // Back up from lying there: a push, her arms coming back out of her, her legs swinging back down
+  // as she sits up past upright, then she settles on her seat. Resolves once she's sitting (at
+  // once if she wasn't lying down).
+  getUp() {
+    const lounge = this.lounge;
+    if (!lounge) return Promise.resolve();
+    lounge.rising ??= this.playLying(lounge, [
+      [2, LIE + 4, { bend: 0.54, head: -0.94, mane: -0.1, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.2, kickR: 0, sy: 0.96, sx: 1.03 }, 0, 'rise'],
+      [2, 40, { bend: 0.3, head: -0.55, mane: 0.12, armL: -0.7, longL: 0.4, armR: -0.2, longR: 0.4, kickL: 0.1, kickR: 0 }, 0.3],
+      [2, 16, { bend: 0.1, head: -0.2, mane: 0.12, armL: -0.55, longL: 0.8, armR: -0.4, longR: 0.8, kickL: 0.06, kickR: 0.04 }, 0.7],
+      [2, -4, { bend: 0, head: 0, mane: 0.12, armL: -0.42, longL: 1, armR: -0.42, longR: 1, kickL: 0.08, kickR: 0.08, sy: 0.96, sx: 1.03 }, 1],
+      [2, 0, { bend: 0, head: 0, mane: 0.05, armL: -0.42, longL: 1, armR: -0.42, longR: 1, kickL: 0.04, kickR: 0.04 }, 1],
+    ]).then((done) => {
+      if (!done) return;
+      this.lounge = null;
+      this.p.sit = 1;
+      this.base = this.restBase();
+    });
+    return lounge.rising;
+  }
+
+  // Lying down or getting up, drawing by drawing ([hold, how far over, pose, how seated, cue]):
+  // false if something else took her over on the way.
+  async playLying(lounge, steps) {
+    for (const [hold, deg, pose, sit, cue] of reducedMotion.matches ? [] : steps) {
+      lounge.angle = deg;
+      this.p.sit = sit;
+      this.override = pose;
+      this.drawFrame();
+      if (cue) this.voice.play(cue);
+      await sleep(hold * ON_ONES);
+      if (this.lounge !== lounge) {
+        if (this.override === pose) this.override = null;
+        return false;
+      }
+    }
+    this.override = null;
+    return true;
   }
 
   // ---------- acting ----------
@@ -596,6 +712,7 @@ export class Capri {
   perform(name, dir = 0, { reach = 1 } = {}) {
     if (this.stowed || this.dormant) return Promise.resolve(); // nobody to act: she's in her biochip, or just her mask
     if (SPUN.has(this.stance) && name !== 'grabbed') return Promise.resolve(); // held, flying or knocked down: not now
+    if (this.lounge && !LYING_ACTS.has(name)) return this.getUp().then(() => this.perform(name, dir, { reach }));
     const act = ACTS[name];
     if (reducedMotion.matches && act.fps === 24) {
       if (act.flip) this.facing *= -1;
@@ -625,6 +742,7 @@ export class Capri {
     if (!SPUN.has(stance)) this.spin = 0;
     if (stance !== 'held') this.held = null;
     if (stance !== 'down') this.lying = null;
+    this.lounge = null;
     this.base = this.restBase(dir);
     this.pivot();
   }
@@ -637,7 +755,7 @@ export class Capri {
   }
 
   baseAct() {
-    if (this.stance === 'sit') return 'sit';
+    if (this.stance === 'sit') return this.lounge ? 'lounge' : 'sit';
     if (this.stance === 'peek') return 'peek';
     if (this.stance === 'fall') return 'fall';
     if (this.stance === 'held') return 'held';
@@ -656,6 +774,7 @@ export class Capri {
     const prev = this.mode;
     this.mode = mode;
     if (mode === 'sleep') this.sleptAt = now;
+    if (mode !== 'idle' && mode !== 'sleep') this.getUp(); // something's going on: no lying around
     this.onMode?.(mode, prev);
     if (this.stance === 'stand') this.base = this.restBase();
     const p = this.p;
@@ -934,6 +1053,7 @@ export class Capri {
           this.fx.burst(x, y, { count: 8, power: 0.35, spread: 16 });
           this.fx.ring(x, y, { size: 0.22 });
           this.voice.play('bolt');
+          this.zapAt.onHit?.(); // a page of another AI: it closes right on the bolt (zapShut)
         }
         break;
       case 'grin':
@@ -1759,6 +1879,7 @@ export class Capri {
         }
         return;
       }
+      this.stroke(e.clientX, e.clientY);
       this.notice(e.clientX, e.clientY);
     });
     window.addEventListener('mouseup', () => {
@@ -2409,6 +2530,34 @@ export class Capri {
     return true;
   }
 
+  // One of their pages in `win`, once she's there (jealous): her arm shoots out at it, red lightning
+  // into the page, and it tears apart as `onHit` closes it, right on the bolt. Resolves to what
+  // onHit said ('' once closed), or 'cut' if something took her over before.
+  async zapShut(win, onHit) {
+    // well into the page, on the side away from her (sitting on it, she's above its middle)
+    const dir = this.pos.x > win.x + win.w / 2 ? -1 : 1;
+    const at = {
+      x: clamp(win.x + win.w * (dir > 0 ? 0.72 : 0.28), 40, this.view.w - 40),
+      y: clamp(win.y + Math.min(win.h * 0.5, 320), 40, this.view.floor - 40),
+    };
+    if (this.hidden || this.stowed || this.dormant || reducedMotion.matches) return onHit();
+    const side = this.armToward(dir);
+    const reach = () => {
+      const sh = this.limb(side).shoulder;
+      return clamp(Math.atan2(sh.y - at.y, Math.abs(at.x - sh.x)) + 0.52, -0.3, 1.6);
+    };
+    const zap = { ...at, side, dir, hit: null };
+    zap.onHit = () => {
+      this.fx.slices(win.x, win.y, win.w, Math.min(win.h, 420), { count: 10, life: 260 });
+      this.fx.crackle(at, { life: 800, radius: 70, count: 4 });
+      zap.hit = onHit();
+    };
+    this.zapAt = zap;
+    await this.perform('zap', dir, { reach });
+    if (this.zapAt === zap) this.zapAt = null;
+    return zap.hit ?? 'cut';
+  }
+
   // Let go of her: onto a ledge if her hips are right at one, otherwise she falls.
   drop() {
     const s = this.scale;
@@ -2425,6 +2574,65 @@ export class Capri {
     }
     if (this.pos.y < this.floor - 2) this.fall();
     else this.perform('land');
+  }
+
+  // Your pointer stroking her mane (no button down), back and forth a few times running: she
+  // leans into it and purrs, her specks glowing (onPet 'start', then 'end' once the strokes stop).
+  // Too long nonstop and she's had enough ('enough'): not again for a while.
+  stroke(x, y) {
+    const now = performance.now();
+    const s = this.scale;
+    const free = !this.busy && !this.dragging && !this.hidden && !this.stowed && !this.dormant && !this.sky
+      && !SPUN.has(this.stance) && this.stance !== 'fall' && now >= this.petRefuseUntil;
+    if (!free || y > this.head().y + 30 * s || !this.hit(x, y)) return;
+    const pet = this.pet;
+    if (!pet) {
+      this.pet = { x, dir: 0, run: 0, turns: 0, last: now, since: 0, purred: 0, end: 0 };
+      return;
+    }
+    const dx = x - pet.x;
+    pet.x = x;
+    if (!dx) return;
+    if (Math.sign(dx) === pet.dir || !pet.dir) {
+      pet.dir = Math.sign(dx);
+      pet.run += Math.abs(dx);
+      return;
+    }
+    // a turn: it counts if that stroke was long enough, and a stroke soon after the last one
+    if (pet.run >= STROKE * s) {
+      pet.turns = now - pet.last <= PET_GAP ? pet.turns + 1 : 1;
+      pet.last = now;
+    }
+    pet.dir = Math.sign(dx);
+    pet.run = Math.abs(dx);
+    if (pet.turns < 3) return;
+    clearTimeout(pet.end);
+    pet.end = setTimeout(() => this.unpet(), PET_GAP + 300);
+    if (!pet.since) {
+      pet.since = now;
+      tween(this.p, { sparkle: 1.7 }, 400, ease.out);
+      this.onPet?.('start');
+    } else if (now - pet.since > PET_ENOUGH) {
+      this.petRefuseUntil = now + 30000;
+      this.unpet();
+      this.onPet?.('enough');
+      return;
+    }
+    if (now - pet.purred > 1500) {
+      pet.purred = now;
+      this.voice.play('purr');
+    }
+    if (this.act?.player.name !== 'petted') this.perform('petted', x < this.pos.x ? -1 : 1);
+  }
+
+  // The strokes stopped (or she's had enough): her specks back to normal.
+  unpet() {
+    const pet = this.pet;
+    this.pet = null;
+    if (!pet?.since) return;
+    clearTimeout(pet.end);
+    tween(this.p, { sparkle: 1 }, 600, ease.inOut);
+    this.onPet?.('end');
   }
 
   // When the pointer comes close she turns around to face it and cocks her head;

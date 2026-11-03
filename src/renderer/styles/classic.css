@@ -1,0 +1,229 @@
+/* ------------------------------------------------------------------
+   Her first windows, "Classique" in her menu (app.js sets data-theme):
+   chamfered plates casting a violet misregistered copy, like her
+   outline, in the palette sampled from the show.
+   Only what differs from the Night City windows of capri.css, loaded
+   after it. :where() keeps each selector as specific as the rule it
+   replaces, so the rest of capri.css still wins where it did.
+------------------------------------------------------------------- */
+
+html[data-theme='classic'] {
+  --ink: oklch(0.17 0.035 300);
+  --ink-2: oklch(0.23 0.045 300);
+  --paper: oklch(0.97 0.012 350);
+  --paper-2: oklch(0.84 0.025 340);
+  --paper-3: oklch(0.66 0.035 320);
+  --red: oklch(0.65 0.245 15);
+  --green: oklch(0.88 0.24 148);
+  --violet: oklch(0.55 0.255 292);
+  --blue: oklch(0.6 0.2 260);
+  --line: oklch(0.97 0.012 350 / 0.08);
+  --cut: 14px;
+}
+
+:where(html[data-theme='classic']) .panel {
+  --accent: var(--violet);
+  filter: drop-shadow(6px 6px 0 var(--violet));
+}
+
+:where(html[data-theme='classic']) .panel[data-kind='work'] { --accent: var(--green); }
+:where(html[data-theme='classic']) .panel[data-kind='done'] { --accent: var(--green); }
+:where(html[data-theme='classic']) .panel[data-kind='alert'] { --accent: var(--red); }
+:where(html[data-theme='classic']) .panel[data-kind='error'] { --accent: var(--red); }
+:where(html[data-theme='classic']) .panel[data-kind='idle'] { --accent: var(--paper-3); }
+:where(html[data-theme='classic']) .panel[data-kind='remind'] { --accent: var(--blue); }
+:where(html[data-theme='classic']) .panel[data-kind='report'] { --accent: var(--green); }
+:where(html[data-theme='classic']) .panel[data-kind='chat'] { --accent: var(--green); }
+
+/* no corner brackets, no outline: the violet copy is on the whole panel */
+:where(html[data-theme='classic']) .panel::before,
+:where(html[data-theme='classic']) .panel::after {
+  content: none;
+}
+
+:where(html[data-theme='classic']) .panel__frame {
+  filter: none;
+}
+
+/* chamfered corners and one jagged bite in the top edge */
+:where(html[data-theme='classic']) .panel__plate {
+  padding: 14px 16px 16px 14px;
+  background: var(--ink);
+  clip-path: polygon(
+    0 var(--cut), var(--cut) 0,
+    61% 0, 63% 7px, 65.5% 0,
+    calc(100% - 30px) 0, 100% 30px,
+    100% 100%, 22px 100%, 0 calc(100% - 22px)
+  );
+}
+
+:where(html[data-theme='classic']) .panel__face {
+  background: var(--violet);
+  clip-path: polygon(14% 0, 100% 0, 100% 80%, 84% 100%, 0 100%, 0 16%);
+}
+
+:where(html[data-theme='classic']) .panel__face img {
+  clip-path: polygon(14% 4%, 96% 4%, 96% 79%, 82% 96%, 4% 96%, 4% 18%);
+}
+
+:where(html[data-theme='classic']) .panel__who {
+  color: var(--paper);
+}
+
+:where(html[data-theme='classic']) .panel__who::before {
+  content: none;
+}
+
+:where(html[data-theme='classic']) .panel__tag {
+  margin-left: 0;
+}
+
+:where(html[data-theme='classic']) .panel__tag:not(:empty)::before {
+  content: '/ ';
+  color: var(--violet);
+}
+
+:where(html[data-theme='classic']) .panel__state {
+  padding: 2px 6px 1px;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+:where(html[data-theme='classic']) .panel__quote {
+  border-left-color: var(--violet);
+}
+
+/* a hard-edged green bar with her violet copy */
+:where(html[data-theme='classic']) .panel__progress {
+  height: 7px;
+  margin: 10px 3px 3px 0;
+  box-shadow: 3px 3px 0 var(--violet);
+  mask: none;
+}
+
+:where(html[data-theme='classic']) .panel__bar {
+  background: var(--green);
+}
+
+:where(html[data-theme='classic']) .panel__reply,
+:where(html[data-theme='classic']) .panel.is-chat .panel__line {
+  scrollbar-color: var(--violet) transparent;
+}
+
+:where(html[data-theme='classic']) .panel__actions {
+  margin: 12px 0 2px;
+}
+
+:where(html[data-theme='classic']) .panel__action {
+  padding: 7px 12px 6px;
+  background: var(--ink-2);
+  box-shadow: none;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+  font-weight: 600;
+  line-height: normal;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+
+:where(html[data-theme='classic']) .panel__action::before {
+  content: none;
+}
+
+:where(html[data-theme='classic']) .panel__action:hover {
+  background: var(--violet);
+  color: var(--paper);
+}
+
+:where(html[data-theme='classic']) .panel__action.is-primary {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+/* capri.css's own, which the button above would otherwise beat, coming after it */
+:where(html[data-theme='classic']) .panel__close {
+  padding-inline: 10px;
+}
+
+:where(html[data-theme='classic']) .panel__report {
+  padding: 10px 12px 9px;
+  border-top: 2px solid var(--accent);
+}
+
+:where(html[data-theme='classic']) .report__head {
+  margin: 0;
+  padding: 0;
+  background: none;
+  color: var(--paper-3);
+}
+
+:where(html[data-theme='classic']) .report__title {
+  color: var(--accent);
+}
+
+:where(html[data-theme='classic']) .report__title::before {
+  content: none;
+}
+
+:where(html[data-theme='classic']) .report__big {
+  text-shadow: 3px 3px 0 var(--violet);
+}
+
+:where(html[data-theme='classic']) .report__sign {
+  color: var(--violet);
+}
+
+:where(html[data-theme='classic']) .snap-plate {
+  background: oklch(0.12 0.03 300);
+}
+
+:where(html[data-theme='classic']) .panel__line.is-glitching {
+  animation-name: line-glitch-classic;
+}
+
+@keyframes line-glitch-classic {
+  0% { text-shadow: -3px 0 var(--red), 3px 0 var(--blue); transform: translateX(2px) skewX(-6deg); clip-path: inset(0 0 55% 0); }
+  14% { text-shadow: 2px 0 var(--red), -2px 0 var(--green); transform: translateX(-3px); clip-path: inset(40% 0 0 0); }
+  28% { text-shadow: -2px 0 var(--red), 2px 0 var(--blue); transform: none; clip-path: none; }
+  46% { text-shadow: 1px 0 var(--violet), -1px 0 var(--green); transform: translateX(1px) skewX(4deg); clip-path: inset(10% 0 20% 0); }
+  62% { text-shadow: none; transform: none; clip-path: none; }
+  78% { text-shadow: -1px 0 var(--red), 1px 0 var(--blue); }
+  100% { text-shadow: none; }
+}
+
+:where(html[data-theme='classic']) .panel__input {
+  padding: 7px 10px 6px;
+  background: var(--ink-2);
+  clip-path: polygon(7px 0, 100% 0, 100% 100%, 0 100%, 0 7px);
+}
+
+:where(html[data-theme='classic']) .panel__input:focus {
+  background: oklch(0.27 0.05 300);
+}
+
+:where(html[data-theme='classic']) .panel__note b {
+  background: var(--violet);
+  color: var(--paper);
+}
+
+/* the ticker: green, its dot red on a failure and violet while Claude thinks */
+:where(html[data-theme='classic']) .ticker {
+  --frame: var(--green);
+  filter: drop-shadow(3px 3px 0 var(--violet));
+}
+
+:where(html[data-theme='classic']) .ticker[data-error='true'],
+:where(html[data-theme='classic']) .ticker[data-thinking='true'] {
+  --frame: var(--green);
+}
+
+:where(html[data-theme='classic']) .ticker__plate {
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+
+:where(html[data-theme='classic']) .ticker[data-error='true'] .ticker__dot {
+  background: var(--red);
+}
+
+:where(html[data-theme='classic']) .ticker[data-thinking='true'] .ticker__dot {
+  background: var(--violet);
+}

@@ -8,7 +8,7 @@ import { rand, pick } from './util.js';
 const BLIP_NOTES = [62, 65, 67, 69, 72, 74, 77, 79];
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
-export const CUES = ['teleport-out', 'teleport-in', 'done', 'alert', 'error', 'hello', 'blip', 'tick', 'star', 'land', 'rise', 'bolt', 'charge', 'possess', 'throw', 'crash', 'remind', 'jealous'];
+export const CUES = ['teleport-out', 'teleport-in', 'done', 'alert', 'error', 'hello', 'blip', 'tick', 'star', 'land', 'rise', 'bolt', 'charge', 'possess', 'throw', 'crash', 'remind', 'jealous', 'purr'];
 
 export class Voice {
   constructor() {
@@ -92,6 +92,7 @@ export class Voice {
       crash: () => this.crash(opts.power ?? 0.6),
       remind: () => this.remind(),
       jealous: () => this.hiss(),
+      purr: () => this.purr(),
     }[cue];
     fn?.();
   }
@@ -160,6 +161,32 @@ export class Voice {
     this.osc('square', f, t, 0.035, 0.035);
     this.osc('triangle', f * 1.498, t + 0.004, 0.03, 0.025); // a fifth up
     this.osc('square', f * 0.501, t + 0.008, 0.03, 0.018);   // an octave down, slightly off
+  }
+
+  // petted: a purr, a low buzz trembling twenty-odd times a second, swelling and fading
+  purr() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(rand(54, 62), t);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    const trem = ctx.createGain();
+    trem.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = rand(21, 25);
+    const depth = ctx.createGain();
+    depth.gain.value = 0.5;
+    lfo.connect(depth).connect(trem.gain);
+    const g = ctx.createGain();
+    this.env(g, t, 0.12, 0.22, 0.95);
+    o.connect(lp).connect(trem).connect(g).connect(this.master);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + 1.15);
+    lfo.stop(t + 1.15);
   }
 
   tick() {

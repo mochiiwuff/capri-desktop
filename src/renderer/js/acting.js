@@ -12,6 +12,7 @@
 //   long    that same arm drawn longer than it is, 1 = as drawn (longL / longR for one arm)
 //   smear   [x, y] trail of head multiples, px     echo   [x, y] green/red afterimages, px
 //   kickL / kickR   lower legs swinging outward, radians (when sitting)
+//   bend    bent at the hips, radians: the legs swing toward the left of the cut-out (lying back)
 //
 // A key can carry a cue as third item: capri.js fires effects and sounds when it's reached.
 // Directional acts are drawn leaning to screen-right; played with dir -1 they're mirrored.
@@ -22,7 +23,7 @@ const rep = (n, keys) => Array.from({ length: n }, () => keys).flat();
 
 export const NEUTRAL = {
   head: 0, mane: 0, hair: 0, tilt: 0, bob: 0, sx: 1, sy: 1, armL: 0, armR: 0, longL: 1, longR: 1,
-  smear: [0, 0], echo: [0, 0], kickL: 0, kickR: 0,
+  smear: [0, 0], echo: [0, 0], kickL: 0, kickR: 0, bend: 0,
 };
 
 export const ACTS = {
@@ -51,6 +52,24 @@ export const ACTS = {
       [2, { kickL: 0.08, kickR: 0.08, arms: -0.42 }],
       [5, { kickL: -0.03, kickR: 0.24, hair: 1.5, arms: -0.42 }],
       [10, { kickL: 0.04, kickR: 0.04, head: 0.08, arms: -0.4 }], // a pause, head cocked
+    ],
+  },
+
+  // lying back on her ledge (capri.js turns her): propped up on her side, bent at the hips so her
+  // legs lie along it, head up, arms tucked in against her (drawn to nothing). Barely moving: her
+  // mane rising and settling as she breathes, her head lolling a little, her top leg drawn up
+  // now and then and let down again.
+  lounge: {
+    loop: true,
+    keys: [
+      [20, { bend: 0.52, head: -0.9, mane: -0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, hair: -1 }],
+      [20, { bend: 0.52, head: -0.92, mane: 0.04, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, hair: 1 }],
+      [14, { bend: 0.52, head: -0.8, mane: -0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, hair: -1 }],
+      [20, { bend: 0.52, head: -0.84, mane: 0.04, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, hair: 1 }],
+      [3, { bend: 0.52, head: -0.88, mane: 0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.36 }],
+      [12, { bend: 0.52, head: -0.9, mane: 0.03, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.46 }],
+      [3, { bend: 0.52, head: -0.9, mane: 0, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.33 }],
+      [20, { bend: 0.52, head: -0.92, mane: -0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, hair: -1 }],
     ],
   },
 
@@ -420,6 +439,22 @@ export const ACTS = {
     ],
   },
 
+  // a stretch on the ledge: hunched first, then both arms flung up over her head and held there,
+  // head back, the mane bristling, legs out; then they drop and she slumps with a sigh
+  stretch: {
+    priority: 1,
+    keys: [
+      [3, { arms: -0.55, head: 0.08, mane: -0.1, sy: 0.95, sx: 1.04 }],
+      [1, { arms: 1.2, head: -0.04, mane: 0.18, sy: 1.06, sx: 0.96, smear: [0, -10] }],
+      [2, { arms: 1.8, head: -0.12, mane: 0.3, sy: 1.08, sx: 0.95, kickL: 0.22, kickR: 0.22 }],
+      [12, { arms: 1.92, head: -0.15, mane: 0.36, sy: 1.09, sx: 0.94, kickL: 0.26, kickR: 0.26 }],
+      [2, { arms: 1.86, head: -0.13, mane: 0.32, sy: 1.08, sx: 0.95, kickL: 0.2, kickR: 0.2 }],
+      [1, { arms: 0.7, mane: 0.1, smear: [0, 8] }],
+      [3, { arms: -0.5, head: 0.1, mane: -0.16, sy: 0.95, sx: 1.04 }],
+      [4, { arms: -0.42, head: 0.05, mane: -0.08 }],
+    ],
+  },
+
   // while falling: stretched, mane blown up, arms flailing every other drawing
   fall: {
     loop: true,
@@ -571,6 +606,24 @@ export const ACTS = {
   },
 
   // sulking: head turned away from you, mane down, arms in
+  // Petted: she leans her head into your hand, a little squashed with it, her mane bristling and
+  // settling on threes, held while the strokes go on
+  petted: {
+    priority: 1,
+    directional: true,
+    keys: [
+      [2, { head: 0.1, mane: 0.12, tilt: 1, sy: 0.98, sx: 1.01 }],
+      [3, { head: 0.22, mane: 0.22, tilt: 2.5, sy: 0.96, sx: 1.03, bob: 2 }],
+      [3, { head: 0.24, mane: 0.15, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [3, { head: 0.23, mane: 0.24, tilt: 2.6, sy: 0.965, sx: 1.025, bob: 2 }],
+      [3, { head: 0.25, mane: 0.15, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [3, { head: 0.23, mane: 0.23, tilt: 2.6, sy: 0.965, sx: 1.025, bob: 2 }],
+      [3, { head: 0.24, mane: 0.16, tilt: 3, sy: 0.96, sx: 1.03, bob: 3 }],
+      [2, { head: 0.12, mane: 0.08, tilt: 1.2 }],
+      [1, {}],
+    ],
+  },
+
   huff: {
     priority: 2,
     directional: true,

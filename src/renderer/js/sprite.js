@@ -30,6 +30,7 @@ uniform float uArmR;
 uniform float uLongL;
 uniform float uLongR;
 uniform float uSit;
+uniform float uBend;
 uniform float uKickL;
 uniform float uKickR;
 uniform vec2 uSmear;
@@ -174,8 +175,16 @@ vec2 armRight(vec2 q) { return stretchArm(mirrorArm(rot(q, SHOULDER_R, uArmR)), 
 
 bool legsRigged() { return uSit > 0.0 || uKickL != 0.0 || uKickR != 0.0; }
 
+// Bent at the hips (lying back on one arm): her legs swung around her hip, toward the left of the
+// cut-out for a positive bend, easing in over the waist so nothing tears.
+vec2 hips(vec2 q) {
+  if (uBend == 0.0) return q;
+  return rot(q, vec2(AXIS, HIP), -uBend * smoothstep(HIP - 16.0, HIP + 8.0, q.y));
+}
+
 // Everything but the arms, with each lower leg swung on its knee (outward for positive kicks).
 vec4 torso(vec2 q) {
+  q = hips(q);
   if (!legsRigged()) return armL(q) > 0.0 ? vec4(0.0) : cel(q);
   float kneeY = HIP + (KNEE - HIP) * thighScale();
   vec2 qB = unsit(q);
@@ -198,8 +207,10 @@ float armAlpha(vec2 q) {
 
 // The head and mane acting, on the body only: an arm raised up into the mane stays straight.
 vec2 bend(vec2 q) {
-  // head tilt: everything above the collar bends around the neck, the body stays put
-  q = rot(q, NECK, -uHead * smoothstep(162.0, 138.0, q.y));
+  // head tilt: everything above the collar bends around the neck, the body stays put. So do the
+  // tips of the mane hanging down on either side of her shoulders: they belong to the head.
+  float tips = smoothstep(26.0, 40.0, abs(q.x - AXIS)) * smoothstep(195.0, 175.0, q.y);
+  q = rot(q, NECK, -uHead * max(smoothstep(162.0, 138.0, q.y), tips));
 
   // mane flare: the shards bristle outward, unevenly, around a rigid face
   if (uMane != 0.0) {
@@ -314,7 +325,7 @@ void main() {
 
 const UNIFORMS = [
   'uView', 'uPad', 'uTex', 'uSize', 'uSeed', 'uBoil', 'uHair', 'uHead', 'uMane', 'uArmL', 'uArmR', 'uLongL', 'uLongR',
-  'uSit', 'uKickL', 'uKickR',
+  'uSit', 'uBend', 'uKickL', 'uKickR',
   'uSmear', 'uEcho', 'uGlitch', 'uGlitchSeed',
   'uSplit', 'uCollapse', 'uDissolve', 'uSparkle', 'uGrade', 'uSil', 'uMisreg', 'uRim', 'uAlpha', 'uPx',
 ];
@@ -427,6 +438,7 @@ export class SpriteRenderer {
     gl.uniform1f(u.uLongL, s.longL);
     gl.uniform1f(u.uLongR, s.longR);
     gl.uniform1f(u.uSit, s.sit);
+    gl.uniform1f(u.uBend, s.bend);
     gl.uniform1f(u.uKickL, s.kickL);
     gl.uniform1f(u.uKickR, s.kickR);
     gl.uniform2f(u.uSmear, s.smear[0], s.smear[1]);

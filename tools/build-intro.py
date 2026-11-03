@@ -1,7 +1,8 @@
 """Builds her intro's close-ups in assets/capri/: her holding the screen by its edges, cut out of
 their red background. What stays: her figure (everything that isn't the mane's hot red, only
-what's joined to her) and a jagged burst of mane around her head; the rest is see-through, so
-your desktop shows around her. Every drawing is cut the same way, so they can be swapped like
+what's joined to her); the rest is see-through, so your desktop shows around her. Her mane isn't
+in them: fx.js draws it behind her (GRAB.mane), as big as it is in the show, past the top of the
+picture, which would cut it flat. Every drawing is cut the same way, so they can be swapped like
 cels: `grab` is her at rest (both hands on the edges, mouth shut), the others are the same picture
 with only her mouth, her eyes or her right arm changed (fx.js GRAB_FRAMES), and only that change is taken
 from them (CHANGES), so nothing else shimmers when they're swapped. fx.js knows where her face,
@@ -13,8 +14,11 @@ update it. Give `grab` along with the others.
         happy=eyes-shut.webp
 
 writes assets/capri/intro-<name>.webp for each. Needs Pillow.
+
+    python tools/build-intro.py --recut
+
+cuts the pictures already in assets/capri/ again, without their sources (after a change to cut).
 """
-import math
 import random
 import sys
 from pathlib import Path
@@ -27,6 +31,7 @@ HEAD = (830, 330)   # the middle of her mane burst
 BODY = (836, 600)   # a point on her, to keep only what's joined to her
 BELLY = (980, 760)  # a point on her belly: red like the mane, but hers (see belly)
 BELLY_MAX = 330     # wider than this, a run of red isn't her belly any more (it's the background)
+CHEST = (850, 560, 1150, 941)  # her chest and belly: the same in every drawing (see whole)
 # where each kind of drawing changes her (by the start of its name): only that is taken from it,
 # the rest from `grab` (see settled). A kind not listed is taken whole.
 CHANGES = {
@@ -124,7 +129,8 @@ def framed(path):
     return out
 
 
-def cut(im):
+def cut(im, keep=None):
+    """Her figure out of `im`. `keep`: the cut of an earlier build (recut), to stay within."""
     w, h = im.size
     px = im.load()
 
@@ -136,6 +142,8 @@ def cut(im):
             r, g, b = px[x, y]
             fp[x, y] = 0 if (r > 170 and g < 140 and b < 190 and r - g > 90) else 255
     # no speckle holes, no islands (the white specks of the mane's texture)
+    if keep is not None:
+        fig = ImageChops.multiply(fig, keep)
     fig = fig.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
     fig = fig.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
     ImageDraw.floodfill(fig, BODY, 128)
@@ -144,32 +152,34 @@ def cut(im):
     # sides (between her ribs, by the zigzags on her belly); a pixel of give so no seam shows
     fig = ImageChops.lighter(fig, ImageChops.lighter(belly(fig), pockets(fig)).filter(ImageFilter.MaxFilter(3)))
 
-    # a burst of mane around her head: long spikes and short ones, like her shards (the same one
-    # for every drawing). Its upper spikes squeezed down so they end inside the picture: a spike
-    # cut flat by the picture's top edge shows as a straight line once she lets go and drops.
-    random.seed(7)
-    pts = []
-    n = 26
-    up = (HEAD[1] - 10) / 600
-    for i in range(n * 2):
-        a = (i / (n * 2)) * math.tau + random.uniform(-0.04, 0.04)
-        r = random.uniform(430, 600) if i % 2 == 0 else random.uniform(250, 330)
-        dy = math.sin(a) * r
-        pts.append((HEAD[0] + math.cos(a) * r * 1.25, HEAD[1] + (dy * up if dy < 0 else dy)))
-    burst = Image.new('L', (w, h), 0)
-    ImageDraw.Draw(burst).polygon(pts, fill=255)
-
     # whatever of her reaches the picture's top edge (the spikes of her head) ends in jags instead
-    top = Image.new('L', (w, h), 255)
-    jags = [(x, random.uniform(6, 30)) for x in range(0, w + 40, 40)]
-    ImageDraw.Draw(top).polygon([(0, 0), *jags, (w, 0)], fill=0)
+    # (a recut has them already)
+    if keep is not None:
+        top = keep
+    else:
+        random.seed(7)
+        top = Image.new('L', (w, h), 255)
+        jags = [(x, random.uniform(6, 30)) for x in range(0, w + 40, 40)]
+        ImageDraw.Draw(top).polygon([(0, 0), *jags, (w, 0)], fill=0)
 
     # a little softness on the cut, then hard again: clean edges, no stair steps
-    alpha = ImageChops.multiply(ImageChops.lighter(fig, burst), top).filter(ImageFilter.GaussianBlur(1.2))
+    alpha = ImageChops.multiply(fig, top).filter(ImageFilter.GaussianBlur(1.2))
     alpha = alpha.point(lambda v: 0 if v < 60 else (255 if v > 190 else int((v - 60) * 255 / 130)))
     out = im.convert('RGBA')
     out.putalpha(alpha)
     return unfringe(out)
+
+
+def whole(base, im):
+    """`im` (a cut drawing) with whatever of her chest and belly its picture lost taken from `base`
+    (the cut of `grab`): the smear's came out with a hole where her belly is."""
+    hole = ImageChops.multiply(
+        im.getchannel('A').point(lambda v: 255 if v < 128 else 0),
+        base.getchannel('A').point(lambda v: 255 if v >= 128 else 0),
+    )
+    inside = Image.new('L', im.size, 0)
+    ImageDraw.Draw(inside).rectangle(CHEST, fill=255)
+    return Image.composite(base, im, ImageChops.multiply(hole, inside))
 
 
 def settled(base, im, box):
@@ -189,18 +199,36 @@ def settled(base, im, box):
     return Image.composite(im, base, changed)
 
 
+def recut():
+    base = None
+    for path in sorted(OUT.glob('intro-*.webp'), key=lambda p: p.stem != 'intro-grab'):  # grab first
+        im = Image.open(path).convert('RGBA')
+        keep = im.getchannel('A').point(lambda v: 255 if v > 128 else 0)
+        out = cut(im.convert('RGB'), keep)
+        out = out if base is None else whole(base, out)
+        base = base or out
+        out.save(path, 'WEBP', quality=95, method=6)
+        print('written', path)
+
+
 def main():
+    if sys.argv[1:] == ['--recut']:
+        return recut()
     pairs = [arg.split('=', 1) for arg in sys.argv[1:]]
     if not pairs or any(len(p) != 2 for p in pairs):
         sys.exit(__doc__)
     sources = {name: framed(path) for name, path in pairs}
     base = sources.get('grab')
+    grab = cut(base) if base is not None else None
     for name, im in sources.items():
         box = next((b for kind, b in CHANGES.items() if name.startswith(kind)), None)
         if base is not None and name != 'grab' and box:
             im = settled(base, im, box)
+        out = grab if name == 'grab' else cut(im)
+        if grab is not None and name != 'grab':
+            out = whole(grab, out)
         target = OUT / f'intro-{name}.webp'
-        cut(im).save(target, 'WEBP', quality=95, method=6)
+        out.save(target, 'WEBP', quality=95, method=6)
         print('written', target)
 
 

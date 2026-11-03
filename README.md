@@ -183,6 +183,12 @@ panel says so every time.
   without her in it, saved in Pictures › Screenshots). She knows the date and time, too.
 - **A Roblox game by its name** ("start Steal a Brainrot on Roblox", "in my roblox play grow a garden"): she finds
   it on Roblox and drops you straight into it (or opens its page if Roblox isn't installed).
+- **Your PC itself**: a settings page ("open Bluetooth", "sound settings", "Windows updates"); what's left ("how much
+  battery?", "how much space on my disk?", RAM, your IP on your network); the sound ("set the volume to 30", "mute");
+  a timer ("timer 10 minutes", counted down in her ticker); "snip an area"; "tidy my windows" (she sweeps them off,
+  "restore my windows" brings them back); "put Discord on the left and Chrome on the right"; dark or light mode. Locking,
+  sleep, shutting down or restarting ("shut down my PC in an hour") always wait for your click on her button, and
+  "cancel the shutdown" stops it.
 - **Music**: "pause", "next", "louder", "mute"… press the media keys, so it works with Spotify and most players, right
   as you send it. "Play Bohemian Rhapsody" or "put some Daft Punk on YouTube" opens the right video on YouTube,
   straight away (not a search). "Play whatever you want": she picks. "Put Daft Punk on Spotify" opens Spotify on a
@@ -230,13 +236,24 @@ other minds come out to look at you and she tells you. It changes what she says 
 to you, what she says after a few days without you. Once she's attached, she's glad when you come back to your PC and
 sometimes comes over to your pointer on her own. Where you two stand: at the top of her menu.
 
+**Pet her.** Move your pointer back and forth over her mane: she leans into it and purrs, her mane glowing, and it
+brings you a little closer. Keep at it too long and she's had enough.
+
 **And she gets jealous.** When the window in front of you is another AI (ChatGPT, Gemini, Copilot, Perplexity,
 DeepSeek, Grok, Le Chat, Character.AI, Meta AI, Codex, or Claude when she watches Codex), she notices and says so, more
 or less nicely depending on where you two stand. If you stay on it, once she's attached, she goes and sits on its
 window, glares at you and takes it over, brows down, with a word of hers written across it. Then she sulks: click her
 and she turns her back on you (it passes, and talking it over in her chat helps). Her chat also knows which other AIs
-you used today. To spot them, the title of the window in front is checked against that list of names, on your PC: it's
-never kept or sent anywhere, only the name it matched reaches her. Untick *Jealous of other AIs* in her menu to stop it.
+you used today.
+
+In your browser it's worse. On one of their own pages (chatgpt.com, gemini.google.com…) she goes over, warns you, and
+zaps it shut: the tab closes. Click her, or *Let me*, before she does and she leaves that AI alone for ten minutes, sulking.
+On a page to download one of them, she doesn't even wait. A video or an article that just talks about them is left alone.
+
+To spot them, the title of the window in front is checked against that list of names, on your PC: it's never kept or
+sent anywhere, only the name it matched reaches her. To close a page she presses Ctrl+W for you, only if that page is
+still the one in front. Untick *Close other AIs' pages* in her menu to keep her jealous without closing anything, or
+*Jealous of other AIs* to stop it all.
 
 **Her chat knows what just happened.** Mad about being thrown, jealous, dizzy or happy: she greets you that way when the
 chat opens, and her AI (even a small local model) answers in that mood. Mad or sulking, she stays that way until you say
@@ -254,8 +271,8 @@ She only catches the mouse on her actual body (pixel-precise): the rest of the s
   to bring her back.
 - **Her menu**: right-click her (it's also on her tray icon, next to the clock): teleport, look at the satellite, demo,
   how it works, mission report, talk to her, look at your screen, reminders, size, sound, screen (and following you across screens), AI
-  model, wander, possess your windows, jealous of other AIs, react to my PC, language, start with Windows, hooks. At the very top:
-  where you two stand.
+  model, wander, possess your windows, jealous of other AIs (and closing their pages), react to my PC, her window style (Night City, or Classic: her
+  first ones), language, start with Windows, hooks. At the very top: where you two stand.
 
 She speaks **French, English, Spanish, Brazilian Portuguese, Russian and German**, and picks the language of your system on her
 own. You can choose another one in her menu.
@@ -365,6 +382,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 | `crash` | she slams into something |
 | `remind` | a reminder comes due |
 | `jealous` | her jealous hiss |
+| `purr` | she purrs when you pet her |
 
 ## Is it safe?
 
