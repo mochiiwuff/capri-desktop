@@ -183,7 +183,16 @@ function act(req = {}, { display } = {}) {
     case 'theme': return theme(Boolean(req.dark));
     case 'power': return power(String(req.what), Number(req.seconds) || 0);
     default: return null;
-  }
-}
+ipcMain.handle('sistema:executar', async (event, cmd) => {
+    const { exec } = require('child_process');
+    return new Promise((resolve, reject) => {
+        exec(cmd, (error, stdout, stderr) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+            resolve(stdout ? stdout : stderr);
+        });
+    });
 
 module.exports = { act, SETTINGS };
