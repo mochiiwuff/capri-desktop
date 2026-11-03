@@ -2,7 +2,8 @@
 
 // Opening things when you ask her to (chat.js): an app from the Start menu (Store apps like Spotify
 // included), a Steam or Epic game, your music (the media keys: pause, next…, so it works with
-// Spotify and most players), a Spotify search, or a website. Windows only.
+// Spotify and most players), a Spotify search, or a website. On Linux: the apps of your menu (their
+// .desktop files), Steam, your folders, and the players through MPRIS (playerctl).
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,6 +13,7 @@ const { app, shell } = require('electron');
 const { powershell } = require('./apps');
 
 const WIN = process.platform === 'win32';
+const LINUX = process.platform === 'linux';
 // not things to open from a chat: uninstallers, help pages and the like
 const SKIP = /uninstall|désinstaller|desinstalar|deinstall|readme|documentation|release notes|support center|website|manual/i;
 const STEAM_SKIP = /redistributable|dedicated server|steamworks/i;
@@ -27,6 +29,7 @@ const words = (text) => plain(text).split(/[^\p{L}\p{N}]+/u).filter((w) => w.len
 // Everything she can open: [{ name, kind: 'app' | 'steam' | 'epic', id }]
 async function launchables() {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.items;
+  if (LINUX) return linuxLaunchables();
   if (!WIN) return [];
   const items = [];
   const seen = new Set();
@@ -45,6 +48,78 @@ async function launchables() {
   }
   if (out !== null) cache = { at: Date.now(), items }; // a list that failed isn't kept: next time, again
   return items;
+}
+
+// Linux: Steam's games, then the apps of your menu, from the .desktop files in your data folders
+// (the ones NixOS puts in your profile included). Hidden entries and the ones not for this desktop skip.
+function linuxLaunchables() {
+  const items = [];
+  const seen = new Set();
+  const add = (item) => {
+    const key = words(item.name).join(' ');
+    if (!key || seen.has(key) || SKIP.test(item.name)) return;
+    seen.add(key);
+    items.push(item);
+  };
+  for (const game of steamGames(linuxSteamRoot())) add(game);
+  const home = app.getPath('home');
+  const dataDirs = [
+    process.env.XDG_DATA_HOME || path.join(home, '.local', 'share'),
+    ...(process.env.XDG_DATA_DIRS || '/usr/local/share:/usr/share').split(':'),
+    path.join(home, '.nix-profile', 'share'), '/run/current-system/sw/share', '/var/lib/flatpak/exports/share',
+    path.join(home, '.local', 'share', 'flatpak', 'exports', 'share'),
+  ];
+  const desktop = (process.env.XDG_CURRENT_DESKTOP || '').split(':').filter(Boolean);
+  const ids = new Set(); // the first file with an id wins, like your menu does
+  for (const dir of dataDirs) {
+    const appsDir = path.join(dir, 'applications');
+    let files = [];
+    try {
+      files = fs.readdirSync(appsDir).filter((f) => f.endsWith('.desktop'));
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      if (ids.has(file)) continue;
+      ids.add(file);
+      const entry = desktopEntry(path.join(appsDir, file));
+      if (!entry || entry.Type !== 'Application' || !entry.Name || !entry.Exec) continue;
+      if (/^true$/i.test(entry.NoDisplay || '') || /^true$/i.test(entry.Hidden || '')) continue;
+      if (entry.OnlyShowIn && !entry.OnlyShowIn.split(';').some((d) => desktop.includes(d))) continue;
+      if (entry.NotShowIn && entry.NotShowIn.split(';').some((d) => desktop.includes(d))) continue;
+      add({ name: entry.Name, kind: 'app', id: path.join(appsDir, file) });
+    }
+  }
+  cache = { at: Date.now(), items };
+  return items;
+}
+
+// the [Desktop Entry] group of a .desktop file: { Name, Exec, Type, NoDisplay… } (untranslated keys)
+function desktopEntry(file) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+  const entry = {};
+  let inside = false;
+  for (const line of text.split('\n')) {
+    const group = /^\[(.+)\]\s*$/.exec(line);
+    if (group) {
+      inside = group[1] === 'Desktop Entry';
+      continue;
+    }
+    const kv = inside && /^([A-Za-z]+)\s*=\s*(.*)$/.exec(line);
+    if (kv && !(kv[1] in entry)) entry[kv[1]] = kv[2].trim();
+  }
+  return entry;
+}
+
+function linuxSteamRoot() {
+  const home = app.getPath('home');
+  return [path.join(home, '.local', 'share', 'Steam'), path.join(home, '.steam', 'steam')]
+    .find((dir) => fs.existsSync(path.join(dir, 'steamapps'))) || null;
 }
 
 function steamRoot() {
@@ -132,7 +207,7 @@ function match(items, text) {
 
 // What's on your desktop (yours and the shared one): files, folders and shortcuts, by name.
 function desktopItems() {
-  const dirs = [app.getPath('desktop'), path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop')];
+  const dirs = [app.getPath('desktop'), ...(WIN ? [path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'Desktop')] : [])];
   const items = [];
   for (const dir of dirs) {
     let entries = [];
@@ -151,7 +226,7 @@ function desktopItems() {
 }
 
 // files that run something: never opened without a click, even named by you
-const RUNS = /\.(exe|bat|cmd|ps1|vbs|vbe|js|jse|wsf|wsh|msi|msp|reg|scr|com|jar|hta|cpl|pif)$/i;
+const RUNS = /\.(exe|bat|cmd|ps1|vbs|vbe|js|jse|wsf|wsh|msi|msp|reg|scr|com|jar|hta|cpl|pif|sh|bash|zsh|fish|py|pl|rb|desktop|appimage|run|bin)$/i;
 const risky = (item) => item?.kind === 'file' && RUNS.test(item.id);
 
 // Folders asked for by what they are ("ouvre mes téléchargements", "open the file explorer").
@@ -171,7 +246,11 @@ function knownFolder(text) {
   return hit ? { name: hit[0], kind: 'known', id: hit[0] } : null;
 }
 
+const detached = (cmd, args) => spawn(cmd, args, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
+
 function openKnown(id) {
+  if (!WIN && id === 'explorer') return shell.openPath(app.getPath('home'));
+  if (!WIN && id === 'recycle') return detached('gio', ['open', 'trash:///']);
   if (id === 'explorer') return spawn('explorer.exe', [], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   if (id === 'recycle') return spawn('explorer.exe', ['shell:RecycleBinFolder'], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   return shell.openPath(app.getPath(id));
@@ -201,7 +280,8 @@ async function launch({ kind, id } = {}) {
   if (!item) throw new Error('not found');
   if (kind === 'steam') return shell.openExternal(`steam://rungameid/${id}`);
   if (kind === 'epic') return shell.openExternal(`com.epicgames.launcher://apps/${encodeURIComponent(id)}?action=launch&silent=true`);
-  spawn('explorer.exe', [`shell:AppsFolder\\${id}`], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
+  if (LINUX) detached('gio', ['launch', id]); // its .desktop file, the way your menu starts it
+  else detached('explorer.exe', [`shell:AppsFolder\\${id}`]);
   return undefined;
 }
 
@@ -212,7 +292,19 @@ const MEDIA = { pause: [0xb3, 1], play: [0xb3, 1], next: [0xb0, 1], previous: [0
 const KEY_DOWN = 1; // KEYEVENTF_EXTENDEDKEY
 const KEY_UP = 3;   // ...and KEYEVENTF_KEYUP
 
+// Linux: the players through MPRIS (playerctl: Spotify, browsers, most players), the volume
+// through PipeWire (wpctl).
+const LINUX_MEDIA = {
+  pause: ['playerctl', ['pause']], play: ['playerctl', ['play']], next: ['playerctl', ['next']],
+  previous: ['playerctl', ['previous']], volup: ['wpctl', ['set-volume', '-l', '1', '@DEFAULT_AUDIO_SINK@', '10%+']],
+  voldown: ['wpctl', ['set-volume', '@DEFAULT_AUDIO_SINK@', '10%-']], mute: ['wpctl', ['set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle']],
+};
+
 async function media(action) {
+  if (LINUX && LINUX_MEDIA[action]) {
+    const [cmd, args] = LINUX_MEDIA[action];
+    return new Promise((resolve) => execFile(cmd, args, { timeout: 5000 }, (err) => resolve(!err)));
+  }
   if (!WIN || !MEDIA[action]) return false;
   const [key, times] = MEDIA[action];
   return powershell(
