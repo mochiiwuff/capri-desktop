@@ -93,6 +93,7 @@ async function boot() {
     fx,
     voice,
   });
+  capri.alwaysPickable = Boolean(config.pointerPolling);
   capri.wander = config.wander;
   capri.possessWindows = config.possess;
   capri.restOn = config.rest || 'corner';
@@ -122,6 +123,7 @@ async function boot() {
   // X11's input shape receives clicks even while the rest of the overlay is click-through.
   if (config.pointerPolling) {
     let lastRegions = '';
+    let sentAt = 0;
     setInterval(() => {
       const regions = [];
       const add = r => {
@@ -140,7 +142,10 @@ async function boot() {
         add(panel.rect());
       }
       const encoded = JSON.stringify(regions);
-      if (encoded !== lastRegions) { host.setInputRegions(regions); lastRegions = encoded; }
+      // Native window changes can replace the input shape even if the UI has not moved.
+      if (encoded !== lastRegions || performance.now() - sentAt >= 500) {
+        host.setInputRegions(regions); lastRegions = encoded; sentAt = performance.now();
+      }
     }, 50);
   }
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
@@ -204,6 +209,7 @@ async function boot() {
     host.rearm();
   }, WATCH_MS);
   window.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable="true"]')) return;
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();
   });

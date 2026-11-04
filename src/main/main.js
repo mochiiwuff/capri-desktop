@@ -151,8 +151,10 @@ function fitOverlay() {
 // clicked anymore. Off then on puts in a new one; her place on top and her size are set again too.
 function rearmOverlay() {
   if (!overlay || overlay.isDestroyed()) return;
-  overlay.setIgnoreMouseEvents(false);
-  overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (!inputRegionHelper) {
+    overlay.setIgnoreMouseEvents(false);
+    overlay.setIgnoreMouseEvents(true, { forward: true });
+  }
   overlay.setAlwaysOnTop(true, 'screen-saver');
   fitOverlay();
   sendCommand('rearmed'); // click-through again: she waits for the pointer to be on her
@@ -183,7 +185,8 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // Linux cannot toggle focusability later with setFocusable().
+    focusable: process.platform === 'linux',
     hasShadow: false,
     alwaysOnTop: true,
     type: process.platform === 'win32' ? 'toolbar' : undefined,
@@ -223,6 +226,14 @@ function createOverlay() {
   overlay.once('ready-to-show', () => {
     fitOverlay();
     overlay.showInactive();
+  });
+  overlay.webContents.on('context-menu', (_e, params) => {
+    if (!params.isEditable) return;
+    Menu.buildFromTemplate([
+      { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+      { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
+      { type: 'separator' }, { role: 'selectAll' },
+    ]).popup({ window: overlay });
   });
   overlay.webContents.on('render-process-gone', (_e, details) => {
     console.error('[capri] renderer gone:', details.reason);
@@ -896,8 +907,8 @@ function registerIpc() {
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
-    overlay.setFocusable(Boolean(on));
-    if (on) overlay.focus();
+    if (process.platform !== 'linux') overlay.setFocusable(Boolean(on));
+    if (on) { overlay.focus(); overlay.webContents.focus(); }
     else overlay.blur();
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
