@@ -53,3 +53,5 @@ Updated: 2026-11-04
 - User reported that no character appeared on KDE Wayland. Reproduced an invisible sprite with WebGL uniform `uAlpha=0` after the intro. A slow frame can jump past the intro landing cue and expire the effect before its promise resolves, leaving the character invisible.
 - Fixed `src/renderer/js/fx.js` so expiry resolves the intro as well as its normal landing cue. A clean software-rendered X11 test proceeded to `uAlpha=1` and a renderer capture showed the character; a separate native Wayland test also reached `uAlpha=1`. Actual compositor appearance and mouse interaction on the user's running instance remain to be confirmed after restart.
 - `npm run test:hooks` passed 5/5; `git diff --check` passed. Rebuilding the AppImage. The previously running AppImage process must be closed and the rebuilt file launched again to load the fix.
+
+- The rebuilt AppImage finished successfully and, when launched with an isolated profile on Wayland, its character WebGL alpha reached 1. The fix was pushed as `690b253`. User confirmation of visibility and interaction on their desktop is still pending.
