@@ -42,3 +42,8 @@ Updated: 2026-11-04
 - Launched the AppImage with `--appimage-extract-and-run` using an isolated test configuration. DevTools inspection confirmed the renderer reached `complete`, a previously selected `th` survived stopping the source app and launching the AppImage, the document language was `th`, and the Thai font reported loaded. This is not a visual inspection or proof of click-through and layout.
 - After a structural placeholder audit, restored `{name}` and `{rival}` where missing. A rebuilt AppImage is in progress. Existing hook suite passed 5/5 again, and `git diff --check` passed. npm reports 15 moderate advisories; not remediated in this task.
 - Remaining: visual/manual test of the character, menus, Thai tone/line layout and Wayland click-through; live AI conversation with an available provider; Thai intent parsing; Linux feature audit. Window tracking/possession and many PC actions remain Windows-only. Build warning: desktopName not configured; integration with a desktop launcher is unverified.
+
+## Checkpoint 6
+
+- AppImage rebuild after placeholder fixes succeeded. Checkpoint `c225dfc` verified on GitHub. `ollama` is installed but its local server was not running and no local model manifests were found; a real AI chat was not tested. No model was downloaded.
+- Remaining validation and Linux limitations from checkpoint 5 still apply. The AppImage remains local in `dist/` (gitignored); source and progress are pushed to the fork branch.
