@@ -1922,6 +1922,7 @@ const OTHERS = {
     name: 'Codex', file: 'hooks.json', dir: '.codex',
     // before the click, and after it
     ask: {
+      th: 'ให้ฉันเชื่อมกับ Codex ไหม? จากนั้นเปิด Codex ใหม่และอนุญาต hooks เมื่อระบบถาม',
       en: 'Want me to plug into Codex? One click, then restart Codex and trust my hooks when it asks.',
       fr: 'Tu veux que je me branche sur Codex ? Un clic, puis relance Codex et autorise mes hooks quand il te le demande.',
       es: '¿Quieres que me conecte a Codex? Un clic, y luego reinicia Codex y autoriza mis hooks cuando te lo pida.',
@@ -1929,6 +1930,7 @@ const OTHERS = {
       ru: 'Подключиться к Codex? Один клик, потом перезапусти Codex и разреши мои хуки, когда он спросит.',
     },
     after: {
+      th: 'เปิด Codex ใหม่และอนุญาต hooks เมื่อระบบถาม แล้วฉันจะบอกคุณเมื่อมีงาน',
       en: 'Now restart Codex and trust my hooks when it asks. As soon as it does something, I’ll tell you.',
       fr: 'Maintenant relance Codex et autorise mes hooks quand il te le demande. Dès qu’il fait quelque chose, je te le dis.',
       es: 'Ahora reinicia Codex y autoriza mis hooks cuando te lo pida. En cuanto haga algo, te aviso.',
@@ -1939,6 +1941,7 @@ const OTHERS = {
   agy: {
     name: 'Antigravity', file: 'hooks.json', dir: '.gemini',
     ask: {
+      th: 'ให้ฉันเชื่อมกับ Antigravity ไหม? จากนั้นเริ่มบทสนทนาใหม่',
       en: 'Want me to plug into Antigravity? One click, then start a new conversation in it.',
       fr: 'Tu veux que je me branche sur Antigravity ? Un clic, puis lance une nouvelle conversation dedans.',
       es: '¿Quieres que me conecte a Antigravity? Un clic, y luego empieza una conversación nueva en él.',
@@ -1946,6 +1949,7 @@ const OTHERS = {
       ru: 'Подключиться к Antigravity? Один клик, потом начни в нём новый разговор.',
     },
     after: {
+      th: 'เริ่มบทสนทนาใหม่ใน Antigravity แล้วฉันจะบอกคุณเมื่อมีงาน',
       en: 'Now start a new conversation in Antigravity. As soon as it does something, I’ll tell you.',
       fr: 'Maintenant lance une nouvelle conversation dans Antigravity. Dès qu’il fait quelque chose, je te le dis.',
       es: 'Ahora empieza una conversación nueva en Antigravity. En cuanto haga algo, te aviso.',

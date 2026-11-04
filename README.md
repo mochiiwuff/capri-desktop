@@ -1,3 +1,5 @@
+> **Fork and attribution:** This project is based on [mochiiwuff/capri-desktop](https://github.com/mochiiwuff/capri-desktop) by mochiiwuff. This fork is maintained at [MrLaPlus/capri-desktop](https://github.com/MrLaPlus/capri-desktop) and is adding Linux and Thai support. Work is in progress; see [PROGRESS.md](PROGRESS.md). The upstream [license](LICENSE) continues to apply.
+
 **English** · [Français](README.fr.md)
 
 # Capri

@@ -57,8 +57,14 @@
 /* Bundle Thai glyphs for both display and monospace text. */
 @font-face {
   font-family: 'Chakra Petch';
+  src: url('../../../node_modules/@fontsource/chakra-petch/files/chakra-petch-thai-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  unicode-range: U+0E00-0E7F;
+}
+@font-face {
+  font-family: 'Chakra Petch';
   src: url('../../../node_modules/@fontsource/chakra-petch/files/chakra-petch-thai-600-normal.woff2') format('woff2');
-  font-weight: 400 600;
+  font-weight: 600;
   unicode-range: U+0E00-0E7F;
 }
 @font-face {
