@@ -75,7 +75,15 @@ async function models(id, cfg) {
   // what's missing has a code, so her setup knows what to ask for (setup.js)
   if (!p.url) throw Object.assign(new Error('no address set for this server'), { code: 'nourl' });
   if (p.env && !p.key) throw Object.assign(new Error(`no API key (or ${p.env})`), { code: 'nokey' });
-  const res = await fetch(p.modelsUrl || `${p.url}/models`, { headers: headers(p.key), signal: AbortSignal.timeout(5000) });
+  // Cloud providers can take longer than five seconds to answer, particularly on a cold connection.
+  const timeout = p.local ? 5000 : 30000;
+  let res;
+  try {
+    res = await fetch(p.modelsUrl || `${p.url}/models`, { headers: headers(p.key), signal: AbortSignal.timeout(timeout) });
+  } catch (err) {
+    if (err.name === 'TimeoutError') throw new Error('Connection timed out while checking models; check your network and retry.');
+    throw err;
+  }
   if (!res.ok) throw await failure(res);
   const body = await res.json();
   const list = Array.isArray(body) ? body : body.data || body.models || [];

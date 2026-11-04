@@ -599,7 +599,7 @@ export const LINES = {
       pasteHow: 'I keep it on this PC, encrypted with your Windows account.',
       placeholder: 'Your API key…', save: 'Save', where: 'Where do I get one?',
       keyTag: 'KEY', keyNote: 'It only ever goes to that service.',
-      keyBad: 'That key didn’t work:',
+      keyBad: 'Could not verify the connection:',
       address: 'Your server’s address?',
       addressHow: 'An OpenAI-compatible server, LM Studio for example: http://127.0.0.1:1234/v1',
       addressNote: 'What you write to me goes to that address.',
