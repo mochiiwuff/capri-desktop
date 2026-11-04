@@ -67,3 +67,8 @@ Updated: 2026-11-04
 - Removed the attempted automatic relaunch from checkpoint 8: although it started, the relaunched process did not reliably report the X11 pointer position in the isolated test. Native Wayland still cannot provide global pointer polling.
 - Supported test path: start Electron/AppImage with `--ozone-platform=x11` on a system with XWayland. In the isolated X11 test, synthetic motion reached the global cursor API and clicks reached the sprite. The Linux 60 ms hit-test poll keeps empty areas click-through. Real KDE interaction still requires user confirmation.
 - Rebuilding the AppImage and repeating the hooks suite with this change. Use `Capri-0.5.1.AppImage --appimage-extract-and-run --ozone-platform=x11` after the build finishes; close any earlier instance before starting it.
+
+## Checkpoint 10: final package verification status
+
+- Rebuilt AppImage after removing automatic relaunch. `npm run test:hooks` passed 5/5. Source execution on isolated X11 received synthetic clicks on the sprite. AppImage launched with X11 arguments, but synthetic click verification on the packaged build did not succeed in the isolated setup; its pointer API reported the center of the screen. Root cause is not yet confirmed. Do not claim the packaged click issue is fixed without a live retest.
+- On KDE Wayland, try running with `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 ... --appimage-extract-and-run --ozone-platform=x11` after closing previous instances. If clicks still fail, investigate XWayland pointer position and AppImage startup using an isolated debug profile. User data/config was not modified during these tests.
