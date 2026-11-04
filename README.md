@@ -1,5 +1,11 @@
 > **Fork and attribution:** This project is based on [mochiiwuff/capri-desktop](https://github.com/mochiiwuff/capri-desktop) by mochiiwuff. This fork is maintained at [MrLaPlus/capri-desktop](https://github.com/MrLaPlus/capri-desktop) and is adding Linux and Thai support. Work is in progress; see [PROGRESS.md](PROGRESS.md). The upstream [license](LICENSE) continues to apply.
 
+### Linux and Thai work in this fork
+
+The `codex/linux-thai` branch adds a Thai language option and an experimental Linux AppImage. Build with Node.js 20 or newer: `npm ci && npm run dist:linux`. The resulting file is in `dist/`; if FUSE is unavailable, run it with `--appimage-extract-and-run`. Select **Language → ไทย** from Capri's menu. Thai translations and Linux desktop integration are still being validated; see [PROGRESS.md](PROGRESS.md).
+
+Window tracking, window possession and some PC actions are implemented for Windows upstream. Their Linux equivalents are not yet available; Wayland compositor behavior varies. AI chat requires a supported provider and a model; Thai output depends on that model.
+
 **English** · [Français](README.fr.md)
 
 # Capri
