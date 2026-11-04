@@ -47,3 +47,9 @@ Updated: 2026-11-04
 
 - AppImage rebuild after placeholder fixes succeeded. Checkpoint `c225dfc` verified on GitHub. `ollama` is installed but its local server was not running and no local model manifests were found; a real AI chat was not tested. No model was downloaded.
 - Remaining validation and Linux limitations from checkpoint 5 still apply. The AppImage remains local in `dist/` (gitignored); source and progress are pushed to the fork branch.
+
+## Checkpoint 7: invisible character after startup
+
+- User reported that no character appeared on KDE Wayland. Reproduced an invisible sprite with WebGL uniform `uAlpha=0` after the intro. A slow frame can jump past the intro landing cue and expire the effect before its promise resolves, leaving the character invisible.
+- Fixed `src/renderer/js/fx.js` so expiry resolves the intro as well as its normal landing cue. A clean software-rendered X11 test proceeded to `uAlpha=1` and a renderer capture showed the character; a separate native Wayland test also reached `uAlpha=1`. Actual compositor appearance and mouse interaction on the user's running instance remain to be confirmed after restart.
+- `npm run test:hooks` passed 5/5; `git diff --check` passed. Rebuilding the AppImage. The previously running AppImage process must be closed and the rebuilt file launched again to load the fix.
