@@ -1,3 +1,5 @@
+import { TH } from './th.js';
+
 // What Capri says. She's a personality construct — dozens of minds in one — so she
 // sometimes talks as "we". Slang is Night City's: choom, preem, nova, flatline.
 
@@ -1952,6 +1954,16 @@ const OTHERS = {
     },
   },
 };
+// Preserve the complete English schema until every Thai string is translated.
+function mergeThai(base, translated) {
+  return Object.fromEntries(Object.entries(base).map(([key, value]) => {
+    const replacement = translated?.[key];
+    if (replacement === undefined) return [key, value];
+    if (value && replacement && typeof value === 'object' && typeof replacement === 'object' && !Array.isArray(value)) return [key, mergeThai(value, replacement)];
+    return [key, replacement];
+  }));
+}
+LINES.th = mergeThai(LINES.en, TH);
 const converted = new Map();
 export function linesFor(lang, assistant = 'claude') {
   const base = LINES[lang] || LINES.fr;
