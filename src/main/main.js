@@ -1033,20 +1033,6 @@ function applyRender() {
 }
 
 function main() {
-  // Chromium chooses its display backend before the main script runs. Restart with
-  // XWayland so Linux can query the global pointer and keep the overlay clickable.
-  if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland'
-      && process.env.DISPLAY && !process.argv.some((arg) => arg === '--ozone-platform' || arg.startsWith('--ozone-platform='))) {
-    const appImage = process.env.APPIMAGE;
-    const args = [...process.argv.slice(1), '--ozone-platform=x11'];
-    // AppImage's extracted directory is temporary and disappears when this process
-    // exits. Relaunch the original image so it can safely extract again.
-    app.relaunch(appImage
-      ? { execPath: appImage, args: ['--appimage-extract-and-run', ...args] }
-      : { args });
-    app.exit(0);
-    return;
-  }
   applyRender();
   if (!app.requestSingleInstanceLock()) {
     app.quit();

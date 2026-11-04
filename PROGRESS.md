@@ -61,3 +61,9 @@ Updated: 2026-11-04
 - User reported that Capri is visible but cannot be clicked directly. Electron documents that `setIgnoreMouseEvents(..., {forward:true})` does not forward pointer movement on Linux and `screen.getCursorScreenPoint()` is unavailable on native Wayland.
 - Added Linux hit testing by polling the global pointer with X11 and changed a Wayland session with an X display to relaunch using XWayland. On a separate Xvfb display with X11 explicitly selected, XTest mouse motion and clicks reached the sprite (`mousedown`, `mouseup`, `click` recorded); hooks tests are being repeated. User's real desktop interaction and click-through still require confirmation.
 - An initial AppImage restart test failed because `--appimage-extract-and-run` deletes its extracted runtime when the first process exits. Changed restart to use the original AppImage path and extract again. Rebuilding and testing this correction; do not claim automatic packaged restart works until confirmed.
+
+## Checkpoint 9: packaged launch correction
+
+- Removed the attempted automatic relaunch from checkpoint 8: although it started, the relaunched process did not reliably report the X11 pointer position in the isolated test. Native Wayland still cannot provide global pointer polling.
+- Supported test path: start Electron/AppImage with `--ozone-platform=x11` on a system with XWayland. In the isolated X11 test, synthetic motion reached the global cursor API and clicks reached the sprite. The Linux 60 ms hit-test poll keeps empty areas click-through. Real KDE interaction still requires user confirmation.
+- Rebuilding the AppImage and repeating the hooks suite with this change. Use `Capri-0.5.1.AppImage --appimage-extract-and-run --ozone-platform=x11` after the build finishes; close any earlier instance before starting it.
