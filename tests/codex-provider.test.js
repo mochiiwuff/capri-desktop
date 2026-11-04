@@ -63,3 +63,15 @@ test('Codex hook installation points at the durable hook and detects a missing s
   fs.unlinkSync(durable);
   assert.equal(status().installed, false);
 });
+
+test('Codex chat stops an active CLI process when cancelled', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-codex-stop-'));
+  const oldPath = process.env.PATH;
+  fs.writeFileSync(path.join(dir, 'codex'), '#!/usr/bin/env node\nprocess.stdin.resume();setInterval(()=>{},1000);\n', { mode: 0o755 });
+  process.env.PATH = `${dir}${path.delimiter}${oldPath}`;
+  t.after(() => { process.env.PATH = oldPath; fs.rmSync(dir, { recursive: true, force: true }); });
+  const abort = new AbortController();
+  const pending = llm.chat('codex', {}, { messages: [{ role: 'user', content: 'hello' }] }, () => {}, abort.signal);
+  setTimeout(() => abort.abort(), 200);
+  await assert.rejects(pending, /stopped/);
+});
