@@ -119,6 +119,26 @@ async function boot() {
     document.body.style.cursor = onChip() ? 'pointer' : '';
     return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip()));
   };
+  // Linux does not forward pointer events through ignored windows. Under X11,
+  // poll the global pointer so the overlay only captures input over interactive UI.
+  if (config.pointerPolling) {
+    let polling = false;
+    setInterval(async () => {
+      if (polling || capri.dragging) return;
+      polling = true;
+      try {
+        const at = await host.cursor();
+        mouse = at?.inside ? { x: at.x, y: at.y } : null;
+        refreshHit();
+        hoverChip();
+      } catch {
+        mouse = null;
+        refreshHit();
+      } finally {
+        polling = false;
+      }
+    }, 60);
+  }
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
   // (only then, so the pointer passing through that corner doesn't call her back).
   // Her mask, asleep: the pointer coming over it stirs her, and a moment of that wakes her up.
@@ -167,7 +187,7 @@ async function boot() {
     const before = seen;
     seen = at;
     follow?.(at);
-    if (!at?.inside) return;
+    if (config.pointerPolling || !at?.inside) return;
     const now = performance.now();
     // the pointer is on her and she isn't clickable (its moves stopped reaching her): she is now
     if (!interactive && now - lastMove > WATCH_MS) {

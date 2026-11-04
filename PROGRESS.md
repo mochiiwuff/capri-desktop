@@ -55,3 +55,9 @@ Updated: 2026-11-04
 - `npm run test:hooks` passed 5/5; `git diff --check` passed. Rebuilding the AppImage. The previously running AppImage process must be closed and the rebuilt file launched again to load the fix.
 
 - The rebuilt AppImage finished successfully and, when launched with an isolated profile on Wayland, its character WebGL alpha reached 1. The fix was pushed as `690b253`. User confirmation of visibility and interaction on their desktop is still pending.
+
+## Checkpoint 8: Linux pointer input
+
+- User reported that Capri is visible but cannot be clicked directly. Electron documents that `setIgnoreMouseEvents(..., {forward:true})` does not forward pointer movement on Linux and `screen.getCursorScreenPoint()` is unavailable on native Wayland.
+- Added Linux hit testing by polling the global pointer with X11 and changed a Wayland session with an X display to relaunch using XWayland. On a separate Xvfb display with X11 explicitly selected, XTest mouse motion and clicks reached the sprite (`mousedown`, `mouseup`, `click` recorded); hooks tests are being repeated. User's real desktop interaction and click-through still require confirmation.
+- An initial AppImage restart test failed because `--appimage-extract-and-run` deletes its extracted runtime when the first process exits. Changed restart to use the original AppImage path and extract again. Rebuilding and testing this correction; do not claim automatic packaged restart works until confirmed.
