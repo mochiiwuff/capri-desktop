@@ -29,3 +29,9 @@ Updated: 2026-11-04
 
 - Expanded Thai chat actions, setup and customization messages; untranslated strings still fall back to English. The most recent hooks test again passed 5/5 and `git diff --check` passed.
 - GitHub accepted checkpoint 2 (`367a7bc`) after a transient server rejection. Continue from the newest commit on `codex/linux-thai`; the build/runtime and translation limitations above remain open.
+
+## Checkpoint 4
+
+- Added Thai translations for all keys in the English renderer dictionary, including nested chat, setup, guides, screen consent and PC/status text; Thai tray keys are complete. A structural key comparison reported no missing keys. Some phrases intentionally have fewer variants than English. Translation quality, placeholders, text overflow and platform-specific wording still require review in the running UI. English fallback remains defensive.
+- Existing hooks tests passed 5/5 after the additions; `git diff --check` passed. Checkpoint 3 (`2edd773`) is confirmed pushed. Runtime/AppImage remains blocked by Electron release-asset connectivity, and actual Linux chat and UI behavior remain unverified.
+- Resume with the newest branch commit. First retry Electron download, build and run; then visually verify Thai, saved language after restart, setup/chat, hooks, Wayland overlay and unsupported actions. Revisit Linux desktop integration and translate Thai intent parsing where necessary. Do not claim the acceptance criteria are met until those checks pass.
