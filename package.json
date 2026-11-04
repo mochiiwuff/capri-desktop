@@ -53,7 +53,8 @@
     ],
     "asarUnpack": [
       "hooks/**",
-      "src/main/windows.ps1"
+      "src/main/windows.ps1",
+      "src/main/x11-input.py"
     ],
     "win": {
       "target": "nsis",

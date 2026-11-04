@@ -4,7 +4,7 @@
 
 The `codex/linux-thai` branch adds a Thai language option and an experimental Linux AppImage. Build with Node.js 20 or newer: `npm ci && npm run dist:linux`. The resulting file is in `dist/`; if FUSE is unavailable, run it with `--appimage-extract-and-run`. Select **Language → ไทย** from Capri's menu. Thai translations and Linux desktop integration are still being validated; see [PROGRESS.md](PROGRESS.md).
 
-On Wayland, launch with `--ozone-platform=x11` so the app uses XWayland and can find the pointer over its click-through overlay. XWayland must be installed; native Wayland pointer access remains limited. Window tracking, window possession and some PC actions are implemented for Windows upstream. Their Linux equivalents are not yet available; compositor behavior varies. AI chat requires a supported provider and a model; Thai output depends on that model.
+On Wayland, launch with `--ozone-platform=x11` to use XWayland. The Linux input-region helper requires `python3` and the X11 and Xext libraries. The region around the character receives input while the rest is click-through; native Wayland input remains experimental. Window tracking, window possession and some PC actions are implemented for Windows upstream. Their Linux equivalents are not yet available; compositor behavior varies. AI chat requires a supported provider and a model; Thai output depends on that model.
 
 **English** · [Français](README.fr.md)
 

@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const os = require('node:os');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
@@ -38,6 +39,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let overlay = null;
+let inputRegionHelper = null;
 let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
@@ -198,6 +200,23 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (process.platform === 'linux' && process.env.DISPLAY && (process.env.XDG_SESSION_TYPE === 'x11' || process.argv.includes('--ozone-platform=x11'))) {
+    const handle = overlay.getNativeWindowHandle();
+    const windowId = handle.readUInt32LE(0);
+    const helperPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'x11-input.py');
+    inputRegionHelper = spawn('python3', [helperPath, String(windowId)], { stdio: ['pipe', 'ignore', 'pipe'] });
+    const helper = inputRegionHelper;
+    helper.on('error', err => console.error('[capri] X11 input helper:', err.message));
+    helper.stdin.on('error', err => console.error('[capri] X11 input helper stdin:', err.message));
+    helper.on('exit', () => {
+      if (inputRegionHelper !== helper) return;
+      inputRegionHelper = null;
+      if (overlay && !overlay.isDestroyed()) overlay.setIgnoreMouseEvents(true);
+    });
+    inputRegionHelper.stderr.on('data', data => console.error('[capri] X11 input helper:', String(data).trim()));
+    overlay.setIgnoreMouseEvents(false);
+    overlay.on('closed', () => { inputRegionHelper?.stdin.end(); inputRegionHelper = null; });
+  }
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
@@ -686,7 +705,13 @@ function createTray() {
 }
 
 function registerIpc() {
+  ipcMain.on('overlay:regions', (_e, regions) => {
+    if (!inputRegionHelper || !Array.isArray(regions)) return;
+    const safe = regions.slice(0, 8).filter(r => Array.isArray(r) && r.length === 4 && r.every(Number.isFinite)).map(r => r.map(Math.round));
+    if (inputRegionHelper.stdin.writable) inputRegionHelper.stdin.write(JSON.stringify(safe) + '\n');
+  });
   ipcMain.on('overlay:interactive', (_e, on) => {
+    if (inputRegionHelper) return;
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it

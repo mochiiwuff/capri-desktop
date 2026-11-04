@@ -119,25 +119,29 @@ async function boot() {
     document.body.style.cursor = onChip() ? 'pointer' : '';
     return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip()));
   };
-  // Linux does not forward pointer events through ignored windows. Under X11,
-  // poll the global pointer so the overlay only captures input over interactive UI.
+  // X11's input shape receives clicks even while the rest of the overlay is click-through.
   if (config.pointerPolling) {
-    let polling = false;
-    setInterval(async () => {
-      if (polling || capri.dragging) return;
-      polling = true;
-      try {
-        const at = await host.cursor();
-        mouse = at?.inside ? { x: at.x, y: at.y } : null;
-        refreshHit();
-        hoverChip();
-      } catch {
-        mouse = null;
-        refreshHit();
-      } finally {
-        polling = false;
+    let lastRegions = '';
+    setInterval(() => {
+      const regions = [];
+      const add = r => {
+        if (!r || r.width <= 0 || r.height <= 0) return;
+        const x = Math.max(0, Math.floor(r.left));
+        const y = Math.max(0, Math.floor(r.top));
+        const right = Math.min(innerWidth, Math.ceil(r.right));
+        const bottom = Math.min(innerHeight, Math.ceil(r.bottom));
+        if (right > x && bottom > y) regions.push([x, y, right - x, bottom - y]);
+      };
+      if (capri.dragging) add({ left: 0, top: 0, right: innerWidth, bottom: innerHeight, width: innerWidth, height: innerHeight });
+      else {
+        if (!capri.hidden && capri.p.alpha >= 0.5) add(capri.canvas.getBoundingClientRect());
+        if (chip.visible) add(chip.canvas.getBoundingClientRect());
+        if (mask.visible) add(mask.canvas.getBoundingClientRect());
+        add(panel.rect());
       }
-    }, 60);
+      const encoded = JSON.stringify(regions);
+      if (encoded !== lastRegions) { host.setInputRegions(regions); lastRegions = encoded; }
+    }, 50);
   }
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
   // (only then, so the pointer passing through that corner doesn't call her back).

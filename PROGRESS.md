@@ -72,3 +72,9 @@ Updated: 2026-11-04
 
 - Rebuilt AppImage after removing automatic relaunch. `npm run test:hooks` passed 5/5. Source execution on isolated X11 received synthetic clicks on the sprite. AppImage launched with X11 arguments, but synthetic click verification on the packaged build did not succeed in the isolated setup; its pointer API reported the center of the screen. Root cause is not yet confirmed. Do not claim the packaged click issue is fixed without a live retest.
 - On KDE Wayland, try running with `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 ... --appimage-extract-and-run --ozone-platform=x11` after closing previous instances. If clicks still fail, investigate XWayland pointer position and AppImage startup using an isolated debug profile. User data/config was not modified during these tests.
+
+## Checkpoint 11: X11 input regions
+
+- User confirmed the previous XWayland launch still could not click the character. Replaced global-pointer hit polling with an X11 input region managed by a Python 3 helper using libX11/libXext. Character canvas, visible chip/mask and chat panel get input; other parts pass clicks through. During dragging the region temporarily covers the overlay. Python 3 and those libraries are runtime dependencies. The helper is included outside app.asar in the AppImage.
+- On an isolated Xvfb display, the packaged AppImage created a non-fullscreen X11 input shape. XQueryPointer identified the Capri window at a point within that shape and no window at an empty-screen point. This confirms X11 targeting, not that a full click/drag interaction works on KDE Wayland; real desktop confirmation remains necessary. The rectangular canvas region may intercept clicks on transparent pixels near the character. Native Wayland input remains unsupported.
+- `npm run test:hooks` passed 5/5; syntax and diff checks passed. Final AppImage build and push are in progress. Launch with the documented X11 environment after closing the previous process.
