@@ -24,3 +24,8 @@ Updated: 2026-11-04
 - Thai localization is incomplete. `th.js` deliberately falls back to English for untranslated nested keys; core menus, chat, setup, onboarding and several status texts are translated, but coverage needs review and completion. Thai action parsing is not implemented.
 - Next: restore access to Electron release assets and install the Electron binary, run `npm start`, build and run `npm run dist:linux`, test Wayland and/or X11 interaction and Thai glyphs, verify language survives a restart and test chat with a configured provider. Finish translation, audit Linux-specific features and update README for actual supported behavior. Re-run hooks tests after changes.
 - User requested continuous checkpoints and pushes to the fork branch. Upstream `main` is cb33e87. First pushed checkpoint: 661166a on `origin/codex/linux-thai`.
+
+## Checkpoint 3
+
+- Expanded Thai chat actions, setup and customization messages; untranslated strings still fall back to English. The most recent hooks test again passed 5/5 and `git diff --check` passed.
+- GitHub accepted checkpoint 2 (`367a7bc`) after a transient server rejection. Continue from the newest commit on `codex/linux-thai`; the build/runtime and translation limitations above remain open.
