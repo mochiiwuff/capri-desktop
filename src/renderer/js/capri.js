@@ -85,6 +85,7 @@ export class Capri {
     this.squash = null;   // flattened against what she just hit, on screen
     this.override = null; // a pose laid over her acts, drawing by drawing (getting back up)
     this.throwId = 0;     // bumped by every throw and every grab: what was going on after a throw stops
+    this.alwaysPickable = false; // Linux input stays available after repeated throws
     this.refuseUntil = 0; // thrown once too often: she won't let you pick her up before then
     this.pet = null;      // your pointer stroking her mane: { x, dir, run, turns, last, since, end }
     this.petRefuseUntil = 0; // petted too long: not again before then
@@ -1853,7 +1854,7 @@ export class Capri {
       // thrown: you can catch her on the fly, or pick her up off the floor
       const thrown = this.stance === 'fly' || this.stance === 'down';
       if (this.busy && !thrown) return;
-      if (!thrown && performance.now() < this.refuseUntil) {
+      if (!this.alwaysPickable && !thrown && performance.now() < this.refuseUntil) {
         this.dodge(); // thrown around once too often: not again
         return;
       }
