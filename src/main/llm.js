@@ -26,6 +26,7 @@ const PROVIDERS = {
   mistral: { label: 'Mistral', url: 'https://api.mistral.ai/v1', env: 'MISTRAL_API_KEY' },
   custom: { label: 'Custom (customUrl in config)' },
   claude: { label: 'Claude Code (sends to the terminal agent)', kind: 'claude' },
+  codex: { label: 'Codex CLI (chat)', kind: 'codex' },
 };
 
 // no bypassPermissions: a chat bubble on the desktop shouldn't run anything without asking
@@ -72,6 +73,10 @@ async function models(id, cfg) {
   const p = endpoint(id, cfg);
   if (p.kind === 'ollama') return ollama.models().catch(() => null);
   if (p.kind === 'claude') return claudeVersion().then(() => ['Claude Code']);
+  if (p.kind === 'codex') {
+    await codexAvailable();
+    return ['Codex CLI'];
+  }
   // what's missing has a code, so her setup knows what to ask for (setup.js)
   if (!p.url) throw Object.assign(new Error('no address set for this server'), { code: 'nourl' });
   if (p.env && !p.key) throw Object.assign(new Error(`no API key (or ${p.env})`), { code: 'nokey' });
@@ -126,6 +131,56 @@ async function openaiChat(p, { model, messages }, onDelta, signal) {
     }
   }
   return text;
+}
+
+// Codex chat uses a temporary thread and Capri's own chat history. Hooks are disabled
+// for this child so it cannot report its own replies as a separate coding session.
+function codexAvailable() {
+  return new Promise((resolve, reject) => {
+    execFile('codex', ['--version'], { timeout: 10000 }, err => {
+      if (err) return reject(new Error('Codex CLI not found on PATH'));
+      execFile('codex', ['login', 'status'], { timeout: 15000 }, loginErr => loginErr
+        ? reject(new Error('Codex CLI is not signed in; run codex login in a terminal')) : resolve());
+    });
+  });
+}
+
+function codexChat(messages, onDelta, signal) {
+  if (signal.aborted) return Promise.reject(new Error('stopped'));
+  const args = ['-a', 'never', '--disable', 'hooks', '--disable', 'shell_tool', '--disable', 'unified_exec',
+    'exec', '--ignore-user-config', '--json', '--sandbox', 'read-only', '--ephemeral', '--skip-git-repo-check', '-'];
+  const prompt = 'Answer the conversation as the assistant. Do not use tools.\n' + JSON.stringify(messages);
+  return new Promise((resolve, reject) => {
+    const child = spawn('codex', args, { cwd: os.tmpdir(), windowsHide: true });
+    let buffer = '', errors = '', answer = '', failed = '';
+    const abort = () => child.kill();
+    signal.addEventListener('abort', abort, { once: true });
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', chunk => {
+      buffer += chunk;
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl); buffer = buffer.slice(nl + 1);
+        let event;
+        try { event = JSON.parse(line); } catch { continue; }
+        if (event.type === 'item.completed' && event.item?.type === 'agent_message' && event.item.text) {
+          const part = (answer ? '\n' : '') + event.item.text;
+          answer += part; onDelta(part);
+        } else if (event.type === 'turn.failed') failed = event.error?.message || 'Codex turn failed';
+      }
+    });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', chunk => { errors = (errors + chunk).slice(-4000); });
+    child.stdin.on('error', () => {});
+    child.stdin.end(prompt);
+    child.on('error', err => { signal.removeEventListener('abort', abort); reject(err); });
+    child.on('close', code => {
+      signal.removeEventListener('abort', abort);
+      if (signal.aborted) return reject(new Error('stopped'));
+      if (failed || code !== 0 || !answer) return reject(new Error(failed || errors.trim().slice(-500) || 'Codex gave no answer'));
+      resolve(answer);
+    });
+  });
 }
 
 // --- Claude Code ---------------------------------------------------------------------------------
@@ -218,6 +273,7 @@ const isChatSession = (id) => Boolean(id) && id === claudeSession;
 async function chat(id, cfg, { model, messages }, onDelta, signal) {
   const p = endpoint(id, cfg);
   if (p.kind === 'ollama') return ollama.chat({ model, messages }, onDelta, signal);
+  if (p.kind === 'codex') return codexChat(messages, onDelta, signal);
   // Claude Code keeps its own memory of the conversation: only her persona and your last message go
   if (p.kind === 'claude') return claudeChat(cfg, messages.at(-1).content, messages[0].content, onDelta, signal);
   return openaiChat(p, { model, messages }, onDelta, signal);

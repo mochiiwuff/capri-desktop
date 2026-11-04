@@ -4,6 +4,8 @@
 
 The `codex/linux-thai` branch adds a Thai language option and an experimental Linux AppImage. Build with Node.js 20 or newer: `npm ci && npm run dist:linux`. The resulting file is in `dist/`; if FUSE is unavailable, run it with `--appimage-extract-and-run`. Select **Language → ไทย** from Capri's menu. Thai translations and Linux desktop integration are still being validated; see [PROGRESS.md](PROGRESS.md).
 
+Codex offers two independent options: choose **Watch → Codex** and install its hooks to observe coding activity; choose **AI model → Codex CLI (chat)** to answer chats using the signed-in local Codex CLI. You can use either or both. Codex chat starts a temporary read-only CLI session with hooks and shell execution disabled; it sends the current chat history to Codex and does not run coding tasks. The account must be signed in with `codex login`, and availability and usage limits follow that account. Chat uses a fresh CLI session per reply, so startup can take time. Existing Capri desktop actions remain governed by Capri's own controls. Codex chat does not support screen images in this version.
+
 On Wayland, launch with `--ozone-platform=x11` to use XWayland. The Linux input-region helper requires `python3` and the X11 and Xext libraries. The region around the character receives input while the rest is click-through; native Wayland input remains experimental. Window tracking, window possession and some PC actions are implemented for Windows upstream. Their Linux equivalents are not yet available; compositor behavior varies. AI chat requires a supported provider and a model; Thai output depends on that model.
 
 **English** · [Français](README.fr.md)

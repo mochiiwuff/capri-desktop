@@ -412,7 +412,8 @@ function rebuildTray() {
         { label: t.aiSetup, click: () => sendCommand('setupChat') },
         { type: 'separator' },
         ...Object.entries(llm.PROVIDERS).map(([provider, p]) => ({
-          label: p.label, type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
+          label: provider === 'codex' && resolveLang(cfg.lang) === 'th' ? 'Codex CLI (ตอบแชต)' : p.label,
+          type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
         })),
         { type: 'separator' },
         ...(chatModels?.length
@@ -545,7 +546,16 @@ function loginItemOptions() {
 function runHooks(action, { quiet = false } = {}) {
   let outcome;
   try {
-    const result = action === 'install' ? activeHooks().install() : activeHooks().uninstall();
+    let hookScript;
+    if (action === 'install' && activeAssistant().id === 'codex' && app.isPackaged) {
+      // An AppImage extraction is temporary; keep the installed hook in user data instead.
+      const dest = path.join(app.getPath('userData'), 'codex-hooks');
+      fs.mkdirSync(dest, { recursive: true });
+      const source = path.join(ROOT.replace('app.asar', 'app.asar.unpacked'), 'hooks');
+      for (const name of ['capri-hook.js', 'capri-codex-hook.js']) fs.copyFileSync(path.join(source, name), path.join(dest, name));
+      hookScript = path.join(dest, 'capri-codex-hook.js');
+    }
+    const result = action === 'install' ? activeHooks().install(hookScript) : activeHooks().uninstall();
     outcome = { action, ok: true, file: result.file };
   } catch (err) {
     outcome = { action, ok: false, error: err.message };
@@ -665,7 +675,7 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
-  if (cfg.provider === 'claude') return { ok: false, code: 'novision', model: 'Claude Code' };
+  if (['claude', 'codex'].includes(cfg.provider)) return { ok: false, code: 'novision', model: cfg.provider === 'codex' ? 'Codex CLI' : 'Claude Code' };
   if (cfg.provider === 'ollama' && !(await ollama.canSee(model))) return { ok: false, code: 'novision', model };
   const user = cfg.provider === 'ollama'
     ? { role: 'user', content: prompt, images: [image] }

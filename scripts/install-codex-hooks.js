@@ -16,7 +16,11 @@ function status() {
   try {
     const settings = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
     const events = Object.entries(settings.hooks || {}).filter(([, groups]) =>
-      Array.isArray(groups) && groups.some((g) => g?.hooks?.some((h) => String(h?.command || '').includes(MARK))))
+      Array.isArray(groups) && groups.some((g) => g?.hooks?.some((h) => {
+        const command = String(h?.command || '');
+        const quoted = /node\s+"([^"]*capri-codex-hook\.js)"/.exec(command);
+        return quoted && fs.existsSync(quoted[1]);
+      })))
       .map(([event]) => event);
     return { file, installed: EVENTS.every((event) => events.includes(event)), events };
   } catch (err) {
@@ -24,7 +28,7 @@ function status() {
   }
 }
 
-function configure(uninstall = false) {
+function configure(uninstall = false, hookScript = null) {
   const file = settingsPath();
   const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   const settings = before.trim() ? JSON.parse(before) : {};
@@ -46,7 +50,7 @@ function configure(uninstall = false) {
     });
     if (!settings.hooks[event].length) delete settings.hooks[event];
   }
-  const script = path.resolve(__dirname, '..', 'hooks', MARK)
+  const script = (hookScript || path.resolve(__dirname, '..', 'hooks', MARK))
     .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`).replace(/\\/g, '/');
   const command = `node "${script}"`;
   if (!uninstall) {
@@ -65,7 +69,7 @@ function configure(uninstall = false) {
   return { file, command };
 }
 
-module.exports = { configure, EVENTS, status, install: () => configure(), uninstall: () => configure(true) };
+module.exports = { configure, EVENTS, status, install: (hookScript) => configure(false, hookScript), uninstall: () => configure(true) };
 if (require.main === module) {
   try {
     const uninstall = process.argv.includes('--uninstall');
