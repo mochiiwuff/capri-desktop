@@ -156,14 +156,14 @@ const risky = (item) => item?.kind === 'file' && RUNS.test(item.id);
 
 // Folders asked for by what they are ("ouvre mes téléchargements", "open the file explorer").
 const FOLDERS = [
-  ['explorer', /explorateur|file explorer|\bexplorer\b|ce pc|this pc|explorador|проводник/i],
-  ['recycle', /corbeille|recycle bin|\btrash\b|papelera|lixeira|корзин/i],
-  ['downloads', /t[ée]l[ée]chargements?|downloads?|descargas|transfer[êe]ncias|загрузк/i],
-  ['desktop', /\bbureau\b|\bdesktop\b|escritorio|[áa]rea de trabalho|рабоч\S* стол/i],
-  ['documents', /\bdocuments?\b|documentos|документ/i],
-  ['pictures', /\bimages\b|\bphotos\b|\bpictures\b|im[áa]genes|\bfotos\b|imagens|изображени|фото/i],
-  ['music', /dossier (de )?musique|music folder|carpeta de m[úu]sica|pasta de m[úu]sica|папк\S* (с )?музык/i],
-  ['videos', /\bvid[ée]os\b|v[íi]deos|видео/i],
+  ['explorer', /explorateur|file explorer|\bexplorer\b|ce pc|this pc|explorador|资源管理器|文件管理器|我的电脑|此电脑|проводник/i],
+  ['recycle', /corbeille|recycle bin|\btrash\b|papelera|lixeira|回收站|корзин/i],
+  ['downloads', /t[ée]l[ée]chargements?|downloads?|descargas|transfer[êe]ncias|下载|загрузк/i],
+  ['desktop', /\bbureau\b|\bdesktop\b|escritorio|[áa]rea de trabalho|桌面|рабоч\S* стол/i],
+  ['documents', /\bdocuments?\b|documentos|文档|документ/i],
+  ['pictures', /\bimages\b|\bphotos\b|\bpictures\b|im[áa]genes|\bfotos\b|imagens|图片|照片|изображени|фото/i],
+  ['music', /dossier (de )?musique|music folder|carpeta de m[úu]sica|pasta de m[úu]sica|音乐|папк\S* (с )?музык/i],
+  ['videos', /\bvid[ée]os\b|v[íi]deos|视频|видео/i],
 ];
 
 function knownFolder(text) {

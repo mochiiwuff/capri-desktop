@@ -4,9 +4,9 @@
 // the smallest model. They're kept in her settings and survive a restart; one that came due while
 // she was off, she brings up when she's back.
 
-const TRIGGER = /(rappelle[- ]?(?:moi|nous)|fais[- ]moi penser|pense à me (?:le )?(?:rappeler|dire)|n['’]oublie pas de me (?:le )?(?:rappeler|dire)|mets[- ]moi un rappel|remind me|set (?:a|an) (?:reminder|alarm)|recu[eé]rd(?:a|e)me|recordarme|av[ií]same|pon(?:me)? un recordatorio|me lembr[ae]|lembr[ae][- ]me|me avis[ae]|cri[ae] um lembrete|напомни(?:те)?(?: мне)?|поставь напоминание)/i;
+const TRIGGER = /(rappelle[- ]?(?:moi|nous)|fais[- ]moi penser|pense à me (?:le )?(?:rappeler|dire)|n['’]oublie pas de me (?:le )?(?:rappeler|dire)|mets[- ]moi un rappel|remind me|set (?:a|an) (?:reminder|alarm)|recu[eé]rd(?:a|e)me|recordarme|av[ií]same|pon(?:me)? un recordatorio|me lembr[ae]|lembr[ae][- ]me|me avis[ae]|cri[ae] um lembrete|напомни(?:те)?(?: мне)?|поставь напоминание|提醒我(?:一下|下)?|提醒一下|提醒下|叫我一声|设个(?:提醒|闹钟)|定个(?:提醒|闹钟))/i;
 
-// small numbers said in words (in 5 of her languages)
+// small numbers said in words (in 6 of her languages)
 const WORDS = {
   un: 1, une: 1, a: 1, an: 1, one: 1, uno: 1, una: 1, um: 1, uma: 1, один: 1, одна: 1, одну: 1,
   deux: 2, two: 2, dos: 2, dois: 2, duas: 2, два: 2, две: 2,
@@ -46,6 +46,97 @@ const LEAD = new RegExp("^(?:[\\s,:;.!?-]|d['’]|qu['’]|(?:capri|de que|de|qu
 
 const MAX_MS = 7 * 24 * 3600 * 1000;
 
+// --- 中文（zh）---
+// "5分钟后提醒我关火", "半小时后", "明天下午3点半提醒我开会"
+const ZH_DIGITS = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+const ZH_NUM = '(\\d+(?:\\.\\d+)?|[零一二三四五六七八九十两半]+)';
+const ZH_DUR = new RegExp(`${ZH_NUM}\\s*(?:个)?\\s*(半)?\\s*(小时|钟头|分钟|分|秒钟|秒|天)`, 'gu');
+const ZH_CLOCK = /(凌晨|清晨|早上|上午|中午|下午|傍晚|晚上|今晚|夜里|半夜)?\s*(\d{1,2}|[一二三四五六七八九十]{1,3})\s*[点时]\s*(?:(半)|(\d{1,2})\s*分?)?/u;
+const ZH_TOMORROW = /(明天|明日|明早|明晚)/u;
+
+function zhNumber(s) {
+  if (/^\d+(?:\.\d+)?$/.test(s)) return Number(s);
+  if (s === '半') return 0.5;
+  if (s === '十') return 10;
+  if (/^十[一二三四五六七八九]$/.test(s)) return 10 + ZH_DIGITS[s[1]];
+  if (/^[一二三四五六七八九]十$/.test(s)) return ZH_DIGITS[s[0]] * 10;
+  if (/^[一二三四五六七八九]十[一二三四五六七八九]$/.test(s)) return ZH_DIGITS[s[0]] * 10 + ZH_DIGITS[s[2]];
+  if (/^[零一二三四五六七八九]+$/.test(s)) return Number([...s].map((c) => ZH_DIGITS[c]).join(''));
+  return NaN;
+}
+
+function zhUnitMs(unit) {
+  if (unit === '小时' || unit === '钟头') return 3600000;
+  if (unit === '分钟' || unit === '分') return 60000;
+  if (unit === '秒钟' || unit === '秒') return 1000;
+  return 86400000; // 天
+}
+
+// Chinese says the delay first and the "after" word last: "20 分钟后", "一个半小时以后"
+function parseZhWhen(text, now) {
+  const spans = [];
+  const after = /(?:之后|以后|后)/u.exec(text);
+  if (after) {
+    const head = text.slice(0, after.index);
+    let ms = 0, first = -1;
+    for (const m of head.matchAll(ZH_DUR)) {
+      let n = zhNumber(m[1]);
+      if (!Number.isFinite(n)) continue;
+      if (m[2]) n += 0.5;
+      ms += n * zhUnitMs(m[3]);
+      if (first < 0) first = m.index;
+    }
+    if (first >= 0 && ms > 0) {
+      spans.push({ 0: text.slice(first, after.index + after[0].length) });
+      return { at: now + ms, spans };
+    }
+  }
+
+  const tomorrow = ZH_TOMORROW.exec(text);
+  const clock = ZH_CLOCK.exec(text);
+  let h = null, min = 0;
+  if (clock) {
+    const period = clock[1] || '';
+    h = zhNumber(clock[2]);
+    if (clock[3]) min = 30;
+    else if (clock[4]) min = Number(clock[4]);
+    if (!Number.isFinite(h) || h > 24 || min > 59) h = null;
+    if (h !== null) {
+      if (/中午/u.test(period) && h < 12) h = 12;
+      if (/下午|傍晚|晚上|今晚|夜里/u.test(period) && h < 12) h += 12;
+      if (h === 24) h = 0;
+      // a bare "3 点" in the afternoon is the 3 o'clock coming next, not tonight's 3 am
+      if (!period && h > 0 && h < 12) {
+        const probe = new Date(now);
+        probe.setHours(h, min, 0, 0);
+        if (probe.getTime() <= now && probe.getTime() + 12 * 3600000 > now) h += 12;
+      }
+      spans.push(clock);
+    }
+  } else if (/中午/u.test(text)) {
+    h = 12;
+    spans.push({ 0: '中午' });
+  }
+  if (h === null) {
+    if (tomorrow) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      d.setHours(9, 0, 0, 0);
+      return { at: d.getTime(), spans: [tomorrow] };
+    }
+    return null;
+  }
+  const d = new Date(now);
+  d.setHours(h, min, 0, 0);
+  if (tomorrow) {
+    d.setDate(d.getDate() + 1);
+    spans.push(tomorrow);
+  } else if (d.getTime() <= now) {
+    d.setDate(d.getDate() + 1);
+  }
+  return { at: d.getTime(), spans };
+}
+
 function number(word) {
   if (!word) return NaN;
   const n = Number(word.replace(',', '.'));
@@ -61,6 +152,10 @@ function unitMs(unit) {
 
 // When, read off text: { at (ms), spans: the parts of the text that said it }, or null.
 export function parseWhen(text, now = Date.now()) {
+  if (/[\u4e00-\u9fff]/.test(text)) {
+    const zh = parseZhWhen(text, now);
+    if (zh) return zh;
+  }
   let m = IN_HM.exec(text);
   if (m) return { at: now + (Number(m[1]) * 60 + Number(m[2])) * 60000, spans: [m] };
   m = IN.exec(text);
