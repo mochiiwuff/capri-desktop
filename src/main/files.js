@@ -1,13 +1,16 @@
 'use strict';
 
 // Finding your files when you ask her ("trouve mon CV", "where's my report"). Windows' search
-// index first: your whole user folder, by name and by what's in the files, in a blink. If it's off,
-// a walk through your usual folders, by name. Then a screenshot when you ask for one.
+// index first (Spotlight on macOS): your whole user folder, by name and by what's in the files, in a
+// blink. If it's off, a walk through your usual folders, by name. Then a screenshot when you ask for one.
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { app, shell, desktopCapturer, screen } = require('electron');
+const { execFile } = require('node:child_process');
 const { powershell } = require('./apps');
+
+const MAC = process.platform === 'darwin';
 
 const LIMIT = 8;
 const found = new Set(); // what a search showed you: the only paths she opens from here
@@ -16,14 +19,47 @@ const words = (query) => String(query || '').toLowerCase().normalize('NFKD').rep
   .split(/[^\p{L}\p{N}.]+/u).filter((w) => w.length >= 2).slice(0, 5);
 
 // never in the results: code dependencies, app data, git internals
-const JUNK = ['node_modules', '\\AppData\\', '\\.git\\', '\\site-packages\\', '\\$Recycle.Bin\\'];
+const JUNK = ['node_modules', '\\AppData\\', '\\.git\\', '\\site-packages\\', '\\$Recycle.Bin\\',
+  '/Library/', '/.git/', '/site-packages/', '/.Trash/', '.app/Contents/'];
 const junk = (p) => JUNK.some((j) => p.includes(j));
 // files that are code, left out of a search by what's inside (any word shows up in some library)
 const CODE = ['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'map', 'lock', 'yml', 'yaml', 'py', 'css', 'html', 'md', 'txt', 'xml', 'log'];
 
 // Windows Search: names first (every word in the name, of one of `exts` if any), then what's in
 // documents (not code). null if the index can't be asked.
+// Spotlight (mdfind): the same two looks, names first, then what's in documents.
+function mdfind(query) {
+  return new Promise((resolve) => {
+    execFile('/usr/bin/mdfind', ['-onlyin', app.getPath('home'), query], { timeout: 10000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => (
+      resolve(err ? null : String(out).split('\n').map((l) => l.trim()).filter(Boolean))));
+  });
+}
+
+async function spotlight(terms, exts) {
+  const safe = terms.map((t) => t.replace(/[^\p{L}\p{N}.]/gu, '')).filter(Boolean);
+  const types = exts.map((e) => e.replace(/[^a-z0-9]/gi, '')).filter(Boolean);
+  if (!safe.length && !types.length) return [];
+  const ofType = types.length ? `(${types.map((e) => `kMDItemFSName == "*.${e}"c`).join(' || ')})` : '';
+  const byName = [...safe.map((t) => `kMDItemFSName == "*${t}*"cd`), ofType].filter(Boolean).join(' && ');
+  const byText = safe.length && !types.length
+    ? `${safe.map((t) => `kMDItemTextContent == "${t}"cd`).join(' && ')} && ${CODE.map((e) => `kMDItemFSName != "*.${e}"c`).join(' && ')}`
+    : '';
+  const lists = await Promise.all([byName, byText].filter(Boolean).map(mdfind));
+  if (lists.every((l) => l === null)) return null;
+  const paths = [...new Set(lists.flat().filter(Boolean))].filter((p) => !junk(p));
+  // the newest first, as on Windows
+  const dated = paths.slice(0, 200).map((p) => {
+    try {
+      return [p, fs.statSync(p).mtimeMs];
+    } catch {
+      return null;
+    }
+  }).filter(Boolean).sort((a, b) => b[1] - a[1]);
+  return dated.slice(0, LIMIT * 2).map(([p]) => p);
+}
+
 async function indexed(terms, exts) {
+  if (MAC) return spotlight(terms, exts);
   const safe = terms.map((t) => t.replace(/[^\p{L}\p{N}.]/gu, '')).filter(Boolean);
   const types = exts.map((e) => e.replace(/[^a-z0-9]/gi, '')).filter(Boolean);
   if (!safe.length && !types.length) return [];
@@ -51,7 +87,7 @@ async function indexed(terms, exts) {
 // The walk, when the index isn't there: your usual folders, a few levels down, by name and type.
 function walked(terms, exts) {
   const roots = ['desktop', 'documents', 'downloads', 'pictures', 'music', 'videos'].map((k) => app.getPath(k));
-  const onedrive = process.env.OneDrive;
+  const onedrive = MAC ? path.join(app.getPath('home'), 'Library', 'Mobile Documents', 'com~apple~CloudDocs') : process.env.OneDrive;
   if (onedrive) roots.push(onedrive);
   const hits = [];
   const queue = roots.map((dir) => [dir, 0]);

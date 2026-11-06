@@ -21,6 +21,7 @@ const apps = require('./apps');
 const system = require('./system');
 const launch = require('./launch');
 const files = require('./files');
+const mac = require('./mac');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
@@ -42,6 +43,7 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+let focusedFrom = 0; // macOS: the app that had the keyboard before she took it for her chat (its pid)
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
@@ -172,6 +174,9 @@ function raiseOverlay() {
 function createOverlay() {
   overlay = new BrowserWindow({
     ...overlayArea().area,
+    // macOS: a non-activating panel, so clicking her or typing to her doesn't pull you out of your
+    // app, floating over full-screen apps too; and allowed over the menu bar when she rests on the Dock
+    ...(mac.MAC && { type: 'panel', enableLargerThanScreen: true, roundedCorners: false }),
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
@@ -198,6 +203,20 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (mac.MAC) {
+    // on every Space, and over full-screen apps, like on Windows where there's only one desktop
+    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    // no menu bar to hold copy and paste while she has the keyboard: ⌘C, ⌘V... done here
+    overlay.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return;
+      const wc = overlay.webContents;
+      const edit = { c: () => wc.copy(), v: () => wc.paste(), x: () => wc.cut(), a: () => wc.selectAll(), z: () => (input.shift ? wc.redo() : wc.undo()) };
+      const fn = edit[String(input.key).toLowerCase()];
+      if (!fn) return;
+      event.preventDefault();
+      fn();
+    });
+  }
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
@@ -247,16 +266,17 @@ function playDemo() {
 // During the demo, a little fake terminal for her to sit on and take over (window tracking is
 // Windows only, so only there). Opened without stealing focus; closing it drops her off it.
 let demoWin = null;
-const DEMO_TERMINAL = `<body style="margin:0;background:#14101c;color:#8f8aa3;font:13px/1.7 Consolas,monospace;padding:14px 18px">
-<div style="color:#36ff7a">PS C:\\night-city-api&gt; npm test -- gigs</div>
+const PROMPT = mac.MAC ? '~/night-city-api %' : 'PS C:\\night-city-api&gt;';
+const DEMO_TERMINAL = `<body style="margin:0;background:#14101c;color:#8f8aa3;font:13px/1.7 Menlo,Consolas,monospace;padding:14px 18px">
+<div style="color:#36ff7a">${PROMPT} npm test -- gigs</div>
 <div>&nbsp;&nbsp;GET /gigs</div><div style="color:#36ff7a">&nbsp;&nbsp;&nbsp;&nbsp;✓ returns 20 items per page</div>
 <div style="color:#36ff7a">&nbsp;&nbsp;&nbsp;&nbsp;✓ paginates with a cursor</div><div style="color:#36ff7a">&nbsp;&nbsp;&nbsp;&nbsp;✓ rejects a bad cursor</div>
-<div>&nbsp;&nbsp;6 passing (212ms)</div><div style="color:#36ff7a">PS C:\\night-city-api&gt; _</div></body>`;
+<div>&nbsp;&nbsp;6 passing (212ms)</div><div style="color:#36ff7a">${PROMPT} _</div></body>`;
 
 function demoWindow(open) {
   demoWin?.destroy();
   demoWin = null;
-  if (!open || process.platform !== 'win32') return false;
+  if (!open || !['win32', 'darwin'].includes(process.platform) || (mac.MAC && !mac.helper())) return false;
   const b = overlay.getBounds();
   demoWin = new BrowserWindow({
     x: Math.round(b.x + b.width * 0.5 - 310), y: Math.round(b.y + b.height * 0.42), width: 620, height: 300,
@@ -282,7 +302,10 @@ function resolveLang(setting) {
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
   const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  return {
+    ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang,
+    floorGap: overlayArea().gap, platform: process.platform,
+  };
 }
 
 function updateConfig(patch) {
@@ -302,8 +325,14 @@ function rebuildTray() {
   const cfg = config.load();
   const hookState = activeHooks().status();
   const watched = activeAssistant();
+  // her words for the assistant she watches, and for a Mac rather than a PC
+  const words = (value) => {
+    let text = watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value;
+    if (mac.MAC) text = text.replaceAll('Windows', 'macOS').replace(/\bPC\b/g, 'Mac').replaceAll('ПК', 'Mac');
+    return text;
+  };
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
-    [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
+    [key, typeof value === 'string' ? words(value) : value]));
 
   const screens = displays();
   const current = targetDisplay().id;
@@ -677,7 +706,9 @@ async function pickClaudeFolder() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(ROOT, 'assets', 'icons', 'tray.png'));
+  const file = path.join(ROOT, 'assets', 'icons', 'tray.png');
+  // the menu bar is 22 points tall: her 32-pixel icon drawn at 16 points, sharp on Retina screens
+  const icon = mac.MAC ? nativeImage.createFromBuffer(fs.readFileSync(file), { scaleFactor: 2 }) : nativeImage.createFromPath(file);
   tray = new Tray(icon);
   tray.setToolTip('Capri');
   tray.on('click', () => sendCommand('status'));
@@ -871,8 +902,22 @@ function registerIpc() {
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
     overlay.setFocusable(Boolean(on));
-    if (on) overlay.focus();
-    else overlay.blur();
+    if (on) {
+      overlay.focus();
+      // macOS: her panel takes the keyboard without making Capri the app in front; if it couldn't,
+      // she takes it, and gives it back to the app you were on afterwards
+      if (mac.MAC && !overlay.isFocused()) {
+        focusedFrom = windowWatch?.frontPid() || 0;
+        app.focus({ steal: true });
+        overlay.focus();
+      }
+    } else {
+      overlay.blur();
+      if (mac.MAC && focusedFrom) {
+        mac.run(['activate', focusedFrom]).catch(() => {});
+        focusedFrom = 0;
+      }
+    }
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
   ipcMain.handle('panel:copy', async (_e, rect) => {
@@ -889,7 +934,10 @@ function registerIpc() {
     const d = targetDisplay().bounds;
     const b = tray?.getBounds();
     const icon = b && b.width > 0 ? { x: b.x - o.x, y: b.y - o.y, w: b.width, h: b.height } : null;
-    const corner = { x: d.x + d.width - 150 - o.x, y: d.y + d.height - 44 - o.y, w: 140, h: 40 };
+    // where it lives when it can't be found: by the clock, bottom right (top right on a Mac, in the menu bar)
+    const corner = mac.MAC
+      ? { x: d.x + d.width - 260 - o.x, y: d.y - o.y, w: 140, h: 24 }
+      : { x: d.x + d.width - 150 - o.x, y: d.y + d.height - 44 - o.y, w: 140, h: 40 };
     return { icon, corner };
   });
   // her guide: Claude Code's folder (~/.claude) in Explorer, its settings file selected
@@ -1031,7 +1079,30 @@ function applyRender() {
   if (DEV) app.whenReady().then(() => setTimeout(() => console.log('[capri] display:', render, JSON.stringify(app.getGPUFeatureStatus())), 4000));
 }
 
+// macOS: run from the disk image or from Downloads, the app sits somewhere temporary (App
+// Translocation), and her hooks would point at a path that's gone tomorrow. She offers to move herself.
+function offerApplications() {
+  if (!mac.MAC || !app.isPackaged || DEV || app.isInApplicationsFolder()) return;
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Move to Applications', 'Not now'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Move Capri to your Applications folder?',
+    detail: 'She works best from there: her hooks into Claude Code and Codex point at where she lives, and she can start with your Mac.',
+  });
+  if (choice !== 0) return;
+  try {
+    app.moveToApplicationsFolder({
+      conflictHandler: (kind) => kind === 'existsAndRunning' ? false : true, // an older Capri there: replaced
+    });
+  } catch (err) {
+    dialog.showErrorBox('Capri', `Couldn't move her: ${err.message}\nDrag Capri into Applications from the disk image instead.`);
+  }
+}
+
 function main() {
+  mac.fixPath(); // a Mac app opened from Finder has no Homebrew or npm on its PATH
   applyRender();
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -1041,6 +1112,10 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
+    if (mac.MAC) {
+      app.dock?.hide(); // a desktop pet: her icon is in the menu bar, not the Dock (LSUIElement once installed)
+      offerApplications();
+    }
     if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();

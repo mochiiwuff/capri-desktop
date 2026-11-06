@@ -45,11 +45,13 @@ function hasNode() {
 
 // In the installed app (the .exe) the hook sits next to the app archive (asarUnpack), where
 // node can read it. With no node on the machine, Capri's own executable runs it as node.
+// On a Mac, always Capri's own executable: Claude Code's shell may not have the node an app sees (or
+// none at all), and Capri.app stays put in Applications.
 function hookCommand() {
   const script = path.resolve(__dirname, '..', 'hooks', 'capri-hook.js')
     .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`)
     .replace(/\\/g, '/');
-  if (process.versions.electron && !hasNode()) {
+  if (process.versions.electron && (process.platform === 'darwin' || !hasNode())) {
     return `ELECTRON_RUN_AS_NODE=1 "${process.execPath.replace(/\\/g, '/')}" "${script}"`;
   }
   return `node "${script}"`;

@@ -47,7 +47,7 @@ function hookCommand(eventType) {
   if (!process.versions.electron) {
     return `${quoteIfNeeded(process.execPath)} ${quoteIfNeeded(script)} ${eventType}`;
   }
-  if (hasNode()) {
+  if (process.platform !== 'darwin' && hasNode()) { // on a Mac, always Capri's own executable
     return `node ${quoteIfNeeded(script)} ${eventType}`;
   }
   return `ELECTRON_RUN_AS_NODE=1 ${quoteIfNeeded(process.execPath)} ${quoteIfNeeded(script)} ${eventType}`;

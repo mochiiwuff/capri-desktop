@@ -2,8 +2,9 @@
 
 // Setting her up with buttons, so nobody has to type in a terminal: Ollama (installed with winget,
 // woken up, a model fetched with its progress), an API key pasted in her panel (kept encrypted with
-// your Windows account), and Claude Code or Codex run through Ollama in a window of their own.
-// Windows; elsewhere the buttons open the right pages instead.
+// your Windows account, or in your macOS Keychain), and Claude Code or Codex run through Ollama in a
+// window of their own. Windows and macOS (Ollama fetched from its site, into Applications); elsewhere
+// the buttons open the right pages instead.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -11,8 +12,11 @@ const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { safeStorage } = require('electron');
 const ollama = require('./ollama');
+const mac = require('./mac');
 
 const WIN = process.platform === 'win32';
+const MAC = mac.MAC;
+const OLLAMA_ZIP = 'https://ollama.com/download/Ollama-darwin.zip';
 
 // The models she offers for her chat, with what they weigh (as Ollama lists them)
 const MODELS = [
@@ -39,6 +43,11 @@ function which(cmd) {
 
 // Ollama's own app (it runs the server from the tray) and its command, where its installer puts them
 function ollamaFiles() {
+  if (MAC) {
+    const where = ['/Applications/Ollama.app', path.join(os.homedir(), 'Applications', 'Ollama.app')];
+    const bundle = where.find((p) => fs.existsSync(p)) || where[0];
+    return { app: bundle, cli: path.join(bundle, 'Contents', 'Resources', 'ollama') };
+  }
   const dir = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Programs', 'Ollama');
   return { app: path.join(dir, 'ollama app.exe'), cli: path.join(dir, 'ollama.exe') };
 }
@@ -48,11 +57,13 @@ async function ollamaState() {
   const models = await ollama.models().catch(() => null);
   if (models) return { running: true, installed: true, models, winget: false };
   const [onPath, winget] = await Promise.all([which('ollama'), WIN ? which('winget') : null]);
-  return { running: false, installed: fs.existsSync(ollamaFiles().cli) || Boolean(onPath), models: null, winget: Boolean(winget) };
+  // on macOS she installs it herself, from Ollama's own download: as good as winget
+  return { running: false, installed: fs.existsSync(ollamaFiles().cli) || Boolean(onPath), models: null, winget: Boolean(winget) || MAC };
 }
 
 // Installs Ollama with winget (Windows' own package manager); onLine(text) for what it prints.
 function installOllama(onLine) {
+  if (MAC) return installOllamaMac(onLine);
   return new Promise((resolve) => {
     const child = spawn('winget', [
       'install', '--id', 'Ollama.Ollama', '--exact', '--silent',
@@ -67,11 +78,58 @@ function installOllama(onLine) {
   });
 }
 
+// macOS: Ollama's app from its site, unzipped into Applications (yours if the shared one is locked).
+async function installOllamaMac(onLine) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-ollama-'));
+  const zip = path.join(tmp, 'Ollama-darwin.zip');
+  try {
+    onLine?.('Downloading Ollama…');
+    const res = await fetch(OLLAMA_ZIP, { signal: AbortSignal.timeout(15 * 60 * 1000) });
+    if (!res.ok) throw new Error(`ollama.com answered ${res.status}`);
+    const total = Number(res.headers.get('content-length')) || 0;
+    const out = fs.createWriteStream(zip);
+    let done = 0;
+    let said = -1;
+    for await (const chunk of res.body) {
+      out.write(chunk);
+      done += chunk.length;
+      const percent = total ? Math.floor((done / total) * 100) : -1;
+      if (percent >= 0 && percent >= said + 10) {
+        said = percent;
+        onLine?.(`Downloading Ollama… ${percent}%`);
+      }
+    }
+    await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())));
+    onLine?.('Unpacking…');
+    const run = (file, args) => new Promise((resolve, reject) => execFile(file, args, { timeout: 120000 }, (err, o, e) => (err ? reject(new Error(String(e || err.message).trim())) : resolve())));
+    await run('/usr/bin/ditto', ['-x', '-k', zip, tmp]);
+    const unpacked = path.join(tmp, 'Ollama.app');
+    let target = '/Applications/Ollama.app';
+    try {
+      fs.accessSync('/Applications', fs.constants.W_OK);
+    } catch {
+      target = path.join(os.homedir(), 'Applications', 'Ollama.app');
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+    await run('/usr/bin/ditto', [unpacked, target]);
+    // downloaded by her, not by your browser: no "downloaded from the internet" question for it
+    await run('/usr/bin/xattr', ['-dr', 'com.apple.quarantine', target]).catch(() => {});
+    onLine?.('Ollama is in your Applications.');
+    return { ok: true, code: 0 };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // Wakes Ollama up (its app, else `ollama serve` in the background) and waits for it to answer.
 async function startOllama() {
   const { app, cli } = ollamaFiles();
   const run = (file, args) => spawn(file, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref();
-  if (fs.existsSync(app)) run(app, []);
+  if (MAC && fs.existsSync(app)) run('/usr/bin/open', ['-g', '-a', app]); // in the background, it lives in the menu bar
+  else if (fs.existsSync(app)) run(app, []);
   else run(fs.existsSync(cli) ? cli : 'ollama', ['serve']);
   for (let i = 0; i < 40; i++) {
     if (await ollama.models().catch(() => null)) return { ok: true };
@@ -118,6 +176,12 @@ async function pullModel(name, onProgress, signal) {
 // Claude Code (or Codex) through Ollama, in a window of its own: Ollama fetches what's missing and
 // asks which model to use. She sees it like any other session, through her hooks.
 function launchThroughOllama(integration) {
+  if (MAC && ['claude', 'codex'].includes(integration)) {
+    const { cli } = ollamaFiles();
+    const ollamaCmd = fs.existsSync(cli) ? `'${cli.replace(/'/g, "'\\''")}'` : 'ollama';
+    mac.openInTerminal('Capri - Ollama', `cd ~\n${ollamaCmd} launch ${integration}`);
+    return { ok: true };
+  }
   if (!WIN || !['claude', 'codex'].includes(integration)) return { ok: false };
   const { cli } = ollamaFiles();
   // `start` opens a new console window (its first quoted argument is the window's title); cmd /k

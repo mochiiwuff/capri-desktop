@@ -83,7 +83,7 @@ async function boot() {
   const panel = new Panel({
     panel: document.getElementById('panel'),
     ticker: document.getElementById('ticker'),
-    labels: linesFor(config.lang, config.assistant),
+    labels: linesFor(config.lang, config.assistant, config.platform),
   });
 
   const capri = new Capri({
@@ -100,7 +100,7 @@ async function boot() {
   capri.setScale(config.scale);
 
   const mission = new Mission();
-  const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, assistant: config.assistant });
+  const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, assistant: config.assistant, platform: config.platform });
 
   // Click-through everywhere except on her body, the panel and her biochip.
   let interactive = false;
@@ -649,11 +649,11 @@ async function boot() {
     brain.watching = cfg.claude !== false;
     brain.custom = mine(cfg);
     brain.assistant = cfg.assistant;
-    panel.labels = linesFor(cfg.lang, cfg.assistant);
+    panel.labels = linesFor(cfg.lang, cfg.assistant, cfg.platform);
     if (cfg.scale !== capri.scale) capri.setScale(cfg.scale);
     if (cfg.lang !== brain.lang) {
       brain.lang = cfg.lang;
-      panel.labels = linesFor(cfg.lang, cfg.assistant);
+      panel.labels = linesFor(cfg.lang, cfg.assistant, cfg.platform);
       document.documentElement.lang = cfg.lang;
     }
   });

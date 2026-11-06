@@ -48,7 +48,10 @@ function configure(uninstall = false) {
   }
   const script = path.resolve(__dirname, '..', 'hooks', MARK)
     .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`).replace(/\\/g, '/');
-  const command = `node "${script}"`;
+  // on a Mac, Capri's own executable runs it (Codex's shell may have no node)
+  const command = process.versions.electron && process.platform === 'darwin'
+    ? `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${script}"`
+    : `node "${script}"`;
   if (!uninstall) {
     for (const event of EVENTS) {
       settings.hooks[event] ||= [];

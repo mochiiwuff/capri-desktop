@@ -15,7 +15,7 @@ const THINK_SAY = 40000;
 const THINK_LONG = 120000;
 
 export class Brain {
-  constructor({ capri, panel, voice, host, mission, lang = 'fr', assistant = 'claude' }) {
+  constructor({ capri, panel, voice, host, mission, lang = 'fr', assistant = 'claude', platform = 'win32' }) {
     this.capri = capri;
     this.panel = panel;
     this.voice = voice;
@@ -23,6 +23,7 @@ export class Brain {
     this.mission = mission; // today's log, for her report card (mission.js)
     this.lang = lang;
     this.assistant = assistant; // 'claude', 'codex' or 'agy': whose events she follows
+    this.platform = platform; // her words for a Mac or a PC (lines.js)
     this.custom = {};       // what you made her (custom.js): { userName, persona, myLines, memories }
     this.sessions = new Map();
     this.replyFor = null;    // the session whose answer she's holding up for you
@@ -36,7 +37,7 @@ export class Brain {
   }
 
   get t() {
-    return linesFor(this.lang, this.assistant);
+    return linesFor(this.lang, this.assistant, this.platform);
   }
 
   // the assistant she watches, as she calls it

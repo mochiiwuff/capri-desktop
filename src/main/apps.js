@@ -2,9 +2,10 @@
 
 // Closing an app when you ask her to (chat.js), after you've confirmed with a click. The apps with
 // a window, by name; closing one the way its own close button does (it can still ask you to save),
-// and only if you ask again, forcing it. Windows only.
+// and only if you ask again, forcing it. Windows, and macOS through her helper (⌘Q, Force Quit).
 
 const { execFile } = require('node:child_process');
+const mac = require('./mac');
 
 // never these: the desktop itself, Windows' own pieces, her (Capri), Claude (she watches it) and
 // Ollama (she talks through it)
@@ -24,6 +25,11 @@ function powershell(script, timeout = 15000) {
 
 // [{ name, process, ids }]: one per program with a window open ("AM Music", "Discord"...)
 async function list() {
+  if (mac.MAC) {
+    const rows = JSON.parse(await mac.run(['apps', process.pid]) || '[]');
+    return rows.filter((r) => !KEEP.has(String(r.name).toLowerCase()))
+      .map(({ id, name, label }) => ({ name, process: name, label: label || '', ids: [id] }));
+  }
   if (process.platform !== 'win32') return [];
   const out = await powershell(
     'Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } | '
@@ -64,6 +70,10 @@ async function find(wanted) {
 async function close(name, { force = false } = {}) {
   const app = (await list()).find((a) => a.process === name);
   if (!app) return { running: false };
+  if (mac.MAC) {
+    const left = await mac.run([force ? 'kill' : 'quit', ...app.ids], 15000);
+    return { running: Number(left) > 0 };
+  }
   const ids = app.ids.join(',');
   const out = await powershell(force
     ? `Stop-Process -Id ${ids} -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 600; `

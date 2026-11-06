@@ -1,0 +1,116 @@
+name: macOS DMG
+
+# Builds Capri for macOS on a real Mac: her native helper (Apple silicon + Intel), the app as one
+# universal Capri.dmg, then checks it: the helper sees windows, the app starts from the disk image,
+# her window watch and menu work. The DMG is attached to the run (Summary › Artifacts).
+
+on:
+  push:
+    branches: ['main', 'master', 'claude/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Hooks tests
+        run: npm run test:hooks
+
+      - name: Build her helper and icon
+        run: sh scripts/build-mac.sh
+
+      - name: Helper works
+        run: |
+          set -e
+          H=native/mac/build/capri-helper
+          lipo -archs "$H"
+          "$H" trusted
+          "$H" apps 0
+          open -a TextEdit || true
+          open "$HOME" || true
+          sleep 3
+          # the watch, three seconds of it: one JSON line per change, ended when its input closes
+          (sleep 3; echo) | "$H" watch $$ 0 > watch.jsonl
+          head -c 2000 watch.jsonl; echo
+          python3 - <<'EOF'
+          import json
+          lines = [json.loads(l) for l in open('watch.jsonl') if l.strip()]
+          assert lines, 'the watch printed nothing'
+          snap = lines[-1]
+          for key in ('fg', 'wins', 'ai', 'pages', 'dl', 'usb', 'plug', 'game', 'taskbar'):
+              assert key in snap, f'missing {key}'
+          print(f"watch ok: {len(lines)} snapshot(s), {len(snap['wins'])} window(s), fg={snap['fg']}")
+          EOF
+
+      - name: Build the DMG
+        run: npx electron-builder --mac --universal --publish never
+
+      - name: Check the DMG and the app in it
+        run: |
+          set -e
+          DMG=$(ls dist/*.dmg | head -1)
+          echo "dmg: $DMG ($(du -h "$DMG" | cut -f1))"
+          hdiutil verify "$DMG"
+          MNT=$(hdiutil attach -nobrowse -readonly "$DMG" | awk -F'\t' '/\/Volumes\//{print $NF}' | tail -1)
+          echo "mounted at: $MNT"
+          ls -la "$MNT"
+          APP="$MNT/Capri.app"
+          test -L "$MNT/Applications"
+          lipo -archs "$APP/Contents/MacOS/Capri"
+          lipo -archs "$APP/Contents/Resources/capri-helper"
+          test -f "$APP/Contents/Resources/app.asar.unpacked/hooks/capri-hook.js"
+          /usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$APP/Contents/Info.plist"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # installed like you would: copied into Applications
+          ditto "$APP" /Applications/Capri.app
+          hdiutil detach "$MNT"
+
+      - name: The app starts and her window watch runs
+        run: |
+          set -e
+          APP=/Applications/Capri.app
+          "$APP/Contents/MacOS/Capri" --dev > capri.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:47823/health && break; sleep 1; done
+          echo
+          sleep 15
+          kill -0 $PID
+          ev() { curl -sf -X POST -H 'content-type: application/json' -d "{\"js\": \"$1\"}" http://127.0.0.1:47823/debug/eval; echo; }
+          ev "JSON.stringify({ booted: Boolean(window.dev), windows: window.dev.capri.windows.wins.length, fg: window.dev.capri.windows.fg, w: innerWidth, h: innerHeight })"
+          ev "document.documentElement.lang + ' ' + window.dev.brain.t.showcase.chip"
+          curl -sf -X POST -H 'content-type: application/json' -d '{}' http://127.0.0.1:47823/debug/menu | python3 -c "import json,sys; m=json.load(sys.stdin)['value']; print(json.dumps(m)[:1500])"
+          # a hook event, as Claude Code would send it, through the command she installs
+          echo '{"hook_event_name":"SessionStart","session_id":"ci","cwd":"/tmp","source":"startup"}' | ELECTRON_RUN_AS_NODE=1 "$APP/Contents/MacOS/Capri" "$APP/Contents/Resources/app.asar.unpacked/hooks/capri-hook.js"
+          echo "hook exit: $?"
+          sleep 2
+          kill -0 $PID
+          kill $PID || true
+          sleep 2
+          echo '--- capri.log'
+          tail -n 80 capri.log
+          if grep -E "Uncaught|TypeError|ReferenceError|renderer gone" capri.log; then echo 'renderer errors'; exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Capri-macOS
+          path: |
+            dist/*.dmg
+            capri.log
+            watch.jsonl
+          if-no-files-found: warn
