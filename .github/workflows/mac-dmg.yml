@@ -15,6 +15,32 @@ permissions:
   contents: read
 
 jobs:
+  # the JavaScript side, on Linux: quick, and it says whether Actions runs at all
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Syntax
+        run: for f in src/main/*.js src/preload.js scripts/*.js hooks/*.js; do node --check "$f"; done
+      - name: Hooks tests
+        run: npm run test:hooks
+      - name: Her macOS words
+        run: |
+          node --input-type=module -e "
+          import { linesFor } from './src/renderer/js/lines.js';
+          for (const lang of ['fr', 'en', 'es', 'pt', 'ru']) {
+            const t = linesFor(lang, 'claude', 'darwin');
+            const text = JSON.stringify(t);
+            if (/Ctrl\\+Alt|Windows|Gestionnaire des t|Task Manager/.test(text)) throw new Error(lang + ': Windows words left on a Mac');
+            console.log(lang, '|', t.showcase.chip, '|', t.guide.icon.line);
+          }"
+
   dmg:
     runs-on: macos-14
     timeout-minutes: 40
