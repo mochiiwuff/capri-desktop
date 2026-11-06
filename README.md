@@ -99,8 +99,9 @@ glitches, comments on every action, comes to find you when it needs your permiss
 
 ![Asleep down to her mask, waking up, and put away bottom left](docs/sleep.png)
 
-Window tracking is Windows-only for now (a tiny PowerShell helper reads window positions, never their contents; the title of the one in front is only used to spot another AI, see "She gets attached", and its program's folder to tell a game; the USB sticks plugged in are seen by their drive letter, other devices by the name Windows gives them).
-On macOS and Linux she still floats, peeks, falls and wanders.
+Window tracking works on Windows and macOS (on Windows, a tiny PowerShell helper reads window positions, never their
+contents; on macOS, a small native helper does the same, see `native/mac/CapriHelper.swift`; the title of the one in front is only used to spot another AI, see "She gets attached", and its program's folder to tell a game; the USB sticks plugged in are seen by their drive letter, other devices by the name Windows gives them).
+On Linux she still floats, peeks, falls and wanders.
 
 ### She shows you around
 
@@ -292,6 +293,37 @@ own. You can choose another one in her menu.
 
 Her menu: **right-click her**. It's also on her tray icon, which Windows 11 often hides behind the **^** next to the clock.
 
+### Quick start (macOS, no coding)
+
+1. Get **`Capri-x.y.z.dmg`**: the latest run of the [macOS DMG workflow](../../actions/workflows/mac-dmg.yml) has it
+   under **Artifacts** (download, double-click the .zip). One DMG for every Mac, Apple silicon and Intel, macOS 12 or newer.
+2. Open it and drag **Capri** onto **Applications**.
+3. Open Capri from Applications. It isn't notarized by Apple (that takes a paid developer account), so the first time
+   macOS says it can't check it: click **Done**, open **System Settings › Privacy & Security**, scroll down and click
+   **Open Anyway** next to Capri. (On macOS 14 and older: right-click Capri › **Open** › **Open**.) Only once.
+4. She grabs your screen and introduces herself. Click **Plug me in**, then restart Claude Code: as soon as Claude does
+   something, she tells you **"I can see Claude!"**.
+
+She lives in the **menu bar** (no Dock icon): her icon there, or **right-click her**, opens her menu. **⌃⌥C** tucks her
+away. She sits on your windows, peeks, possesses them and points at Claude's window like on Windows.
+
+macOS asks before she can do a few things, the first time she tries, and each one is optional:
+
+- **Accessibility**: closing other AIs' tabs (⌘W), the media keys, putting a window on half the screen.
+- **Screen Recording**: when you ask her to look at your screen or take a screenshot.
+- **Automation (System Events)**: dark mode, and shutting down or restarting when you ask her to.
+
+Build the DMG yourself on a Mac (needs the Xcode command line tools, `xcode-select --install`):
+
+```bash
+npm install
+npm run dist:mac
+```
+
+It lands in `dist/`. To sign and notarize it with your own Apple Developer ID, set `build.mac.identity` to your
+certificate's name and `hardenedRuntime` to `true` in `package.json`, and run it with `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` set: macOS then opens it without asking.
+
 ### What's Claude Code? Do I need it?
 
 [Claude Code](https://code.claude.com/docs/en/quickstart) is Anthropic's coding assistant: in a terminal, in VS Code,
@@ -312,9 +344,10 @@ npm install
 npm start
 ```
 
-Keep that terminal open while she runs. Not tested on macOS or Linux yet: she should start, but the window tricks
-(sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
-the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
+Keep that terminal open while she runs. On macOS, run `npm run build:mac` once first: it builds her native helper,
+which her window tricks need (sitting on your windows, possessing them, showing Claude's answer when you're elsewhere).
+On Linux those tricks are off, and the transparent overlay works best on X11 (Wayland can struggle with click-through
+windows).
 
 ### Hook her up to Claude Code by hand
 
