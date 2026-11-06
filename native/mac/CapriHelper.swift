@@ -176,8 +176,8 @@ func usbVolumes() -> [String] {
     guard let disk = DADiskCreateFromVolumePath(kCFAllocatorDefault, session, url as CFURL),
           let desc = DADiskCopyDescription(disk) as? [String: Any] else { continue }
     let proto = (desc[kDADiskDescriptionDeviceProtocolKey as String] as? String) ?? ""
-    let internal = (desc[kDADiskDescriptionDeviceInternalKey as String] as? Bool) ?? true
-    guard (proto == "USB" && !internal) || proto.contains("Secure Digital") else { continue }
+    let isInternal = (desc[kDADiskDescriptionDeviceInternalKey as String] as? Bool) ?? true
+    guard (proto == "USB" && !isInternal) || proto.contains("Secure Digital") else { continue }
     let name = (try? url.resourceValues(forKeys: [.volumeNameKey]))?.volumeName
     names.append(name ?? url.lastPathComponent)
   }
