@@ -333,6 +333,9 @@ function rebuildTray() {
   };
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
     [key, typeof value === 'string' ? words(value) : value]));
+  // on a Mac she rests on the Dock, not a taskbar
+  const DOCK = { fr: 'Assise sur le Dock', en: 'Sitting on the Dock', es: 'Sentada en el Dock', pt: 'Sentada no Dock', ru: 'Сидит на Dock' };
+  if (mac.MAC) t.restTaskbar = DOCK[resolveLang(cfg.lang)] || DOCK.en;
 
   const screens = displays();
   const current = targetDisplay().id;
