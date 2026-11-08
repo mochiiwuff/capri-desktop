@@ -375,6 +375,37 @@ pour elle, puis se ferme sous elle et elle tombe), le sommeil jusqu'à son masqu
 C'est aussi dans le menu de l'icône, dans sa langue ; en ligne de commande c'est en anglais, ou précise la langue :
 `npm run demo -- fr` (ou `es`, `pt`, `ru`).
 
+## Sa voix
+
+Clic droit sur elle › **Sa voix** : elle dit ses répliques et les réponses de son chat à voix haute. Ses petits bips se
+taisent pendant qu'elle parle, et son volume et *Muet* s'appliquent aussi à sa voix.
+
+| Choix | Ce que c'est | Ce qu'il faut |
+|---|---|---|
+| **Voix de Windows (gratuite)** | les voix déjà sur ton PC | rien (*Régler sa voix…* en choisit une) |
+| **Sur mon PC (Kokoro…)** | un serveur de voix que tu lances, bien plus beau, toujours gratuit | son adresse (`http://127.0.0.1:8880/v1` par défaut) |
+| **OpenAI** | les voix d'OpenAI, avec la façon dont elle parle | ta clé OpenAI |
+| **ElevenLabs** | une voix que tu crées pour elle | ta clé ElevenLabs et l'ID de la voix |
+
+**Sur ton PC, gratuit :** [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) parle le même langage que le
+service de voix d'OpenAI. Lance-le, puis choisis *Sur mon PC* et laisse l'adresse vide. Voix : `ff_siwis` en
+français, `af_bella`, `af_nicole`, `af_sky` en anglais, `ef_dora` en espagnol, `pf_dora` en portugais.
+
+**Sa voix, créée pour elle (Voice Design d'ElevenLabs) :** dans ElevenLabs, ouvre *Voice Design*, colle le texte
+ci-dessous, génère, garde la prise qui te plaît et enregistre-la. Copie son *Voice ID*, puis dans Capri : *Sa voix* ›
+*ElevenLabs*, ta clé, et l'ID.
+
+```
+A young woman in her early twenties. Cool, a little teasing, with a dry sense of humor and a confident, relaxed
+delivery. Low-to-mid pitch, slightly husky, clear diction, unhurried. She sounds amused more than excited, never
+bubbly, never childish. A faint electronic edge, as if she comes through a speaker. Studio quality, no background.
+```
+
+Ça crée une voix nouvelle, synthétique. Ne clone pas la voix d'une vraie personne (une actrice, un streamer, un pote)
+sans son accord clair : c'est interdit par les services, et par Capri.
+
+Ce qu'elle dit à voix haute part vers le service choisi (rien du tout avec les voix de Windows ou un serveur sur ton PC).
+
 ## Sons
 
 Tous les sons sont synthétisés en direct (Web Audio), rien n'est fourni sous droits.

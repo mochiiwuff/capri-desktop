@@ -4,6 +4,7 @@
 // free, run through Ollama. Each step is a panel of her guide (guide.js).
 
 import { fmt } from './util.js';
+import { Speech } from './speech.js';
 
 // the services that take a key, in the order she offers them (the first two have a free tier)
 const KEYED = ['groq', 'gemini', 'openrouter', 'openai', 'mistral', 'deepseek'];
@@ -46,6 +47,60 @@ export class Setup {
       else ready = await this.pickKeyed();
     });
     if (ready) this.onReady?.();
+  }
+
+  // "Set her voice" in her menu (or a voice just picked there): what that voice needs (the address
+  // of your speech server, a key, which voice), then she says something with it, or why she can't.
+  async voiceSettings() {
+    await this.guide.scene(async () => {
+      const cfg = await this.host.getConfig();
+      const provider = cfg.speech?.provider || 'off';
+      if (provider === 'off') return;
+      const t = this.t.voice;
+      const settings = { provider };
+      if (provider === 'windows') {
+        const names = Speech.windowsVoices(cfg.lang).slice(0, 4);
+        if (names.length > 1) {
+          const id = await this.guide.ask({
+            face: 'look', line: t.windows,
+            actions: names.map((name, i) => ({ id: String(i), label: name.replace(/^Microsoft\s+/, '').replace(/\s+-.*$/, ''), primary: i === 0 })),
+          });
+          if (names[id]) settings.voice = names[id];
+        }
+      } else {
+        if (provider === 'local') {
+          const got = await this.guide.askText({ face: 'look', line: t.url, quote: t.urlHow, placeholder: 'http://127.0.0.1:8880/v1', tag: 'URL' });
+          if (!got) return;
+          settings.url = got.text || '';
+        } else if (!cfg.keys?.includes(provider)) {
+          const got = await this.guide.askText({
+            face: 'look', line: fmt(t.key, { name: provider === 'openai' ? 'OpenAI' : 'ElevenLabs' }), secret: true, tag: 'KEY', note: t.keyNote,
+            actions: [{ id: 'page', label: this.t.where }], onAction: (id) => id === 'page' && (this.host.keyPage(provider), true),
+          });
+          if (!got?.text) return;
+          settings.key = got.text;
+        }
+        const got = await this.guide.askText({
+          face: 'look', line: t.name, quote: t.nameHow[provider], tag: 'VOICE',
+          placeholder: provider === 'local' ? 'af_bella' : provider === 'openai' ? 'shimmer' : 'voice ID',
+          actions: provider === 'elevenlabs' ? [{ id: 'design', label: t.design }] : [],
+          onAction: (id) => id === 'design' && (this.host.keyPage('voicedesign'), true),
+        });
+        if (!got) return;
+        settings.voice = got.text || '';
+      }
+      await this.host.setVoice(settings);
+      // her first words with it: the service asked once here (then it's in its cache for the panel)
+      if (provider !== 'windows') {
+        const res = await this.host.speak(t.test);
+        if (res?.error) {
+          await this.guide.ask({ face: 'wide', line: fmt(t.failed, { error: res.error }), actions: [{ id: 'ok', label: 'OK', primary: true }] });
+          return;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 250)); // her new settings reach her voice first
+      this.panel.say({ kind: 'done', face: 'smug', line: t.test, hold: 4000 });
+    });
   }
 
   // A bigger model than the tiny one her chat is on: picked, fetched, and her chat back on it.

@@ -17,6 +17,7 @@ const { startWindowWatch } = require('./windows');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
+const speech = require('./speech');
 const apps = require('./apps');
 const system = require('./system');
 const launch = require('./launch');
@@ -360,6 +361,21 @@ function rebuildTray() {
             shell.openPath(userSoundsDir());
           },
         },
+      ],
+    },
+    {
+      label: t.speech,
+      submenu: [
+        ...[['off', t.speechOff], ['windows', t.speechWindows], ['local', t.speechLocal], ['openai', 'OpenAI'], ['elevenlabs', 'ElevenLabs']]
+          .map(([provider, label]) => ({
+            label, type: 'radio', checked: (cfg.speech?.provider || 'off') === provider,
+            click: () => {
+              updateConfig({ speech: { ...cfg.speech, provider } });
+              if (provider !== 'off') sendCommand('setupVoice'); // what it needs, then a word in it
+            },
+          })),
+        { type: 'separator' },
+        { label: t.speechSet, enabled: (cfg.speech?.provider || 'off') !== 'off', click: () => sendCommand('setupVoice') },
       ],
     },
     {
@@ -769,6 +785,26 @@ function registerIpc() {
     }
   });
   ipcMain.handle('look:say', (_e, request) => sayAboutSnap(request || {}));
+  // her voice from a service (speech.js): the audio, or why not
+  ipcMain.handle('speech:say', async (_e, text) => {
+    const cfg = config.load();
+    const voice = cfg.speech || {};
+    try {
+      const key = setup.openKeys(cfg.apiKeys)[voice.provider] || '';
+      return { audio: await speech.synthesize(String(text || ''), voice, key) };
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+  // its settings, from her panel (setup.js "Set her voice"): a key sealed like her chat's
+  ipcMain.handle('speech:set', (_e, { provider, voice, url, key }) => {
+    if (provider !== 'off' && provider !== 'windows' && !speech.SERVICES[provider]) return false;
+    const cfg = config.load();
+    const patch = { speech: { ...cfg.speech, provider, ...(voice !== undefined && { voice: String(voice).trim().slice(0, 120) }), ...(url !== undefined && { url: String(url).trim().slice(0, 300) }) } };
+    if (key) patch.apiKeys = { ...cfg.apiKeys, [provider]: setup.sealKey(String(key).trim()) };
+    updateConfig(patch);
+    return true;
+  });
   // how hard the processor works, in %, since the last time she asked (pc.js)
   let cpuBefore = null;
   ipcMain.handle('pc:cpu', () => {

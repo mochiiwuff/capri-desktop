@@ -189,6 +189,15 @@ export const LINES = {
     },
     // la mettre en route avec des boutons (setup.js) : Ollama, un modèle, une clé
     setup: {
+      // sa voix (menu › Sa voix › Régler sa voix…)
+      voice: {
+        windows: 'Laquelle des voix de Windows ?',
+        url: 'L’adresse de ton serveur de voix ?', urlHow: 'Kokoro-FastAPI, openedai-speech… Vide : http://127.0.0.1:8880/v1.',
+        key: 'Ta clé {name} ?', keyNote: 'Elle reste chiffrée sur ton PC.',
+        name: 'Quelle voix je prends ?',
+        nameHow: { local: 'Son nom sur ton serveur (af_bella, ff_siwis…). Vide : af_bella.', openai: 'shimmer, nova, coral, sage… Vide : shimmer.', elevenlabs: 'L’ID de la voix que tu as créée avec Voice Design. Le texte pour la créer est dans mon README.' },
+        design: 'Créer sa voix', test: 'Voilà ma voix. Ça te va ?', failed: 'Je n’arrive pas à parler : {error}',
+      },
       who: 'Pour te parler, il me faut une IA.',
       why: { noOllama: 'Ollama n’est pas installé sur ce PC.', asleep: 'Ollama est installé, mais il dort.', noModel: 'Ollama n’a pas encore de modèle.' },
       whoHow: 'Le plus simple : sur ton PC, avec Ollama. C’est gratuit, et rien ne sort de chez toi.\nSinon : en ligne sans compte, ou avec la clé d’un service.',
@@ -570,6 +579,14 @@ export const LINES = {
     },
     // setting her up with buttons (setup.js): Ollama, a model, a key
     setup: {
+      voice: {
+        windows: 'Which of Windows’ voices?',
+        url: 'Your speech server’s address?', urlHow: 'Kokoro-FastAPI, openedai-speech… Empty: http://127.0.0.1:8880/v1.',
+        key: 'Your {name} key?', keyNote: 'It stays encrypted on your PC.',
+        name: 'Which voice do I use?',
+        nameHow: { local: 'Its name on your server (af_bella, ff_siwis…). Empty: af_bella.', openai: 'shimmer, nova, coral, sage… Empty: shimmer.', elevenlabs: 'The ID of the voice you made with Voice Design. The text to make it is in my README.' },
+        design: 'Make her voice', test: 'This is my voice. Good?', failed: 'I can’t speak: {error}',
+      },
       who: 'To talk with you, I need an AI.',
       why: { noOllama: 'Ollama isn’t installed on this PC.', asleep: 'Ollama is installed, but it’s asleep.', noModel: 'Ollama has no model yet.' },
       whoHow: 'Easiest: on your PC, with Ollama. It’s free, and nothing leaves your machine.\nOr online with no account, or with a key from a service.',
@@ -945,6 +962,14 @@ export const LINES = {
     },
     // ponerla en marcha con botones (setup.js): Ollama, un modelo, una clave
     setup: {
+      voice: {
+        windows: '¿Cuál de las voces de Windows?',
+        url: '¿La dirección de tu servidor de voz?', urlHow: 'Kokoro-FastAPI, openedai-speech… Vacío: http://127.0.0.1:8880/v1.',
+        key: '¿Tu clave de {name}?', keyNote: 'Se queda cifrada en tu PC.',
+        name: '¿Qué voz uso?',
+        nameHow: { local: 'Su nombre en tu servidor (af_bella, ef_dora…). Vacío: af_bella.', openai: 'shimmer, nova, coral, sage… Vacío: shimmer.', elevenlabs: 'El ID de la voz que creaste con Voice Design. El texto para crearla está en mi README.' },
+        design: 'Crear su voz', test: 'Esta es mi voz. ¿Te gusta?', failed: 'No puedo hablar: {error}',
+      },
       who: 'Para hablar contigo, necesito una IA.',
       why: { noOllama: 'Ollama no está instalado en este PC.', asleep: 'Ollama está instalado, pero dormido.', noModel: 'Ollama aún no tiene ningún modelo.' },
       whoHow: 'Lo más fácil: en tu PC, con Ollama. Es gratis y nada sale de tu equipo.\nSi no: en línea sin cuenta, o con la clave de un servicio.',
@@ -1322,6 +1347,14 @@ export const LINES = {
     },
     // deixar ela pronta com botões (setup.js): Ollama, um modelo, uma chave
     setup: {
+      voice: {
+        windows: 'Qual das vozes do Windows?',
+        url: 'O endereço do seu servidor de voz?', urlHow: 'Kokoro-FastAPI, openedai-speech… Vazio: http://127.0.0.1:8880/v1.',
+        key: 'Sua chave da {name}?', keyNote: 'Ela fica criptografada no seu PC.',
+        name: 'Qual voz eu uso?',
+        nameHow: { local: 'O nome dela no seu servidor (af_bella, pf_dora…). Vazio: af_bella.', openai: 'shimmer, nova, coral, sage… Vazio: shimmer.', elevenlabs: 'O ID da voz que você criou no Voice Design. O texto pra criar está no meu README.' },
+        design: 'Criar a voz dela', test: 'Essa é a minha voz. Curtiu?', failed: 'Não consigo falar: {error}',
+      },
       who: 'Pra falar com você, eu preciso de uma IA.',
       why: { noOllama: 'O Ollama não está instalado neste PC.', asleep: 'O Ollama está instalado, mas dormindo.', noModel: 'O Ollama ainda não tem nenhum modelo.' },
       whoHow: 'O mais fácil: no seu PC, com o Ollama. É grátis e nada sai da sua máquina.\nSe não: online sem conta, ou com a chave de um serviço.',
@@ -1701,6 +1734,14 @@ export const LINES = {
     },
     // запустить её кнопками (setup.js): Ollama, модель, ключ
     setup: {
+      voice: {
+        windows: 'Какой из голосов Windows?',
+        url: 'Адрес твоего сервера речи?', urlHow: 'Kokoro-FastAPI, openedai-speech… Пусто: http://127.0.0.1:8880/v1.',
+        key: 'Твой ключ {name}?', keyNote: 'Он хранится на твоём ПК в зашифрованном виде.',
+        name: 'Какой голос взять?',
+        nameHow: { local: 'Его имя на твоём сервере (af_bella…). Пусто: af_bella.', openai: 'shimmer, nova, coral, sage… Пусто: shimmer.', elevenlabs: 'ID голоса, который ты создал(а) в Voice Design. Текст для него — в моём README.' },
+        design: 'Создать её голос', test: 'Вот мой голос. Нравится?', failed: 'Не могу говорить: {error}',
+      },
       who: 'Чтобы говорить с тобой, мне нужен ИИ.',
       why: { noOllama: 'Ollama не установлена на этом ПК.', asleep: 'Ollama установлена, но спит.', noModel: 'В Ollama пока нет ни одной модели.' },
       whoHow: 'Проще всего: у тебя на ПК, через Ollama. Бесплатно, и ничего не уходит наружу.\nИли онлайн без аккаунта, или с ключом какого-нибудь сервиса.',

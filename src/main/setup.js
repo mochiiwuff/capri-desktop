@@ -26,6 +26,8 @@ const KEY_PAGES = {
   gemini: 'https://aistudio.google.com/apikey',
   openrouter: 'https://openrouter.ai/keys',
   openai: 'https://platform.openai.com/api-keys',
+  elevenlabs: 'https://elevenlabs.io/app/settings/api-keys',
+  voicedesign: 'https://elevenlabs.io/app/voice-lab', // her voice, made from the text in the README
   mistral: 'https://console.mistral.ai/api-keys',
   deepseek: 'https://platform.deepseek.com/api_keys',
 };
