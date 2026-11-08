@@ -28,6 +28,7 @@ const KEY_PAGES = {
   openai: 'https://platform.openai.com/api-keys',
   mistral: 'https://console.mistral.ai/api-keys',
   deepseek: 'https://platform.deepseek.com/api_keys',
+  'opencode-go': 'https://opencode.ai/console',
 };
 
 function which(cmd) {
