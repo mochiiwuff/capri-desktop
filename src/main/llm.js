@@ -24,6 +24,11 @@ const PROVIDERS = {
   gemini: { label: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai', env: 'GEMINI_API_KEY' },
   deepseek: { label: 'DeepSeek', url: 'https://api.deepseek.com/v1', env: 'DEEPSEEK_API_KEY' },
   mistral: { label: 'Mistral', url: 'https://api.mistral.ai/v1', env: 'MISTRAL_API_KEY' },
+  // a session header ties each request to the conversation, so Go can route it and cache its prompt
+  'opencode-go': {
+    label: 'OpenCode Go', url: 'https://opencode.ai/inference/go/openai/v1', env: 'OPENCODE_GO_API_KEY',
+    sessionHeader: 'x-opencode-session',
+  },
   custom: { label: 'Custom (customUrl in config)' },
   claude: { label: 'Claude Code (sends to the terminal agent)', kind: 'claude' },
 };
@@ -36,6 +41,18 @@ function endpoint(id, cfg) {
   const url = (id === 'custom' ? cfg.customUrl : p.url) || '';
   const key = cfg.apiKeys?.[id] || (p.env && process.env[p.env]) || '';
   return { ...p, url: url.replace(/\/+$/, ''), key };
+}
+
+// OpenCode Go routes a request by the session it names, and caches its prompt under that session:
+// the id has to stay the same from one message to the next, and outlive a restart (main.js keeps it).
+let opencodeSession = null;
+const sessionId = () => opencodeSession || (opencodeSession = `ses_${randomUUID().replace(/-/g, '')}`);
+const opencodeMemory = () => opencodeSession; // read, never made just to be saved
+function restoreOpencode(saved) {
+  opencodeSession = saved || null;
+}
+function resetOpencode() {
+  opencodeSession = null;
 }
 
 const headers = (key) => ({ 'content-type': 'application/json', ...(key && { authorization: `Bearer ${key}` }) });
@@ -91,7 +108,8 @@ function warm(id, model) {
 async function openaiChat(p, { model, messages }, onDelta, signal) {
   const res = await fetch(`${p.url}/chat/completions`, {
     method: 'POST',
-    headers: headers(p.key),
+    // Go routes each request by the session it names, and caches its prompt under it
+    headers: { ...headers(p.key), ...(p.sessionHeader && { [p.sessionHeader]: sessionId() }) },
     body: JSON.stringify({ model, messages, stream: true }),
     signal,
   });
@@ -224,4 +242,7 @@ function isLocal(id, cfg, model) {
   return Boolean(PROVIDERS[id].local);
 }
 
-module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession, claudeMemory, restoreClaude };
+module.exports = {
+  isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession, claudeMemory, restoreClaude,
+  opencodeMemory, restoreOpencode, resetOpencode,
+};

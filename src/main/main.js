@@ -71,7 +71,8 @@ function saveMemory(patch) {
 }
 function forgetChats() {
   llm.resetClaude();
-  saveMemory({ history: [], claude: null });
+  llm.resetOpencode(); // a new conversation gets a session of its own upstream
+  saveMemory({ history: [], claude: null, opencode: null });
   sendCommand('forget');
 }
 
@@ -750,6 +751,7 @@ function registerIpc() {
       const cfg = config.load();
       const text = await chatWithFallback(cfg, messages, send, abort.signal, () => streamed);
       if (cfg.provider === 'claude') saveMemory({ claude: llm.claudeMemory() });
+      if (cfg.provider === 'opencode-go') saveMemory({ opencode: llm.opencodeMemory() });
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message, code: err.code || null };
@@ -1070,6 +1072,7 @@ function main() {
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
     llm.restoreClaude(readMemory().claude);
+    llm.restoreOpencode(readMemory().opencode);
     refreshModels(); // for her menu's model list
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     // a screen plugged in, unplugged, or rearranged: her window fitted again, and she learns of it

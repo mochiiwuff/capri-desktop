@@ -162,9 +162,9 @@ La première fois, elle règle tout avec toi, avec des boutons, sans terminal :
   menu › **Modèle IA** a **Me connecter à Ollama (modèles cloud gratuits)…**. Si un modèle cloud ne répond plus
   (déconnecté, plus d'usage gratuit), elle repasse sur un modèle de ton PC.
 - **En ligne, sans compte** : Pollinations, rien à régler.
-- **J'ai une clé** : Groq ou Gemini (tous les deux ont une offre gratuite), OpenRouter, OpenAI, Mistral ou DeepSeek.
-  Tu colles ta clé dans son panneau et elle la vérifie. Elle reste sur ton PC, chiffrée avec ton compte Windows, et ne
-  part que vers ce service.
+- **J'ai une clé** : Groq ou Gemini (tous les deux ont une offre gratuite), OpenRouter, OpenAI, Mistral, DeepSeek ou
+  OpenCode Go. Tu colles ta clé dans son panneau et elle la vérifie. Elle reste sur ton PC, chiffrée avec ton compte
+  Windows, et ne part que vers ce service.
 
 Son menu › **Modèle IA** pour changer plus tard : **Choisir avec elle…**, ou directement un service et un modèle,
 LM Studio (`:1234`), llama.cpp ou vLLM (`:8080`), n'importe quel serveur compatible OpenAI (**Clé API ou

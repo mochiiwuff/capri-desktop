@@ -154,9 +154,9 @@ The first time, she sets it up with you, with buttons, no terminal:
   **Sign in to Ollama (free cloud models)…**. If a cloud model stops answering (signed out, out of free use), she
   goes back to a model on your PC.
 - **Online, no account**: Pollinations, nothing to set up.
-- **I have a key**: Groq or Gemini (both have a free tier), OpenRouter, OpenAI, Mistral or DeepSeek. You paste your
-  key in her panel and she checks it. It's kept on your PC, encrypted with your Windows account, and only ever sent to
-  that service.
+- **I have a key**: Groq or Gemini (both have a free tier), OpenRouter, OpenAI, Mistral, DeepSeek or OpenCode Go.
+  You paste your key in her panel and she checks it. It's kept on your PC, encrypted with your Windows account, and
+  only ever sent to that service.
 
 Her menu › **AI model** lets you switch later: **Set it up with her…**, or straight to a service and a model, LM Studio
 (`:1234`), llama.cpp or vLLM (`:8080`), any OpenAI-compatible server (**API key or address…**), or **Claude Code**
