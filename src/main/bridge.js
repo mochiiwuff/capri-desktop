@@ -37,6 +37,54 @@ function readJson(req) {
   });
 }
 
+function unwrapHookEvent(evt) {
+  if (!evt || typeof evt !== 'object') return null;
+  if (typeof evt.hook_event_name === 'string') return evt;
+
+  const nested = ['event', 'data', 'payload', 'result', 'body', 'content', 'message']
+    .map((key) => evt[key])
+    .find((value) => value && typeof value === 'object');
+  if (nested) {
+    const found = unwrapHookEvent(nested);
+    if (found) return found;
+  }
+
+  if (typeof evt.type === 'string' && /^(SessionStart|UserPromptSubmit|PreToolUse|PostToolUse|PostToolUseFailure|Notification|Stop|StopFailure|Interrupt|SubagentStart|SubagentStop|PreCompact|SessionEnd)$/.test(evt.type)) {
+    return { ...evt, hook_event_name: evt.type };
+  }
+  return null;
+}
+
+function normalizeHookEvent(evt) {
+  const out = unwrapHookEvent(evt);
+  if (!out) return null;
+  if (out.last_assistant_message === undefined) {
+    const value = (() => {
+      if (typeof out.last_assistant_message === 'string') return out.last_assistant_message;
+      const walk = (node) => {
+        if (typeof node === 'string') return node;
+        if (Array.isArray(node)) {
+          for (const item of node) {
+            const text = walk(item);
+            if (text) return text;
+          }
+          return '';
+        }
+        if (node && typeof node === 'object') {
+          for (const key of ['text', 'message', 'content', 'output', 'response', 'assistant_message', 'last_assistant_message']) {
+            const text = walk(node[key]);
+            if (text) return text;
+          }
+        }
+        return '';
+      };
+      return walk(out);
+    })();
+    if (value) out.last_assistant_message = value;
+  }
+  return out;
+}
+
 function createBridge({ port, onEvent, onDebug }) {
   const server = http.createServer(async (req, res) => {
     // Browsers always send an Origin header on cross-site requests; hooks never do.
@@ -51,7 +99,7 @@ function createBridge({ port, onEvent, onDebug }) {
 
     if (req.method === 'POST' && url.pathname === '/event') {
       try {
-        const evt = await readJson(req);
+        const evt = normalizeHookEvent(await readJson(req));
         if (!evt || typeof evt !== 'object' || typeof evt.hook_event_name !== 'string') {
           return send(res, 400, { ok: false, error: 'missing hook_event_name' });
         }

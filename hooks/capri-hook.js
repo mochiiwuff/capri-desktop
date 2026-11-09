@@ -39,6 +39,52 @@ function trim(value, depth = 0) {
 // Claude's answer, long enough for Capri to show it to you when you're not on Claude's window
 const REPLY_MAX = 6000;
 
+function firstText(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = firstText(item);
+      if (text) return text;
+    }
+    return '';
+  }
+  if (value && typeof value === 'object') {
+    for (const key of ['text', 'message', 'content', 'output', 'response', 'assistant_message', 'last_assistant_message']) {
+      const text = firstText(value[key]);
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+function unwrapHookEvent(evt) {
+  if (!evt || typeof evt !== 'object') return null;
+  if (typeof evt.hook_event_name === 'string') return evt;
+
+  const nested = ['event', 'data', 'payload', 'result', 'body', 'content', 'message']
+    .map((key) => evt[key])
+    .find((value) => value && typeof value === 'object');
+  if (nested) {
+    const found = unwrapHookEvent(nested);
+    if (found) return found;
+  }
+
+  if (typeof evt.type === 'string' && /^(SessionStart|UserPromptSubmit|PreToolUse|PostToolUse|PostToolUseFailure|Notification|Stop|StopFailure|Interrupt|SubagentStart|SubagentStop|PreCompact|SessionEnd)$/.test(evt.type)) {
+    return { ...evt, hook_event_name: evt.type };
+  }
+  return null;
+}
+
+function normalize(evt) {
+  const out = unwrapHookEvent(evt);
+  if (!out) return null;
+  if (out.last_assistant_message === undefined) {
+    const reply = firstText(out);
+    if (reply) out.last_assistant_message = reply;
+  }
+  return out;
+}
+
 function slim(evt) {
   const out = {};
   for (const key of KEEP) if (evt[key] !== undefined) out[key] = trim(evt[key]);
@@ -61,7 +107,7 @@ function run(adapt = (evt) => evt) {
   process.stdin.on('end', () => {
     let evt;
     try {
-      evt = adapt(JSON.parse(raw));
+    evt = normalize(adapt(JSON.parse(raw)));
       if (!evt || typeof evt !== 'object') return bail();
     } catch {
       return bail();

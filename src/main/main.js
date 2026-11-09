@@ -22,7 +22,7 @@ const system = require('./system');
 const launch = require('./launch');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
-const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
+const activeAssistant = () => assistant(config.load().assistant);
 const activeHooks = () => activeAssistant().hooks;
 const demoSteps = require('../../scripts/demo-sequence');
 
@@ -1048,7 +1048,7 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
-    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    if (!Object.hasOwn(ASSISTANTS, config.load().assistant)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();
