@@ -421,6 +421,7 @@ function rebuildTray() {
       click: (item) => updateConfig({ closePages: item.checked }),
     },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
+    { label: t.breaks, type: 'checkbox', checked: cfg.breaks !== false, click: (item) => updateConfig({ breaks: item.checked }) },
     {
       // she asks first (what she'll send where), then turns it on herself
       label: t.lookAuto, type: 'checkbox', checked: Boolean(cfg.watchScreen),
@@ -863,8 +864,14 @@ function registerIpc() {
   });
   ipcMain.handle('apps:launch', (_e, item) => launch.launch(item).then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message })));
   ipcMain.handle('apps:media', (_e, action) => launch.media(action));
-  // your PC itself, from her chat: settings, what's left, sound, snip, windows, theme, power
-  ipcMain.handle('pc:do', (_e, req) => Promise.resolve(system.act(req, { display: targetDisplay() })).catch(() => null));
+  // your PC itself, from her chat: settings, what's left, sound, snip, windows, theme, power, and
+  // taking care of it (what slows it, space, startup, updates, devices, setups, game mode, internet)
+  ipcMain.handle('pc:do', (_e, req) => Promise.resolve(system.act(req, {
+    display: targetDisplay(),
+    progress: (p) => overlay?.webContents.send('pc:progress', p), // what takes a while: in her ticker
+  })).catch(() => null));
+  // how long since you last touched the keyboard or the mouse, in seconds (her health breaks)
+  ipcMain.handle('pc:idle', () => powerMonitor.getSystemIdleTime());
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after

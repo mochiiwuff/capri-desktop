@@ -3,13 +3,17 @@
 // What her chat can do to your PC itself (Windows): open one of its settings, say what's left of
 // its battery's charge, disk and memory and what its IP is, set its sound, start a snip, get its
 // windows out of the way or side by side, switch it dark or light, and lock it, put it to sleep,
-// shut it down or restart it (those only after your click in her chat).
+// shut it down or restart it (those only after your click in her chat). Keeping it in shape is in
+// upkeep.js, its sound and devices in devices.js, your windows' routines in setups.js.
 
 const fs = require('node:fs');
 const os = require('node:os');
 const { execFile } = require('node:child_process');
 const { shell, screen } = require('electron');
 const apps = require('./apps');
+const upkeep = require('./upkeep');
+const devices = require('./devices');
+const setups = require('./setups');
 
 const WIN = process.platform === 'win32';
 
@@ -18,6 +22,7 @@ const SETTINGS = {
   bluetooth: 'bluetooth', sound: 'sound', wifi: 'network-wifi', network: 'network-status', update: 'windowsupdate',
   display: 'display', notifications: 'notifications', mouse: 'mousetouchpad', power: 'powersleep',
   battery: 'batterysaver', background: 'personalization-background', storage: 'storagesense',
+  gaming: 'gaming-gamedvr',
 };
 
 const run = (file, args) => new Promise((resolve) => {
@@ -171,9 +176,53 @@ async function power(action, seconds = 60) {
   return false;
 }
 
-// One way in, from her chat (main.js): only these, with only what each takes.
-function act(req = {}, { display } = {}) {
+// The same file twice, in short for her chat: { copies, wasted (bytes), first (a copy, to show) }
+const shortly = (groups) => ({
+  copies: groups.reduce((n, g) => n + g.files.length - 1, 0),
+  wasted: groups.reduce((n, g) => n + g.size * (g.files.length - 1), 0),
+  first: groups[0]?.files[1] || null,
+});
+
+const num = (v) => (Number.isFinite(v) ? v : null);
+const WHERE = new Set(['pictures', 'videos', 'downloads', 'documents', 'desktop']);
+
+// One way in, from her chat (main.js): only these, with only what each takes. `progress(p)` for
+// what takes a while (her ticker).
+function act(req = {}, { display, progress = () => {} } = {}) {
+  const where = WHERE.has(req.where) ? req.where : 'pictures';
   switch (req.action) {
+    // keeping it in shape (upkeep.js)
+    case 'heavy': return upkeep.heavy();
+    case 'space': return upkeep.space();
+    case 'clean': return upkeep.clean();
+    case 'trash': return upkeep.trash(String(req.path || ''));
+    case 'startup': return upkeep.startup();
+    case 'setStartup': return upkeep.setStartup(String(req.name || ''), Boolean(req.on));
+    case 'updates': return upkeep.updates();
+    case 'updateAll': return upkeep.updateAll((p) => progress({ kind: 'update', ...p }));
+    case 'duplicates': return upkeep.duplicates(where, (p) => progress({ kind: 'duplicates', ...p })).then(shortly);
+    case 'trashDuplicates': return upkeep.trashDuplicates(where);
+    case 'internet': return upkeep.internet();
+    // its sound and devices (devices.js)
+    case 'outputs': return devices.outputs();
+    case 'useOutput': return devices.useOutput(String(req.id || ''));
+    case 'mic': return devices.mic(typeof req.mute === 'boolean' ? req.mute : null);
+    case 'radio': return devices.radio(req.kind === 'wifi' ? 'wifi' : 'bluetooth', typeof req.on === 'boolean' ? req.on : null);
+    case 'usb': return devices.usbDrives();
+    case 'eject': return devices.eject(String(req.letter || ''));
+    case 'brightness': return devices.brightness({ level: num(req.level), by: num(req.by) });
+    case 'gameBar': return devices.gameBar(req.what === 'record' ? 'record' : 'clip');
+    // its windows and your routines (setups.js)
+    case 'rescue': return setups.rescue(display);
+    case 'toScreen': return setups.toScreen(String(req.name || '').slice(0, 80), Number.isInteger(req.index) ? req.index : null);
+    case 'remember': return volume().then((v) => setups.remember(String(req.name || ''), v?.level ?? null));
+    case 'launchSetup': return setups.launchSetup(String(req.name || '')).then(async (r) => {
+      if (Number.isFinite(r.volume)) await volume({ level: r.volume });
+      return r;
+    });
+    case 'setups': return { names: setups.setupNames() };
+    case 'gameMode': return setups.gameMode(Boolean(req.on));
+    case 'gameClose': return setups.setGameClose(Array.isArray(req.apps) ? req.apps : []);
     case 'settings': return settings(String(req.page));
     case 'info': return info(String(req.what));
     case 'volume': return volume({ level: Number.isFinite(req.level) ? req.level : null, mute: typeof req.mute === 'boolean' ? req.mute : null });

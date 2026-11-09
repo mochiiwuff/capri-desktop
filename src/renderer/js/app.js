@@ -13,6 +13,8 @@ import { Bond, Jealousy } from './bond.js';
 import { Reminders, clock } from './reminders.js';
 import { Look } from './look.js';
 import { Pc } from './pc.js';
+import { Care } from './care.js';
+import { Breaks } from './breaks.js';
 import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
 
@@ -234,6 +236,9 @@ async function boot() {
   guide.onTalk = () => chat.start();
   chat.onSetup = (status) => setup.chat(status);
   chat.onBetterModel = () => setup.better();
+  // taking care of your PC from her chat (care.js): what slows it, room, startup, updates, sound,
+  // devices, windows, setups, game mode, the internet
+  chat.care = new Care({ chat, host, panel, brain, capri });
   setup.onReady = () => chat.start();
   // What she calls you, how she is, your lines, what she remembers (custom.js)
   const custom = new Custom({ guide, host, brain, capri, voice });
@@ -357,6 +362,9 @@ async function boot() {
   };
   const quiet = () => !capri.busy && !capri.act && !capri.dragging && !capri.stowed && !capri.dormant && !capri.hidden
     && capri.mode !== 'alert' && !chat.open && !guide.running && !panel.visible && ['stand', 'sit'].includes(capri.stance);
+  // two hours at your PC without a real break: she tells you to get up (breaks.js)
+  const breaks = new Breaks({ host, panel, brain, capri, pc, quiet });
+  breaks.enabled = config.breaks !== false;
   setInterval(async () => {
     if (!newStage || !quiet()) return;
     const stage = newStage;
@@ -531,7 +539,7 @@ async function boot() {
   };
 
   // what's in here, for --dev scripts (debug route `eval`)
-  window.dev = { capri, brain, panel, chat, guide, fx, voice, bond, jealousy, reminders, look, pc, setup, screens: () => screens };
+  window.dev = { capri, brain, panel, chat, guide, fx, voice, bond, jealousy, reminders, look, pc, setup, breaks, screens: () => screens };
 
   host.onClaudeEvent((evt) => brain.handle(evt));
   host.onWindows((data) => {
@@ -628,6 +636,7 @@ async function boot() {
     followOn = cfg.follow !== false;
     look.configure(cfg);
     pc.enabled = cfg.pcReact !== false;
+    breaks.enabled = cfg.breaks !== false;
     wantsOut = cfg.visible !== false;
     reminders.sync(cfg.reminders); // one may have been cancelled from her menu
     capri.wander = cfg.wander;

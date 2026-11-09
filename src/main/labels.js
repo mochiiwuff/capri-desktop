@@ -24,6 +24,7 @@ const TRAY = {
     follow: 'Me suivre d’un écran à l’autre', jealous: 'Jalouse des autres IA', closePages: 'Fermer les pages des autres IA',
     lookNow: 'Regarde mon écran', lookAuto: 'Regarder mon écran de temps en temps',
     pcReact: 'Réagir à mon PC',
+    breaks: 'Pauses santé',
     cloudFree: 'gratuit, en ligne', cloudSignin: 'Me connecter à Ollama (modèles cloud gratuits)…',
   },
   en: {
@@ -46,6 +47,7 @@ const TRAY = {
     follow: 'Follow me across screens', jealous: 'Jealous of other AIs', closePages: 'Close other AIs’ pages',
     lookNow: 'Look at my screen', lookAuto: 'Look at my screen now and then',
     pcReact: 'React to my PC',
+    breaks: 'Health breaks',
     cloudFree: 'free, online', cloudSignin: 'Sign in to Ollama (free cloud models)…',
   },
   es: {
@@ -68,6 +70,7 @@ const TRAY = {
     follow: 'Seguirme de una pantalla a otra', jealous: 'Celosa de otras IA', closePages: 'Cerrar las páginas de otras IA',
     lookNow: 'Mira mi pantalla', lookAuto: 'Mirar mi pantalla de vez en cuando',
     pcReact: 'Reaccionar a mi PC',
+    breaks: 'Pausas de salud',
     cloudFree: 'gratis, en línea', cloudSignin: 'Conectarme a Ollama (modelos en la nube gratis)…',
   },
   pt: {
@@ -90,6 +93,7 @@ const TRAY = {
     follow: 'Me seguir de uma tela pra outra', jealous: 'Com ciúmes de outras IAs', closePages: 'Fechar as páginas de outras IAs',
     lookNow: 'Olha minha tela', lookAuto: 'Olhar minha tela de vez em quando',
     pcReact: 'Reagir ao meu PC',
+    breaks: 'Pausas pra saúde',
     cloudFree: 'grátis, online', cloudSignin: 'Entrar no Ollama (modelos na nuvem grátis)…',
   },
   ru: {
@@ -112,6 +116,7 @@ const TRAY = {
     follow: 'Следовать за мной с экрана на экран', jealous: 'Ревнует к другим ИИ', closePages: 'Закрывать страницы других ИИ',
     lookNow: 'Посмотри на мой экран', lookAuto: 'Иногда смотреть на мой экран',
     pcReact: 'Реагировать на мой ПК',
+    breaks: 'Перерывы для здоровья',
     cloudFree: 'бесплатно, онлайн', cloudSignin: 'Войти в Ollama (бесплатные облачные модели)…',
   },
 };

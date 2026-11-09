@@ -189,6 +189,31 @@ panel says so every time.
   "restore my windows" brings them back); "put Discord on the left and Chrome on the right"; dark or light mode. Locking,
   sleep, shutting down or restarting ("shut down my PC in an hour") always wait for your click on her button, and
   "cancel the shutdown" stops it.
+- **Taking care of your PC** (answered right away, without her AI, so it works with the internet down too):
+  - "why is my PC slow?": the three apps weighing most on it, with a button to close each one.
+  - "free up some space": the old temporary files and the recycle bin (the size shown on the button), and your three
+    biggest downloads, each with a button to send it to the recycle bin.
+  - "what starts with Windows?": the list, with a button to take some out ("disable Discord at startup", "enable
+    Steam at startup" work too). What's set for the whole PC opens the Task Manager's Startup tab.
+  - "update my apps": what has an update (through winget), and one button to update everything.
+  - "find duplicate photos" (or in your downloads, videos, documents, desktop): the copies, the oldest kept, to the
+    recycle bin with one button.
+  - "switch the sound to my headset", "…to the speakers", "…to the Yeti": where Windows' sound comes out; "change
+    audio output" shows a button for each device (the virtual ones left out).
+  - "mute my mic" / "unmute my mic"; "turn off Bluetooth", "turn on Wi-Fi" (really, not just its settings page);
+    "eject my USB stick" (safely, as Explorer does); "brightness down", "brightness at 50%" (a laptop's own screen).
+  - "clip that" (the last 30 seconds) and "record my screen" through the Xbox Game Bar: her chat gets out of the
+    way first so the game has the focus. Clipping needs "Record what happened" on: she says so, with a button.
+  - "I lost a window": windows stuck off your screens come back; "move Discord to the other screen".
+  - Setups: "save my gaming setup" keeps the apps open and where each window is; "launch my gaming setup" opens
+    them again (after your click) and puts every window back, at the sound's level it had.
+  - "game mode": Windows' High performance power plan, the apps you named closed ("in game mode, close Chrome"),
+    and she puts herself away; "stop game mode" puts everything back, the closed apps too.
+  - "the internet isn't working": she checks your network, your router, the internet past it, names (DNS: cleared
+    if that's it) and a Wi-Fi sign-in page, and tells you what to do in one sentence.
+- **Health breaks**: after two hours at your PC without a real break (five minutes away from the keyboard and the
+  mouse), she tells you to get up and drink some water, at a quiet moment and never in the middle of a game. "Later"
+  brings it back in half an hour; her menu › *Health breaks* turns it off.
 - **Music**: "pause", "next", "louder", "mute"… press the media keys, so it works with Spotify and most players, right
   as you send it. "Play Bohemian Rhapsody" or "put some Daft Punk on YouTube" opens the right video on YouTube,
   straight away (not a search). "Play whatever you want": she picks. "Put Daft Punk on Spotify" opens Spotify on a

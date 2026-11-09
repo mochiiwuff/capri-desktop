@@ -198,6 +198,35 @@ fan d'elle, et le panneau du chat le dit à chaque fois.
   « capture une zone » ; « range mes fenêtres » (elle les balaie, « remets mes fenêtres » les fait revenir) ; « mets Discord
   à gauche et Chrome à droite » ; le mode sombre ou clair. Verrouiller, mettre en veille, éteindre ou redémarrer
   (« éteins le PC dans une heure ») attendent toujours ton clic sur son bouton, et « annule l'extinction » l'arrête.
+- **Prendre soin de ton PC** (réponse immédiate, sans son IA, donc ça marche même quand internet est coupé) :
+  - « pourquoi mon PC rame ? » : les trois applis qui pèsent le plus, avec un bouton pour fermer chacune.
+  - « fais de la place » : les vieux fichiers temporaires et la corbeille (la taille est sur le bouton), et tes trois
+    plus gros téléchargements, chacun avec un bouton pour l'envoyer à la corbeille.
+  - « qu'est-ce qui se lance au démarrage ? » : la liste, avec un bouton pour en retirer (« désactive Discord au
+    démarrage », « réactive Steam au démarrage » marchent aussi). Ce qui est réglé pour tout le PC ouvre l'onglet
+    Démarrage du Gestionnaire des tâches.
+  - « mets à jour mes applis » : ce qui a une mise à jour (par winget), et un bouton pour tout mettre à jour.
+  - « trouve les doublons dans mes photos » (ou tes téléchargements, vidéos, documents, ton bureau) : les copies, la
+    plus ancienne gardée, à la corbeille en un bouton.
+  - « mets le son sur mon casque », « …sur les enceintes », « …sur la Yeti » : par où sort le son de Windows ;
+    « sortie audio » affiche un bouton par appareil (sans les virtuels).
+  - « coupe mon micro » / « remets mon micro » ; « coupe le Bluetooth », « active le Wi-Fi » (pour de vrai, pas juste
+    la page des réglages) ; « éjecte ma clé USB » (en toute sécurité, comme l'Explorateur) ; « baisse la luminosité »,
+    « luminosité à 50 % » (l'écran d'un portable).
+  - « clip ça » (les 30 dernières secondes) et « enregistre mon écran » avec la Xbox Game Bar : son chat se pousse
+    d'abord pour que le jeu ait la main. Pour clipper, il faut « Enregistrer ce qui s'est passé » : elle te le dit,
+    avec un bouton.
+  - « j'ai perdu ma fenêtre » : les fenêtres coincées hors de tes écrans reviennent ; « mets Discord sur l'autre
+    écran ».
+  - Les setups : « retiens mon setup de jeu » garde les applis ouvertes et la place de chaque fenêtre ; « lance mon
+    setup de jeu » les rouvre (après ton clic) et remet chaque fenêtre à sa place, avec le son au même niveau.
+  - « mode jeu » : le mode d'alimentation Performances élevées de Windows, les applis que tu as nommées fermées
+    (« en mode jeu, ferme Chrome »), et elle se range ; « fin du mode jeu » remet tout, les applis fermées aussi.
+  - « internet marche plus » : elle vérifie ton réseau, ta box, internet derrière, les noms (le DNS : vidé si c'est
+    ça) et une page de connexion Wi-Fi, et te dit quoi faire en une phrase.
+- **Pauses santé** : après deux heures sur ton PC sans vraie pause (cinq minutes loin du clavier et de la souris),
+  elle te dit de te lever et de boire de l'eau, à un moment calme et jamais en plein jeu. « Plus tard » la fait
+  revenir dans une demi-heure ; son menu › *Pauses santé* la coupe.
 - **La musique** : « pause », « suivante », « plus fort », « coupe le son »… appuient sur les touches multimédia, donc
   ça marche avec Spotify et la plupart des lecteurs, dès que tu envoies. « Mets Bohemian Rhapsody » ou « mets-moi du
   Daft Punk sur YouTube » ouvre le bon clip sur YouTube, directement (pas une recherche). « Mets la musique que tu
