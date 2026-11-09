@@ -290,7 +290,7 @@ Elle n'attrape la souris que sur son corps (au pixel près) : tout le reste de l
   l'autre), modèle IA, se balader, posséder tes fenêtres, jalouse des autres IA (et fermer leurs pages), réagir à ton PC, style de ses fenêtres (Night City,
   ou Classique : ses premières), langue, lancement au démarrage, hooks. Tout en haut : où vous en êtes, elle et toi.
 
-Elle parle **français, anglais, espagnol, portugais du Brésil et russe**, et choisit toute seule la langue de ton
+Elle parle **français, anglais, espagnol, portugais du Brésil, russe et allemand**, et choisit toute seule la langue de ton
 système. Tu peux en choisir une autre dans son menu.
 
 ## Installation
