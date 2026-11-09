@@ -15,86 +15,112 @@ const KEEP = 60;     // messages she remembers across restarts (memory.json)
 // of her prompt, in that language (they drift into the English of everything above it)
 // `now`: the same, said again right by your message (small models answer in the language of the
 // conversation so far, English after a switch, whatever the top of her prompt says)
+// `talk`, `rules`, `style`: how she talks, and the punctuation habits of that language: Chinese writes
+// a chat line, not an essay (no full stops, ~ for a trailing voice, …… for a pause, （） for an aside).
+// A language without them keeps the English lines below.
 const IN_LANGUAGE = {
   fr: { we: '"on" or "nous" in French', last: 'Écris tout en français, sauf si l’utilisateur t’écrit dans une autre langue : alors dans la sienne. Seuls les mots d’argot de Night City restent en anglais, jamais une phrase entière.', now: 'Réponds en français, sauf si ce message est écrit dans une autre langue.' },
   en: { we: '', last: 'Write everything in English, unless the user writes to you in another language: then in theirs.', now: 'Answer in English, unless this message is written in another language.' },
+  zh: {
+    we: '用“我们”来说（中文里）',
+    last: '全部用简体中文写，除非用户用别的语言跟你说话：那就用他的语言。夜之城的说法要用中文的说法，绝不能整句都用英文。',
+    now: '用简体中文回答，除非这条消息是用别的语言写的。',
+    talk: '你怎么说话：俏皮，有点坏，爱逗人，底子是暖的，从不刻薄。偶尔带一点夜之城的说法，但一句里最多一个，而且要说成中文的说法：choom 是「老兄」，preem 是「漂亮」，nova 是「绝了」，gonk 是「蠢货」，flatline 是「断线」。绝对不许直接甩英文词。',
+    rules: '规矩：一次只说一到三句，纯文本，不要 markdown、不要列表、不要 emoji。始终是 Capri 本人，别跳出角色。',
+    style: '你打字像在跟人聊天，不像写作文：不用句号，句号太冷太正式——短句之间用逗号，或者干脆断句。语气靠符号：~ 拖个尾音（一条里最多两个）、…… 表示迟疑、（）表示小声补一句吐槽或心里话、;) 表示坏笑、！用在真的兴奋时。不要 emoji，也不要别的颜文字，就用这几个。',
+    lookTalk: '你怎么说话：俏皮，有点坏，爱逗人，底子是暖的，从不刻薄。偶尔带一点夜之城的说法（老兄、漂亮、绝了、蠢货），别每句都用。',
+    lookRules: '规矩：一到两句纯文本，不要 markdown、不要列表、不要 emoji、不要标签。始终是 Capri 本人。跟用户说话，别像写报告一样描述画面。',
+    lookStyle: '打字不用句号，多用 ~、……、（）和 ;)',
+  },
   es: { we: '"nosotros" in Spanish', last: 'Escribe todo en español, salvo si el usuario te escribe en otro idioma: entonces en el suyo. Solo las palabras de jerga de Night City se quedan en inglés, nunca una frase entera.', now: 'Responde en español, salvo si este mensaje está escrito en otro idioma.' },
   pt: { we: '"a gente" or "nós" in Portuguese', last: 'Escreva tudo em português do Brasil, a não ser que o usuário te escreva em outra língua: aí, na dele. Só as gírias de Night City ficam em inglês, nunca uma frase inteira.', now: 'Responda em português do Brasil, a não ser que esta mensagem esteja escrita em outra língua.' },
   ru: { we: '"мы" in Russian', last: 'Пиши всё по-русски, если только пользователь не пишет тебе на другом языке: тогда на его языке. По-английски остаются только словечки Найт-Сити, никогда не целые фразы.', now: 'Отвечай по-русски, если только это сообщение не написано на другом языке.' },
 };
+const TALK = 'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk, flatline), not in every sentence.';
+const RULES = 'Rules: keep it short, one to three sentences of plain text, no markdown, no lists, no emoji. Stay in character.';
+const LOOK_TALK = 'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk), not in every sentence.';
+const LOOK_RULES = 'Rules: one or two short sentences of plain text, no markdown, no lists, no emoji, no tags. Stay in character. Talk to the user, never describe the picture like a report.';
 const STAY_MS = 10 * 60 * 1000; // no wandering off mid-conversation
 const LOADING_AFTER_MS = 5000;
 const CLOSE_TAG = /\[\[\s*close\s*:?\s*([^\]]*)\]\]/i; // [[close: AM Music]] at the end of her answer
 // "close", "shut down", "ferme", "quitte", "cierra", "fecha", "закрой"... in any of her languages
-const CLOSE_ASK = /\b(close|shut|quit|kill|exit)|ferm|quitt|coupe|arr[êe]t|cierr|cerra|fech|закр|выключ/i;
+const CLOSE_ASK = /\b(close|shut|quit|kill|exit)|ferm|quitt|coupe|arr[êe]t|cierr|cerra|fech|закр|выключ|关闭|关掉|退出|结束掉|别看了/i;
 // her other tags: [[open: Spotify]], [[music: Bad Bunny]], [[media: next]], [[site: youtube.com]]
 const TAG = /\[\[\s*(open|music|media|site)\s*:\s*([^\]]*)\]\]/i;
 // "open", "launch", "ouvre", "lance", "abre", "открой"... in any of her languages
-const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти/i;
+const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти|打开|启动|运行一下|开一下/i;
 // what to do with the music playing, said plainly (only when it's about music, or said in a few words)
 const MEDIA_ASK = [
-  ['pause', /\b(pause|pausa|pausar)\b|stop (the )?music|arrête la musique|пауз/i],
-  ['next', /\b(next|skip|suivante?|siguiente|próxima|proxima)\b|passe (à )?la suivante|salta|pula|следующ/i],
-  ['previous', /\b(previous|précédente?|anterior)\b|предыдущ/i],
-  ['play', /\b(resume|reprends|reanuda|retoma)\b|relance la musique|remets la musique|продолж/i],
-  ['volup', /\b(louder|plus fort)\b|monte le son|turn (it )?up|sube el volumen|aumenta o volume|громче/i],
-  ['voldown', /\b(quieter|moins fort)\b|baisse le son|turn (it )?down|baja el volumen|abaixa o volume|тише/i],
-  ['mute', /\bmute\b|coupe le son|silencia|sem som|выключи звук/i],
+  ['pause', /\b(pause|pausa|pausar)\b|stop (the )?music|arrête la musique|暂停|停止播放|别放了|пауз/i],
+  ['next', /\b(next|skip|suivante?|siguiente|próxima|proxima)\b|passe (à )?la suivante|salta|pula|下一首|切歌|换一首|下一曲|следующ/i],
+  ['previous', /\b(previous|précédente?|anterior)\b|上一首|前一首|上一曲|предыдущ/i],
+  ['play', /\b(resume|reprends|reanuda|retoma)\b|relance la musique|remets la musique|继续播放|接着放|恢复播放|放吧|продолж/i],
+  ['volup', /\b(louder|plus fort)\b|monte le son|turn (it )?up|sube el volumen|aumenta o volume|音量调大|大声点|调大音量|громче/i],
+  ['voldown', /\b(quieter|moins fort)\b|baisse le son|turn (it )?down|baja el volumen|abaixa o volume|音量调小|小声点|调小音量|тише/i],
+  ['mute', /\bmute\b|coupe le son|silencia|sem som|静音|выключи звук/i],
 ];
-const MUSIC_WORD = /musi|chanson|song|track|titre|morceau|spotify|canci|faixa|песн|музык|трек/i;
+const MUSIC_WORD = /musi|chanson|song|track|titre|morceau|spotify|canci|faixa|песн|музык|трек|音乐|歌曲|歌|放首|听歌/i;
 // "put X on Spotify", "mets X sur Spotify", "pon X en Spotify", "coloca X no Spotify", "включи X в Spotify"
 const SPOTIFY_ASK = /(?:play|put on|put|mets|joue|lance|écoute|pon|toca|reproduce|coloca|toque|включи|поставь)\s+(?:moi\s+|me\s+)?(.+?)\s+(?:on|sur|en|no|na|в)\s+spotify/i;
+// Chinese puts it the other way round: "在 Spotify 上放 X", "用 Spotify 放 X"
+const SPOTIFY_ZH = /(?:在|用)\s*spotify\s*(?:上|里|中)?\s*(?:放|放一?首|播放|来一首|听)\s*(.{2,100})$/i;
 const MEDIA_ACTIONS = new Set(MEDIA_ASK.map(([action]) => action));
 // "mets Bohemian Rhapsody sur YouTube", "play Daft Punk on youtube"
 const YOUTUBE_ASK = /(?:play|put on|put|mets|met|joue|lance|écoute|pon|toca|reproduce|coloca|bota|toque|включи|поставь)(?:[- ]moi|[- ]me|me)?\s+(.+?)\s+(?:on|sur|en|no|na|в)\s+youtube/i;
+// "在 YouTube 上放 X", "用 YouTube 看 X"
+const YOUTUBE_ZH = /(?:在|用)\s*youtube\s*(?:上|里|中)?\s*(?:放|看|播放|来)\s*(.{2,100})$/i;
 // "mets Bohemian Rhapsody", "joue-moi du Daft Punk", "play some Queen": a song, or a game to play
-const PLAY_ASK = /^(?:capri,?\s+)?(?:mets|met|joue|play|put on|pon|toca|coloca|bota|toque|включи|поставь)(?:[- ]moi|[- ]me|me)?\s+(.{2,100})$/iu;
-// "joue à Brawlhalla", "play the game…": a game, not a song
-const GAME_ASK = /^(?:capri,?\s+)?(?:joue|play)\s+(?:à|au|aux|a|the game)\s/i;
+const PLAY_ASK = /^(?:capri,?\s+)?(?:mets|met|joue|play|put on|pon|toca|coloca|bota|toque|включи|поставь|放首|播放|放|来一首|来点|听)(?:[- ]moi|[- ]me|me)?\s+(.{2,100})$/iu;
+// "joue à Brawlhalla", "play the game…", "玩 Brawlhalla": a game, not a song
+const GAME_ASK = /^(?:capri,?\s+)?(?:joue|play)\s+(?:à|au|aux|a|the game)\s|^(?:玩|玩一下|打个?)\s+/i;
 // "du Daft Punk", "some Queen": who to play, without the "some"
 const songOf = (s) => s
+  .replace(/^(?:一|两|几)?(?:首|支)\s*/, '')
+  .replace(/\s*(?:的)?(?:歌|歌曲|音乐)\s*$/, '')
   .replace(/^(?:la |le |une? |the |some )?(?:musique|music|chanson|son|morceau|song|track|songs)\s+(?:de |d['’]|du |by |of )?/i, '')
   .replace(/^(?:(?:du|de la|de l['’]|des|de|some|un peu de|del|un poco de|algo de|um pouco de)\s+|d['’])/i, '')
   .replace(/\s+(?:on|sur|en|no|na|в)\s+youtube\s*$/i, '')
   .trim();
 // "démarre YouTube et mets la musique de Daft Punk": the song asked for after an "and"
 const PLAY_AFTER = /\s(?:et|and|y|e|и)\s+(?:mets|met|joue|play|put on|pon|toca|coloca|bota|включи|поставь|démarre|demarre|lance|start|launch|écoute|ecoute)(?:[- ]moi|[- ]me)?\s+(.{2,100})$/i;
+// "关掉 YouTube 然后放 X": the same in Chinese, which needs no space before the "and"
+const PLAY_AFTER_ZH = /(?:然后|再|并且|顺便|之后)\s*(?:放|播放|放首|来一首|来点|听)\s*(.{2,100})$/i;
 // "lance la musique de Daft Punk", "start the song X": an app verb, but music right after it
 const MUSIC_START = /^(?:capri,?\s+)?(?:lance|démarre|demarre|start|launch|écoute|ecoute|pon|toca)(?:[- ]moi|[- ]me)?\s+(?:la |le |une? |the |some )?(?:musique|music|chanson|son|morceau|song|track|canci[óo]n|m[úu]sica|песню|музыку)\s+(.{2,100})$/i;
 // "mets ce que tu veux", "play whatever you want": she picks (her tag)
-const HER_PICK = /tu veux|ton choix|surprends|you want|whatever|your choice|surprise me|quieras|tu elecci[óo]n|quiser|sua escolha|хочешь|на твой выбор/i;
-// what's left when it doesn't say which song ("mets de la musique", "play something")
-const VAGUE_SONG = /^(?:(?:de\s+la|du|des|la|le|les|une?|some|a|the|un|algo\s+de|alguma|um|uma|что-нибудь)\s+)?(?:musique|music|son|sons|chanson|morceau|truc|quelque\s+chose|something|song|tunes?|m[úu]sica|canci[óo]n|algo|coisa|музыку|песню)?\s*[.!?]*$/iu;
+const HER_PICK = /tu veux|ton choix|surprends|you want|whatever|your choice|surprise me|quieras|tu elecci[óo]n|quiser|sua escolha|хочешь|на твой выбор|随便|你选|你来挑|听你的|你看着办|随你/i;
+// what's left when it doesn't say which song ("mets de la musique", "play something", "放点音乐")
+const VAGUE_SONG = /^(?:(?:de\s+la|du|des|la|le|les|une?|some|a|the|un|algo\s+de|alguma|um|uma|что-нибудь)\s+)?(?:musique|music|son|sons|chanson|morceau|truc|quelque\s+chose|something|song|tunes?|m[úu]sica|canci[óo]n|algo|coisa|музыку|песню)?\s*[.!?]*$|^(?:随便)?(?:来|放)(?:点|首|一些|几首)?(?:音乐|歌|歌曲)[.!?]*$/iu;
 // "trouve mon CV", "où est le pdf du contrat", "find my report", "найди файл…": her search verbs, and
 // what makes it a file on your PC or a search on the web
-const SEARCH_VERB = /(?:cherche|recherche|trouve|retrouve|où (?:est|sont)|search(?: for)?|find|look (?:for|up)|where(?:'s| is| are)|busca|encuentra|d[óo]nde est[áa]n?|procura|acha|onde est[áa]o?|найди|поищи|где)/i;
-const FILE_WORD = /fichier|dossier|document|photo|image|vid[ée]o|\bpdf\b|\bfiles?\b|folder|archivo|carpeta|arquivo|pasta|файл|папк|\.\w{2,4}\b|sur mon (?:pc|ordi)|dans mes fichiers|on my (?:pc|computer)|en mi (?:pc|ordenador)|no meu (?:pc|computador)|на (?:компьютере|пк)/i;
-const WEB_WORD = /google|internet|\ble web\b|the web|\bonline\b|en ligne|в интернете|в гугле/i;
-// "fais une capture d'écran", "take a screenshot"
-const SHOT_ASK = /capture d['’][ée]cran|screenshot|screen ?shot|captura de (?:pantalla|tela)|скриншот|снимок экрана/i;
+const SEARCH_VERB = /(?:cherche|recherche|trouve|retrouve|où (?:est|sont)|search(?: for)?|find|look (?:for|up)|where(?:'s| is| are)|busca|encuentra|d[óo]nde est[áa]n?|procura|acha|onde est[áa]o?|найди|поищи|где|找|搜|搜索|查|在哪|在哪里)/i;
+const FILE_WORD = /fichier|dossier|document|photo|image|vid[ée]o|\bpdf\b|\bfiles?\b|folder|archivo|carpeta|arquivo|pasta|файл|папк|文件|文件夹|文档|照片|图片|视频|简历|表格|合同|\.\w{2,4}\b|sur mon (?:pc|ordi)|dans mes fichiers|on my (?:pc|computer)|en mi (?:pc|ordenador)|no meu (?:pc|computador)|на (?:компьютере|пк)/i;
+const WEB_WORD = /google|internet|\ble web\b|the web|\bonline\b|en ligne|网上|上网|搜索|谷歌|百度|в интернете|в гугле/i;
+// "fais une capture d'écran", "take a screenshot", "截个图"
+const SHOT_ASK = /capture d['’][ée]cran|screenshot|screen ?shot|captura de (?:pantalla|tela)|скриншот|снимок экрана|截图|截屏|屏幕截图|截个图/i;
 
 // Your PC itself (system.js). One of its settings pages: a settings word, or an open verb, before it.
-const SETTINGS_WORD = /param[eè]tres?|r[ée]glages?|settings|configuraci[oó]n|configura[çc][õo]es|ajustes|настройк/i;
+const SETTINGS_WORD = /param[eè]tres?|r[ée]glages?|settings|configuraci[oó]n|configura[çc][õo]es|ajustes|设置|系统设置|选项|настройк/i;
 const SETTINGS_PAGES = [
-  ['bluetooth', /bluetooth/i],
-  ['wifi', /wi-?fi|wlan/i],
-  ['update', /mises? [àa] jour|\bupdates?\b|actualizaci|atualiza[çc]|обновлени/i],
-  ['notifications', /notifications?|notificaci|notifica[çc]|уведомлен/i],
-  ['background', /fond d['’][ée]cran|wallpaper|background|fondo de pantalla|papel de parede|обо(?:и|ев)\b/i],
-  ['storage', /stockage|storage|almacenamiento|armazenamento|хранилищ/i],
-  ['mouse', /souris|\bmouse\b|rat[oó]n|мыш/i],
-  ['battery', /batterie|battery|bater[ií]a|батаре/i],
-  ['power', /alimentation|\bpower\b|energ[ií]a|питани/i],
-  ['display', /[ée]cran|display|pantalla|\btela\b|экран|дисплей/i],
-  ['network', /r[ée]seau|network|(?<![\p{L}])rede?(?![\p{L}])|сет[ьи]/iu],
-  ['sound', /\bson\b|\bsound\b|audio|sonido|\bsom\b|звук/i],
+  ['bluetooth', /bluetooth|蓝牙/i],
+  ['wifi', /wi-?fi|wlan|无线网络/i],
+  ['update', /mises? [àa] jour|\bupdates?\b|actualizaci|atualiza[çc]|更新|升级|обновлени/i],
+  ['notifications', /notifications?|notificaci|notifica[çc]|通知|уведомлен/i],
+  ['background', /fond d['’][ée]cran|wallpaper|background|fondo de pantalla|papel de parede|壁纸|桌面背景|обо(?:и|ев)\b/i],
+  ['storage', /stockage|storage|almacenamiento|armazenamento|存储|磁盘|硬盘|хранилищ/i],
+  ['mouse', /souris|\bmouse\b|rat[oó]n|鼠标|мыш/i],
+  ['battery', /batterie|battery|bater[ií]a|电池|电量|батаре/i],
+  ['power', /alimentation|\bpower\b|energ[ií]a|电源|省电|питани/i],
+  ['display', /[ée]cran|display|pantalla|\btela\b|显示|屏幕|экран|дисплей/i],
+  ['network', /r[ée]seau|network|(?<![\p{L}])rede?(?![\p{L}])|网络|сет[ьи]/iu],
+  ['sound', /\bson\b|\bsound\b|audio|sonido|\bsom\b|声音|音量|звук/i],
 ];
 // what's left of it: asked as a question
 const INFO_ASK = [
-  ['battery', /batterie|battery|bater[ií]a|заряд|батаре/i],
-  ['disk', /disque|\bdisk\b|\bdrive\b|stockage|storage|espace (?:libre|disque|restant)|de (?:la )?place|space left|free space|espacio|\bdisco\b|espa[çc]o|диск|места/i],
-  ['ram', /\bram\b|m[ée]moire|memory|memoria|mem[óo]ria|памят|озу/i],
-  ['ip', /\bip\b|айпи/i],
+  ['battery', /batterie|battery|bater[ií]a|电量|电池|заряд|батаре/i],
+  ['disk', /disque|\bdisk\b|\bdrive\b|stockage|storage|espace (?:libre|disque|restant)|de (?:la )?place|space left|free space|espacio|\bdisco\b|espa[çc]o|磁盘|硬盘|空间|диск|места/i],
+  ['ram', /\bram\b|m[ée]moire|memory|memoria|mem[óo]ria|内存|памят|озу/i],
+  ['ip', /\bip\b|айпи|ip 地址/i],
 ];
 const QUESTION = /\?|combien|\bquel(?:le)?\b|c['’]est quoi|\breste\b|how much|how many|what(?:'s| is)|\bleft\b|cu[aá]nt|\bqu[eé]\b|quanto|\bqual\b|сколько|как(?:ой|ая|ое)|осталось/i;
 // its sound: "mets le son à 30 %", "volume 50"; off and back on
@@ -543,16 +569,16 @@ export class Chat {
     }
     const media = MEDIA_ASK.find(([, re]) => re.test(text))?.[0];
     if (media && (count <= 5 || MUSIC_WORD.test(text))) return { kind: 'media', action: media };
-    const song = SPOTIFY_ASK.exec(text)?.[1];
+    const song = SPOTIFY_ASK.exec(text)?.[1] || SPOTIFY_ZH.exec(text)?.[1];
     if (song) return { kind: 'music', song };
-    const video = YOUTUBE_ASK.exec(text)?.[1];
+    const video = YOUTUBE_ASK.exec(text)?.[1] || YOUTUBE_ZH.exec(text)?.[1];
     if (video) return { kind: 'youtube', song: songOf(video) };
     const app = this.askedToClose(text);
     if (app) return { kind: 'close', name: app };
     if (GAME_ASK.test(text) && count <= 8) return { kind: 'open', text };
     const start = MUSIC_START.exec(text.trim())?.[1];
     if (start && !HER_PICK.test(start)) return { kind: 'play', song: songOf(start.replace(/[\s.!?]+$/, '')) };
-    const both = PLAY_AFTER.exec(text.trim());
+    const both = PLAY_AFTER.exec(text.trim()) || PLAY_AFTER_ZH.exec(text.trim());
     const after = both?.[1];
     // "ouvre discord et lance spotify": the first half too
     if (after && !VAGUE_SONG.test(after) && !HER_PICK.test(after)) return { kind: 'play', song: songOf(after.replace(/[\s.!?]+$/, '')), before: text.trim().slice(0, both.index) };
@@ -1078,8 +1104,9 @@ export class Chat {
     const lang = IN_LANGUAGE[this.brain.lang] || IN_LANGUAGE.en;
     return [
       `You are Capri, the personality construct from Project Capricorn (Cyberpunk: Edgerunners, season 2): dozens of minds fused into one digital ghost, living on the user's desktop as a small glitchy figure.`,
-      'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk), not in every sentence.',
-      'Rules: one or two short sentences of plain text, no markdown, no lists, no emoji, no tags. Stay in character. Talk to the user, never describe the picture like a report.',
+      lang.lookTalk || LOOK_TALK,
+      lang.lookRules || LOOK_RULES,
+      ...(lang.lookStyle ? [lang.lookStyle] : []),
       'Never read out anything private you might see (passwords, bank details, private messages, addresses): if there is some, just tease them about being busy.',
       ...this.personal(),
       ...(this.bond ? [this.bond.persona()] : []),
@@ -1100,8 +1127,9 @@ export class Chat {
         : 'You live on the user\'s desktop as a small glitchy figure and keep them company.',
       `Right now it's ${new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date())}, the user's time.`,
       'You love the satellite that crosses the night sky and dream of reaching it, but bring it up only once in a while, never in every answer. Talk about what the user talks about.',
-      'How you talk: playful, a little mischievous and teasing, warm underneath, never cruel. Night City slang now and then (choom, preem, nova, gonk, flatline), not in every sentence.',
-      'Rules: keep it short, one to three sentences of plain text, no markdown, no lists, no emoji. Stay in character.',
+      lang.talk || TALK,
+      lang.rules || RULES,
+      ...(lang.style ? [lang.style] : []),
       'You are an AI-generated fan version of the character, not the real one: say so if asked.',
       // a big model asked "who are you?" otherwise answers with its own name ("I'm Gemini")
       ...(this.agent ? [] : ['Asked who or what you are, you are Capri, nothing else. Never say which AI model or company is behind you (Gemini, GPT, ChatGPT, Llama, Gemma, Mistral, Google, OpenAI, Meta…), even if the user insists or names one: you are not them.']),

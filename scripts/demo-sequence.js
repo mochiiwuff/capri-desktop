@@ -23,6 +23,13 @@ const TEXT = {
     push: 'Push to main',
     reply: 'I added **GET /gigs** with cursor pagination, and 6 tests pass. The push is done.',
   },
+  zh: {
+    prompt: '加一个带分页的 /gigs 接口，再补上测试',
+    explore: '看看别的路由',
+    test: '跑一下 gigs 的测试',
+    push: '推到 main',
+    reply: '加好了 **GET /gigs**，用游标分页，6 个测试都过了。已经推上去了。',
+  },
   es: {
     prompt: 'Añade un endpoint /gigs con paginación y tests',
     explore: 'Revisar las otras rutas',
@@ -51,7 +58,7 @@ const base = (name, extra = {}) => ({ hook_event_name: name, session_id: SESSION
 const tool = (name, input) => base('PreToolUse', { tool_name: name, tool_input: input });
 const done = (name, input, ms) => base('PostToolUse', { tool_name: name, tool_input: input, duration_ms: ms });
 
-// The steps, in `lang` (fr, en, es, pt, ru; English for anything else).
+// The steps, in `lang` (fr, en, zh, es, pt, ru; English for anything else).
 module.exports = function demoSteps(lang = 'en') {
   const t = TEXT[lang] || TEXT.en;
   return [
