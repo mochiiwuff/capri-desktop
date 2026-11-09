@@ -5,6 +5,8 @@ import { pick, fmt, duration, basename, rand } from './util.js';
 
 const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const HACKING_TOOLS = new Set(['Bash', 'PowerShell', 'WebFetch', 'WebSearch', 'Agent', 'Task']);
+// tools that stop and wait for you, like a permission prompt: a question with choices, a plan to approve
+const ASKING_TOOLS = { AskUserQuestion: 'question', ExitPlanMode: 'plan' };
 const WORKING_EVERY = 20; // say something about progress every N tool calls
 const LONG_JOB_MS = 8 * 60 * 1000; // a job this long (or this busy) earns the whole satellite sequence
 const LONG_JOB_ACTIONS = 50;
@@ -98,6 +100,7 @@ export class Brain {
     // anything happening after a permission prompt means it was answered
     if (s.waiting && name !== 'Notification') {
       s.waiting = false;
+      s.asking = false;
       this.panel.clearKind('alert');
       if (s.pointedAt) this.capri.stopPointing(); // she was showing you Claude's window
       s.pointedAt = false;
@@ -211,9 +214,16 @@ export class Brain {
     if (HACKING_TOOLS.has(evt.tool_name)) this.capri.spark(); // red sparks: she's in the system
     this.panel.setTicker(action);
     if (this.panel.current?.kind === 'work') this.panel.updateLog(s.log);
+    // a question for you, or a plan to approve: Claude stops until you answer
+    const asking = ASKING_TOOLS[evt.tool_name];
+    if (asking) {
+      s.asking = true;
+      return this.awaitYou(s, pick(this.t[asking]), String(evt.tool_input?.questions?.[0]?.question || ''));
+    }
     if (s.count % WORKING_EVERY === 0) {
       this.say('work', fmt(pick(this.t.working), { count: s.count }), s, { log: s.log, hold: 4000 });
     }
+    return undefined;
   }
 
   onToolFailure(evt, s) {
@@ -236,27 +246,33 @@ export class Brain {
     });
   }
 
+  // Claude is waiting on you (a permission, a question, a plan to approve): the alarm, and where to answer
+  async awaitYou(s, line, message) {
+    s.waiting = true;
+    this.capri.setMode('alert');
+    this.voice.play('alert');
+    // you're on another window: she goes and points at Claude's, where the question is
+    const win = this.away(s) && this.capri.windows.wins.find((w) => w.id === s.window);
+    if (win && this.capri.canPoint(win)) {
+      const quote = [this.t.guide.permissionThere, message].filter(Boolean).join('\n');
+      this.say('alert', line, s, { quote, hold: null });
+      s.pointedAt = await this.capri.pointAt(win, { label: this.t.guide.labels.claude });
+      if (!s.waiting && s.pointedAt) this.capri.stopPointing(); // answered while she was on her way
+      return;
+    }
+    this.say('alert', line, s, { quote: message, hold: null });
+    // next to your pointer, even on another screen
+    const near = await this.capri.toPointer(await this.host.cursor().catch(() => null));
+    const toward = near?.inside ? Math.sign(near.x - this.capri.pos.x) || 1 : this.capri.towardCenter();
+    this.capri.perform('alarm', toward);
+  }
+
   async onNotification(evt, s) {
     const type = evt.notification_type;
     if (type === 'permission_prompt' || type === 'elicitation_dialog' || type === 'agent_needs_input') {
-      s.waiting = true;
+      if (s.asking) return; // the question (or plan) she's already showing you: the same wait
       this.tally(evt)?.approval();
-      this.capri.setMode('alert');
-      this.voice.play('alert');
-      // you're on another window: she goes and points at Claude's, where the question is
-      const win = this.away(s) && this.capri.windows.wins.find((w) => w.id === s.window);
-      if (win && this.capri.canPoint(win)) {
-        const quote = [this.t.guide.permissionThere, evt.message].filter(Boolean).join('\n');
-        this.say('alert', pick(this.t.permission), s, { quote, hold: null });
-        s.pointedAt = await this.capri.pointAt(win, { label: this.t.guide.labels.claude });
-        if (!s.waiting && s.pointedAt) this.capri.stopPointing(); // answered while she was on her way
-        return;
-      }
-      this.say('alert', pick(this.t.permission), s, { quote: evt.message || '', hold: null });
-      // next to your pointer, even on another screen
-      const near = await this.capri.toPointer(await this.host.cursor().catch(() => null));
-      const toward = near?.inside ? Math.sign(near.x - this.capri.pos.x) || 1 : this.capri.towardCenter();
-      this.capri.perform('alarm', toward);
+      await this.awaitYou(s, pick(this.t.permission), evt.message || '');
       return;
     }
     if (type === 'idle_prompt') {
