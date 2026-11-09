@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const os = require('node:os');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const {
@@ -38,6 +39,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let overlay = null;
+let inputRegionHelper = null;
 let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
@@ -149,8 +151,10 @@ function fitOverlay() {
 // clicked anymore. Off then on puts in a new one; her place on top and her size are set again too.
 function rearmOverlay() {
   if (!overlay || overlay.isDestroyed()) return;
-  overlay.setIgnoreMouseEvents(false);
-  overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (!inputRegionHelper) {
+    overlay.setIgnoreMouseEvents(false);
+    overlay.setIgnoreMouseEvents(true, { forward: true });
+  }
   overlay.setAlwaysOnTop(true, 'screen-saver');
   fitOverlay();
   sendCommand('rearmed'); // click-through again: she waits for the pointer to be on her
@@ -181,7 +185,8 @@ function createOverlay() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    focusable: false,
+    // Linux cannot toggle focusability later with setFocusable().
+    focusable: process.platform === 'linux',
     hasShadow: false,
     alwaysOnTop: true,
     type: process.platform === 'win32' ? 'toolbar' : undefined,
@@ -198,12 +203,37 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (process.platform === 'linux' && process.env.DISPLAY && (process.env.XDG_SESSION_TYPE === 'x11' || process.argv.includes('--ozone-platform=x11'))) {
+    const handle = overlay.getNativeWindowHandle();
+    const windowId = handle.readUInt32LE(0);
+    const helperPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'x11-input.py');
+    inputRegionHelper = spawn('python3', [helperPath, String(windowId)], { stdio: ['pipe', 'ignore', 'pipe'] });
+    const helper = inputRegionHelper;
+    helper.on('error', err => console.error('[capri] X11 input helper:', err.message));
+    helper.stdin.on('error', err => console.error('[capri] X11 input helper stdin:', err.message));
+    helper.on('exit', () => {
+      if (inputRegionHelper !== helper) return;
+      inputRegionHelper = null;
+      if (overlay && !overlay.isDestroyed()) overlay.setIgnoreMouseEvents(true);
+    });
+    inputRegionHelper.stderr.on('data', data => console.error('[capri] X11 input helper:', String(data).trim()));
+    overlay.setIgnoreMouseEvents(false);
+    overlay.on('closed', () => { inputRegionHelper?.stdin.end(); inputRegionHelper = null; });
+  }
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
   overlay.once('ready-to-show', () => {
     fitOverlay();
     overlay.showInactive();
+  });
+  overlay.webContents.on('context-menu', (_e, params) => {
+    if (!params.isEditable) return;
+    Menu.buildFromTemplate([
+      { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+      { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
+      { type: 'separator' }, { role: 'selectAll' },
+    ]).popup({ window: overlay });
   });
   overlay.webContents.on('render-process-gone', (_e, details) => {
     console.error('[capri] renderer gone:', details.reason);
@@ -282,7 +312,7 @@ function resolveLang(setting) {
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
   const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap, pointerPolling: process.platform === 'linux' };
 }
 
 function updateConfig(patch) {
@@ -382,7 +412,8 @@ function rebuildTray() {
         { label: t.aiSetup, click: () => sendCommand('setupChat') },
         { type: 'separator' },
         ...Object.entries(llm.PROVIDERS).map(([provider, p]) => ({
-          label: p.label, type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
+          label: provider === 'codex' && resolveLang(cfg.lang) === 'th' ? 'Codex CLI (ตอบแชต)' : p.label,
+          type: 'radio', checked: cfg.provider === provider, click: () => pickProvider(provider),
         })),
         { type: 'separator' },
         ...(chatModels?.length
@@ -414,10 +445,10 @@ function rebuildTray() {
       ],
     },
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
-    { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
-    { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
+    { label: t.possess, enabled: process.platform === 'win32', type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
+    { label: t.jealous, enabled: process.platform === 'win32', type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
     {
-      label: t.closePages, type: 'checkbox', checked: cfg.closePages !== false, enabled: cfg.jealous !== false,
+      label: t.closePages, type: 'checkbox', checked: cfg.closePages !== false, enabled: process.platform === 'win32' && cfg.jealous !== false,
       click: (item) => updateConfig({ closePages: item.checked }),
     },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
@@ -487,7 +518,8 @@ function rebuildTray() {
     {
       label: t.startup,
       type: 'checkbox',
-      checked: app.getLoginItemSettings(loginItemOptions()).openAtLogin,
+      enabled: process.platform !== 'linux',
+      checked: process.platform !== 'linux' && app.getLoginItemSettings(loginItemOptions()).openAtLogin,
       click: (item) => app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: item.checked }),
     },
     // her hooks, while she watches Claude Code
@@ -515,7 +547,16 @@ function loginItemOptions() {
 function runHooks(action, { quiet = false } = {}) {
   let outcome;
   try {
-    const result = action === 'install' ? activeHooks().install() : activeHooks().uninstall();
+    let hookScript;
+    if (action === 'install' && activeAssistant().id === 'codex' && app.isPackaged) {
+      // An AppImage extraction is temporary; keep the installed hook in user data instead.
+      const dest = path.join(app.getPath('userData'), 'codex-hooks');
+      fs.mkdirSync(dest, { recursive: true });
+      const source = path.join(ROOT.replace('app.asar', 'app.asar.unpacked'), 'hooks');
+      for (const name of ['capri-hook.js', 'capri-codex-hook.js']) fs.copyFileSync(path.join(source, name), path.join(dest, name));
+      hookScript = path.join(dest, 'capri-codex-hook.js');
+    }
+    const result = action === 'install' ? activeHooks().install(hookScript) : activeHooks().uninstall();
     outcome = { action, ok: true, file: result.file };
   } catch (err) {
     outcome = { action, ok: false, error: err.message };
@@ -635,7 +676,7 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
-  if (cfg.provider === 'claude') return { ok: false, code: 'novision', model: 'Claude Code' };
+  if (['claude', 'codex'].includes(cfg.provider)) return { ok: false, code: 'novision', model: cfg.provider === 'codex' ? 'Codex CLI' : 'Claude Code' };
   if (cfg.provider === 'ollama' && !(await ollama.canSee(model))) return { ok: false, code: 'novision', model };
   const user = cfg.provider === 'ollama'
     ? { role: 'user', content: prompt, images: [image] }
@@ -686,7 +727,13 @@ function createTray() {
 }
 
 function registerIpc() {
+  ipcMain.on('overlay:regions', (_e, regions) => {
+    if (!inputRegionHelper || !Array.isArray(regions)) return;
+    const safe = regions.slice(0, 8).filter(r => Array.isArray(r) && r.length === 4 && r.every(Number.isFinite)).map(r => r.map(Math.round));
+    if (inputRegionHelper.stdin.writable) inputRegionHelper.stdin.write(JSON.stringify(safe) + '\n');
+  });
   ipcMain.on('overlay:interactive', (_e, on) => {
+    if (inputRegionHelper) return;
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
   });
   ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
@@ -877,8 +924,8 @@ function registerIpc() {
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
   ipcMain.on('overlay:focus', (_e, on) => {
     if (!overlay) return;
-    overlay.setFocusable(Boolean(on));
-    if (on) overlay.focus();
+    if (process.platform !== 'linux') overlay.setFocusable(Boolean(on));
+    if (on) { overlay.focus(); overlay.webContents.focus(); }
     else overlay.blur();
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard

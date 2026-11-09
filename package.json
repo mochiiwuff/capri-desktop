@@ -18,7 +18,8 @@
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
     "test:hooks": "node --test tests/hooks.test.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "dist:linux": "electron-builder --linux AppImage"
   },
   "keywords": [
     "claude-code",
@@ -52,7 +53,8 @@
     ],
     "asarUnpack": [
       "hooks/**",
-      "src/main/windows.ps1"
+      "src/main/windows.ps1",
+      "src/main/x11-input.py"
     ],
     "win": {
       "target": "nsis",
@@ -65,6 +67,13 @@
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
       "artifactName": "Capri-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icons/capri.png",
+      "category": "Utility"
     }
   }
 }

@@ -16,6 +16,7 @@ const KEEP = 60;     // messages she remembers across restarts (memory.json)
 // `now`: the same, said again right by your message (small models answer in the language of the
 // conversation so far, English after a switch, whatever the top of her prompt says)
 const IN_LANGUAGE = {
+  th: { we: '"พวกเรา" in Thai', last: 'ตอบเป็นภาษาไทยอย่างเป็นธรรมชาติ เว้นแต่ผู้ใช้ขอภาษาอื่น', now: 'ตอบเป็นภาษาไทยอย่างเป็นธรรมชาติ เว้นแต่ผู้ใช้ขอภาษาอื่น' },
   fr: { we: '"on" or "nous" in French', last: 'Écris tout en français, sauf si l’utilisateur t’écrit dans une autre langue : alors dans la sienne. Seuls les mots d’argot de Night City restent en anglais, jamais une phrase entière.', now: 'Réponds en français, sauf si ce message est écrit dans une autre langue.' },
   en: { we: '', last: 'Write everything in English, unless the user writes to you in another language: then in theirs.', now: 'Answer in English, unless this message is written in another language.' },
   es: { we: '"nosotros" in Spanish', last: 'Escribe todo en español, salvo si el usuario te escribe en otro idioma: entonces en el suyo. Solo las palabras de jerga de Night City se quedan en inglés, nunca una frase entera.', now: 'Responde en español, salvo si este mensaje está escrito en otro idioma.' },

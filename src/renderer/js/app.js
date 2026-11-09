@@ -95,6 +95,7 @@ async function boot() {
     fx,
     voice,
   });
+  capri.alwaysPickable = Boolean(config.pointerPolling);
   capri.wander = config.wander;
   capri.possessWindows = config.possess;
   capri.restOn = config.rest || 'corner';
@@ -121,6 +122,34 @@ async function boot() {
     document.body.style.cursor = onChip() ? 'pointer' : '';
     return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip()));
   };
+  // X11's input shape receives clicks even while the rest of the overlay is click-through.
+  if (config.pointerPolling) {
+    let lastRegions = '';
+    let sentAt = 0;
+    setInterval(() => {
+      const regions = [];
+      const add = r => {
+        if (!r || r.width <= 0 || r.height <= 0) return;
+        const x = Math.max(0, Math.floor(r.left));
+        const y = Math.max(0, Math.floor(r.top));
+        const right = Math.min(innerWidth, Math.ceil(r.right));
+        const bottom = Math.min(innerHeight, Math.ceil(r.bottom));
+        if (right > x && bottom > y) regions.push([x, y, right - x, bottom - y]);
+      };
+      if (capri.dragging) add({ left: 0, top: 0, right: innerWidth, bottom: innerHeight, width: innerWidth, height: innerHeight });
+      else {
+        if (!capri.hidden && capri.p.alpha >= 0.5) add(capri.canvas.getBoundingClientRect());
+        if (chip.visible) add(chip.canvas.getBoundingClientRect());
+        if (mask.visible) add(mask.canvas.getBoundingClientRect());
+        add(panel.rect());
+      }
+      const encoded = JSON.stringify(regions);
+      // Native window changes can replace the input shape even if the UI has not moved.
+      if (encoded !== lastRegions || performance.now() - sentAt >= 500) {
+        host.setInputRegions(regions); lastRegions = encoded; sentAt = performance.now();
+      }
+    }, 50);
+  }
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
   // (only then, so the pointer passing through that corner doesn't call her back).
   // Her mask, asleep: the pointer coming over it stirs her, and a moment of that wakes her up.
@@ -169,7 +198,7 @@ async function boot() {
     const before = seen;
     seen = at;
     follow?.(at);
-    if (!at?.inside) return;
+    if (config.pointerPolling || !at?.inside) return;
     const now = performance.now();
     // the pointer is on her and she isn't clickable (its moves stopped reaching her): she is now
     if (!interactive && now - lastMove > WATCH_MS) {
@@ -182,6 +211,7 @@ async function boot() {
     host.rearm();
   }, WATCH_MS);
   window.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable="true"]')) return;
     e.preventDefault();
     if (chip.visible && chip.contains(e.clientX, e.clientY, 0)) host.openMenu();
   });
