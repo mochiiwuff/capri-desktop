@@ -356,36 +356,6 @@ under her and she falls), sleeping down to her mask, and putting herself away in
 It's also in the tray menu, in her language; from the command line it's in English, or add one: `npm run demo -- fr`
 (or `es`, `pt`, `ru`).
 
-## Her voice
-
-Right-click her › **Her voice**: she says her lines and her chat's answers out loud. Her blips keep quiet while she
-talks, and her volume and *Mute* apply to her voice too.
-
-| Pick | What it is | What it needs |
-|---|---|---|
-| **Windows voices (free)** | the voices already on your PC | nothing (*Set her voice…* picks one) |
-| **On my PC (Kokoro…)** | a speech server you run, much better sounding, still free | its address (`http://127.0.0.1:8880/v1` by default) |
-| **OpenAI** | OpenAI's voices, told how she sounds | your OpenAI key |
-| **ElevenLabs** | a voice you design for her | your ElevenLabs key and the voice's ID |
-
-**On your PC, free:** [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) speaks the same language as
-OpenAI's speech service. Start it, then pick *On my PC* and leave the address empty. Voices: `af_bella`, `af_nicole`,
-`af_sky` in English, `ff_siwis` in French, `ef_dora` in Spanish, `pf_dora` in Portuguese.
-
-**Her voice, made for her (ElevenLabs Voice Design):** in ElevenLabs, open *Voice Design*, paste the text below, generate,
-keep the take you like, and save it. Copy its *Voice ID*, then in Capri: *Her voice* › *ElevenLabs*, your key, and the ID.
-
-```
-A young woman in her early twenties. Cool, a little teasing, with a dry sense of humor and a confident, relaxed
-delivery. Low-to-mid pitch, slightly husky, clear diction, unhurried. She sounds amused more than excited, never
-bubbly, never childish. A faint electronic edge, as if she comes through a speaker. Studio quality, no background.
-```
-
-It makes a new, synthetic voice. Don't clone a real person's voice (an actress, a streamer, a friend) without their
-clear consent: it's against the services' rules, and against Capri's.
-
-What she says out loud goes to the service you picked (nothing at all with Windows voices or a server on your PC).
-
 ## Sounds
 
 Every sound is synthesized live (Web Audio), nothing copyrighted ships with the repo.

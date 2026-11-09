@@ -3,7 +3,6 @@ import { FxLayer, GRAB_FRAMES } from './fx.js';
 import { Chip, Mask } from './chip.js';
 import { Panel } from './panel.js';
 import { Voice } from './voice.js';
-import { Speech } from './speech.js';
 import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
@@ -219,11 +218,7 @@ async function boot() {
     const lines = when === 'end' ? brain.t.uplink : brain.t.gaze;
     if (!panel.visible && Math.random() < (when === 'end' ? 0.6 : 0.4)) panel.say({ kind: 'info', line: pick(lines), hold: 3800 });
   };
-  // her voice out loud (speech.js), if it's on: her lines, and her blips quiet while she speaks
-  const speech = new Speech({ host, voice });
-  speech.configure(config);
-  panel.onLine = (line) => speech.say(line);
-  panel.onChar = (kind) => !speech.speaking && voice.play('blip', { mood: kind });
+  panel.onChar = (kind) => voice.play('blip', { mood: kind });
   panel.onTalk = (talking) => talking && capri.perform('talk');
   capri.onMenu = () => host.openMenu();
 
@@ -249,7 +244,6 @@ async function boot() {
   const bond = new Bond({ host, data: config.bond });
   brain.bond = bond;
   chat.bond = bond;
-  chat.speech = speech;
   capri.fondness = bond.stage;
   const jealousy = new Jealousy({ capri, panel, brain, bond, chat, guide, host });
   jealousy.enabled = config.jealous !== false;
@@ -629,7 +623,6 @@ async function boot() {
 
   host.onConfig((cfg) => {
     voice.configure(cfg);
-    speech.configure(cfg);
     jealousy.enabled = cfg.jealous !== false;
     jealousy.closePages = cfg.closePages !== false;
     followOn = cfg.follow !== false;
@@ -682,9 +675,6 @@ async function boot() {
         break;
       case 'setupKey': // "API key or address" in her menu's AI model, or a service picked there that needs one
         setup.key();
-        break;
-      case 'setupVoice': // her menu › Her voice: a voice picked, or "Set her voice"
-        setup.voiceSettings();
         break;
       case 'setupFree': // --dev: Claude Code (or Codex) through Ollama
         setup.free();

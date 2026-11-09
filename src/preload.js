@@ -44,8 +44,6 @@ contextBridge.exposeInMainWorld('host', {
   lookWhere: () => ipcRenderer.invoke('look:where'),
   cpu: () => ipcRenderer.invoke('pc:cpu'),
   pcDo: (req) => ipcRenderer.invoke('pc:do', req),
-  speak: (text) => ipcRenderer.invoke('speech:say', text),
-  setVoice: (settings) => ipcRenderer.invoke('speech:set', settings),
   openOllama: () => ipcRenderer.send('chat:ollama'),
   setupInfo: () => ipcRenderer.invoke('setup:info'),
   ollamaState: () => ipcRenderer.invoke('setup:ollama'),

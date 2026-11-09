@@ -153,7 +153,6 @@ export class Panel {
     this.replayEnter();
     this.place();
     this.decode(msg.line || '', msg.kind);
-    if (!msg.chat) this.onLine?.(msg.line || ''); // out loud, if her voice is on (speech.js)
 
     if (msg.hold) this.hideTimer = setTimeout(() => this.hide(), msg.hold);
     return true;

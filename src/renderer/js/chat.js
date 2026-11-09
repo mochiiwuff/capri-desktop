@@ -427,7 +427,6 @@ export class Chat {
       this.turn = 0;
       this.remember({ role: 'assistant', content: line });
       this.panel.stream(line, { done: true });
-      this.speech?.say(line); // out loud, once written, if her voice is on
       this.panel.setFace(face);
       this.panel.setChatBusy(false);
     };
@@ -1024,7 +1023,7 @@ export class Chat {
     if (id !== this.turn) return;
     this.answer += piece;
     this.panel.stream(clean(this.answer));
-    if (!this.speech?.speaking) this.voice.play('blip'); // her blips as the words come in
+    this.voice.play('blip'); // her blips as the words come in
   }
 
   // Her language, in it, for right by the message (above).
