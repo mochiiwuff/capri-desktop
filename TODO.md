@@ -23,7 +23,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 
 - [ ] Discord: validar autenticação e mensagens com um bot/servidor real autorizado; testes atuais usam mocks.
 - [x] Discord: reconexão automática com backoff limitado, cancelamento em parada e tratamento sem retry para credenciais rejeitadas; validar com conta real continua pendente.
-- [ ] Discord: painel de preferências de notificações, destinatários e quiet hours; entrega proativa só após opt-in e com limites/deduplicação.
+- [x] Notificações de desenvolvimento com opt-in e pausa imediata, quiet hours, limite por hora e deduplicação; destino limitado ao último canal/remetente que interagiu por uma allowlist autorizada (sem envio em massa).
 - [x] Compartilhar entre Discord e WhatsApp o dispatcher autorizado com comandos fechados e limites comuns; `memory` informa contagens, sem enviar conteúdo privado. A execução remota arbitrária segue desativada.
 - [ ] Windows: consolidar o que já existe (janela ativa, lista de apps, captura autorizada, abrir/fechar e ações disponíveis) com teste ponta a ponta e confirmação por risco.
 - [ ] Empacotamento: a configuração do `electron-builder` já declara NSIS e atalhos, mas ainda falta gerar e testar o instalador em ambiente Windows limpo; o nome solicitado é `Capri-Setup.exe`.
@@ -35,7 +35,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Implementar respostas a comandos recebidos pela Cloud API oficial e documentar a janela de atendimento; templates aprovados e mensagens iniciadas pela empresa não são implementados.
 - [x] Criar configuração segura WhatsApp (tokens/segredos em `safeStorage` quando suportado), conexão/desconexão, porta local e allowlist.
 - [x] Integrar Discord e WhatsApp ao mesmo dispatcher de comandos autorizados e às permissões/limites comuns; nenhum conteúdo privado do computador ou das memórias é compartilhado.
-- [ ] Adicionar preferências para quiet hours, limites por hora, deduplicação e pausa global de comunicação.
+- [x] Adicionar preferências para quiet hours, limites por hora, deduplicação e pausa global de comunicação; notificações ficam desligadas por padrão e usam textos fixos sem conteúdo de conversa.
 - [ ] Testar integrações com serviços reais somente quando o usuário fornecer contas/credenciais autorizadas; marcar ausência de validação como **PENDENTE DE VALIDAÇÃO EXTERNA**.
 
 ## Prioridade 2 — percepção e interação autorizadas no Windows
@@ -76,5 +76,5 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 ## Bloqueios de publicação e continuidade
 
 - [ ] Autenticar o GitHub e publicar a branch apenas em `feature/capri-autonomous-learning`; verificar o SHA remoto após o push. Nunca enviar para `main` nem force-push.
-- [ ] Push de `1eaa863` falhou por falta de autenticação não interativa. `origin/feature/capri-autonomous-learning` permanece em `c9858d1`; naquele momento a branch estava 23 commits à frente. Commits locais posteriores de documentação também aguardam autenticação. Preservar e publicar somente após autenticação, sem force-push.
+- [ ] Pushes anteriores falharam por falta de autenticação não interativa; os commits e alterações atuais permanecem locais. Verificar a referência remota antes de tentar novamente e publicar somente em `feature/capri-autonomous-learning`, sem force-push.
 - [ ] Depois de cada etapa, atualizar `PROGRESS.md`, `CHANGELOG.md`, `ARCHITECTURE.md` e este backlog; registrar o próximo passo verificável.

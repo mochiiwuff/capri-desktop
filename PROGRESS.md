@@ -20,6 +20,9 @@
 - **Segurança de interação:** fechamento automático de páginas de outras IAs foi desativado por padrão e a autorização anterior implícita de versões antigas não é preservada; a pessoa precisa habilitar a opção explicitamente na bandeja. Fechamento solicitado de apps segue com confirmação e force-close com uma segunda.
 - **Controle de fechamento por app:** lista opcional de processos permitidos, editável pelo tray em cinco idiomas; o processo principal bloqueia apps fora da lista na ação individual e no modo jogo. O modo jogo informa quais apps ficaram bloqueados.
 - **Dispatcher compartilhado:** Discord e WhatsApp usam o mesmo handler limitado para os sete comandos autorizados, com permissões por plataforma, limite e deduplicação comuns; `memory` retorna apenas contagens. Regressão cruzada passou nos testes dos dois serviços.
+- **Notificações de desenvolvimento:** opt-in desligado por padrão; controles de ativação/pausa imediata e preferências de quiet hours/limite por hora no tray. As mensagens são textos fixos por evento, sem prompts, conversas, nomes de arquivos ou logs; Discord usa o último canal autorizado e WhatsApp o último remetente autorizado dentro da janela de 24 horas. Deduplicação serializada e histórico local com hash do identificador de sessão, sem armazenar o identificador.
+- **Verificação desta etapa:** suíte completa aprovada, 81/81 testes; testes de destinatário Discord/WhatsApp, pausa, opt-in, quiet hours, limites, deduplicação, não persistência de conteúdo e localização. Sem conta real de Discord/Meta, portanto integração externa continua **PENDENTE DE VALIDAÇÃO EXTERNA**.
+- **Commit funcional local:** `c10fef1` — `feat: add opt-in development notifications`; ainda não enviado ao GitHub.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
 - **Testes:** suíte completa passou (74/74); sintaxe dos arquivos alterados e `git diff --check` também passaram.
 
@@ -27,13 +30,13 @@
 
 - WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
 - Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
-- Não há notificações espontâneas, atualização automática, execução remota arbitrária ou publicação autônoma.
-- Push do commit `1eaa863` falhou: `Cannot prompt because user interactivity has been disabled`. Remoto confirmado permanece `c9858d19feab87ceb8a302eef236335610bc3dcd`; naquele momento a branch local estava 23 commits à frente. Os commits documentais posteriores também estão apenas locais. Não enviar à `main` nem usar force-push.
+- Notificações de desenvolvimento permanecem desligadas até opt-in; update não executa código remoto, e não há execução remota arbitrária nem publicação autônoma.
+- Pushes anteriores falharam com `Cannot prompt because user interactivity has been disabled`; os commits novos, incluindo `c10fef1`, permanecem locais. A branch remota não foi atualizada; verificar o SHA remoto antes de tentar novamente. Nunca enviar à `main` nem usar force-push.
 - A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
 
 ## Próximo passo exato
 
-1. Conectar notificações de desenvolvimento opt-in ao Discord/WhatsApp, com preferências editáveis, quiet hours, deduplicação, limite horário e pausa imediata; usar apenas resumos sem prompts, conversas ou conteúdo sensível.
+1. Validar o fluxo Discord e WhatsApp ponta a ponta com contas autorizadas fornecidas pelo usuário; sem credenciais, manter esse estado como pendente e seguir para geração do instalador NSIS e teste em Windows limpo.
 
 ## Recuperação
 

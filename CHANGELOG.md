@@ -27,6 +27,7 @@
 - Adicionados testes HTTP locais para desafio, assinatura, remetentes autorizados, JSON inválido, limite de corpo e parada do serviço; nenhuma credencial real foi usada.
 - Adicionada lista opcional de processos autorizados para fechamento de apps, aplicada tanto à ação confirmada individual quanto ao fechamento pelo modo jogo; ações bloqueadas são informadas ao usuário e os textos estão localizados.
 - Unificado e renomeado o dispatcher usado por Discord e WhatsApp, mantendo os comandos restritos, permissões por plataforma, respostas e limite/deduplicação compartilhados; adicionada regressão que comprova a política comum entre canais.
+- Implementadas notificações de desenvolvimento explicitamente opcionais para Discord e WhatsApp: textos genéricos fixos por evento, destinatário limitado ao último canal/remetente autorizado, quiet hours, limite por hora, deduplicação serializada e pausa imediata. WhatsApp só envia durante a janela de atendimento de 24 horas. Preferências e mensagens localizadas em cinco idiomas; testes cobrem autorização, privacidade do histórico, limites, pausa e entrega mockada.
 
 ## Trabalho anterior nesta branch
 

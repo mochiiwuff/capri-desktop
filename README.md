@@ -474,7 +474,7 @@ screen goes to her chat's AI: on your PC with Ollama (a local model), to the onl
 ## Discord and WhatsApp
 
 Discord supports authorized, command-only interaction through the official Bot API and Gateway. It is **off by
-default** and sends no spontaneous notifications. To configure it on Windows:
+default**. To configure it on Windows:
 
 1. Create a private Discord application and bot, invite it only to the server you control, and enable
    **Message Content Intent** in the Discord Developer Portal.
@@ -492,14 +492,19 @@ default** and sends no spontaneous notifications. To configure it on Windows:
 The token is encrypted with Windows `safeStorage` and kept in the app's local user data, never passed back to the
 renderer. Capri refuses setup if secure storage is unavailable. The Gateway must have the Message Content Intent;
 messages are ignored unless both the sender and channel are explicitly allowlisted. Replies are rate-limited and
-repeated commands are suppressed. Discord currently has no reconnect UI, proactive notification delivery, or
-configurable notification quiet hours. A network drop may require restarting Capri.
+repeated commands are suppressed. The tray submenu also offers **Development notifications**, **Pause notifications**,
+and notification preferences. Notifications start disabled and send only fixed, generic development event text, never
+prompts, conversation content, file names, or logs. When enabled, Capri sends only to the last authorized Discord
+channel that interacted with the bot; quiet hours, an hourly limit, deduplication, and immediate pause apply.
+Discord reconnects automatically after transient network failures.
 
-WhatsApp is **not connected**. The tested Cloud API/webhook helpers are not a deployed endpoint: Capri has no public
-HTTPS webhook, verification challenge, authorized-recipient setup, or message routing for WhatsApp. An official
-integration will require an eligible Meta business/app, a registered business phone number, approved credentials,
-and a public HTTPS webhook configured with the verification token and app secret. Business-initiated messages
-outside the customer-service window require an approved template. Do not paste messaging credentials into
+WhatsApp Business Cloud API is available as an opt-in local webhook. Configure its encrypted credentials and
+authorized sender list from the **External messaging** tray submenu, then use an HTTPS reverse proxy that you
+control to forward Meta webhooks to Capri's loopback listener. Capri does not create a public endpoint or tunnel.
+Only allowlisted senders can issue supported commands. Development notifications are separately opt-in and go only
+to the most recent authorized sender, within WhatsApp's 24-hour customer-service window; messages contain fixed,
+generic event text. Quiet hours, hourly limits, deduplication, and immediate pause apply. Capri does not implement
+approved templates or business-initiated messaging outside that window. Do not paste messaging credentials into
 `config.json` or commit them.
 
 ## Art direction

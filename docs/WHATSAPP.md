@@ -32,8 +32,11 @@ interrompida em **Mensagens externas** → **Desconectar WhatsApp**.
 
 - O app e o número devem cumprir os requisitos de elegibilidade, análise e verificação da Meta.
 - Respostas a mensagens recebidas devem respeitar a janela de atendimento do WhatsApp. Mensagens iniciadas
-  pela empresa fora dessa janela exigem templates aprovados; Capri não oferece envio proativo nem gerenciamento
-  de templates.
+  pela empresa fora dessa janela exigem templates aprovados; Capri não oferece templates nem mensagens
+  empresariais fora da janela. Notificações de desenvolvimento podem ser ativadas separadamente no menu
+  **Mensagens externas**: o padrão é desligado, o texto é fixo e genérico, e o destino é somente o último
+  remetente autorizado que enviou um comando, ainda dentro da janela de 24 horas. Quiet hours, limite por hora,
+  deduplicação e pausa imediata são aplicados; conteúdo de conversa, prompts, arquivos e logs não são enviados.
 - Os testes locais usam servidor e API simulados. A configuração, o proxy HTTPS e o fluxo ponta a ponta ainda
   precisam ser validados com uma conta Meta autorizada.
 - Não compartilhe tokens. A configuração fica no processo principal e não é retornada à interface.
