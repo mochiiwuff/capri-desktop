@@ -139,9 +139,9 @@ function ingestConversation(text, state = DEFAULT_STATE) {
   return next;
 }
 
-function ingestWindowActivity(snapshot, state = DEFAULT_STATE, elapsedMs = 15000) {
+function ingestWindowActivity(snapshot, state = DEFAULT_STATE, elapsedMs = 15000, excludedApps = []) {
   const current = normalizeState(state);
-  const nextActivity = activity.ingestWindowActivity(snapshot, current.activity, elapsedMs);
+  const nextActivity = activity.ingestWindowActivity(snapshot, current.activity, elapsedMs, excludedApps);
   return {
     ...current,
     activity: nextActivity,

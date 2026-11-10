@@ -40,7 +40,8 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 
 ## Prioridade 2 — percepção e interação autorizadas no Windows
 
-- [ ] Adicionar permissões configuráveis por aplicativo e lista de apps bloqueados, preservando as exclusões já existentes para tela.
+- [x] Adicionar lista de processos excluídos do aprendizado de atividade, preservando as exclusões de app/título já existentes para análise de tela.
+- [ ] Completar permissões granulares por aplicativo para cada modalidade de observação e interação no Windows.
 - [ ] Criar indicador persistente e visível quando houver observação/captura; oferecer interrupção imediata e pausa global.
 - [ ] Avaliar APIs oficiais de acessibilidade/UI Automation para identificar controles visíveis; usar captura/OCR somente com consentimento explícito. Não implementar keylogging, leitura oculta, extração de sessões/tokens ou vigilância de clipboard.
 - [ ] Permitir resumir mensagens visíveis em apps que o usuário autorizou, separando conversas e mantendo o escopo do conteúdo limitado ao que foi permitido.

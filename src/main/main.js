@@ -100,6 +100,13 @@ function readMemory() {
   } catch {
     return {};
   }
+  if ('activityExcludeApps' in patch) {
+    if (!Array.isArray(patch.activityExcludeApps)) throw new TypeError('Activity app exclusions must be a list');
+    changes = {
+      ...changes,
+      activityExcludeApps: screenExclusions.normalizeRules(patch.activityExcludeApps),
+    };
+  }
 }
 
 function learningSnapshot(cfg = config.load()) {
@@ -829,8 +836,16 @@ function rebuildTray() {
       },
     },
     {
-      label: t.activityLearning, type: 'checkbox', checked: cfg.activityLearning === true,
-      click: (item) => updateConfig({ activityLearning: item.checked }),
+      label: t.activityLearning,
+      submenu: [
+        {
+          label: t.activityLearning,
+          type: 'checkbox',
+          checked: cfg.activityLearning === true,
+          click: (item) => updateConfig({ activityLearning: item.checked }),
+        },
+        { label: t.activityExclusions, click: () => sendCommand('activityExclusions') },
+      ],
     },
     {
       label: t.rest,
@@ -1631,7 +1646,7 @@ function main() {
       if (cfg.activityLearning !== true || !foregroundApp) return;
       const state = learning.readState(cfg.learning);
       state.activity.enabled = true;
-      const next = learning.ingestWindowActivity({ app: foregroundApp }, state, 15000);
+      const next = learning.ingestWindowActivity({ app: foregroundApp }, state, 15000, cfg.activityExcludeApps);
       config.save({ learning: next });
     }, 15000);
     createBridge({

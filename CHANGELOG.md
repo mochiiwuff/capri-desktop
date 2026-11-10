@@ -18,6 +18,7 @@
 - Implementado webhook local WhatsApp Business opt-in com desafio Meta, validação HMAC do corpo bruto, limite de payload, allowlist de remetentes e comandos autorizados compartilhando o handler existente.
 - Adicionada configuração IPC WhatsApp com segredos cifrados via `safeStorage`, início/parada explícitos e bind exclusivo em loopback; a recepção externa ainda exige proxy HTTPS configurado pelo usuário.
 - Adicionado fluxo guiado multilíngue na bandeja para credenciais e allowlist WhatsApp, mais instruções de configuração da Meta e do proxy em `docs/WHATSAPP.md`.
+- Adicionada lista local de exclusão por aplicativo para o aprendizado de atividade, editável pelo menu da Capri; os processos bloqueados são filtrados antes do registro e títulos de janela continuam fora desse fluxo.
 - Adicionados testes HTTP locais para desafio, assinatura, remetentes autorizados, JSON inválido, limite de corpo e parada do serviço; nenhuma credencial real foi usada.
 
 ## Trabalho anterior nesta branch

@@ -1,5 +1,7 @@
 'use strict';
 
+const screenExclusions = require('./screen-exclusions');
+
 const DEFAULT_STATE = Object.freeze({
   enabled: false,
   apps: {},
@@ -40,12 +42,13 @@ function inferRoutine(label) {
   return 'general';
 }
 
-function ingestWindowActivity(snapshot, state = DEFAULT_STATE, elapsedMs = 15000) {
+function ingestWindowActivity(snapshot, state = DEFAULT_STATE, elapsedMs = 15000, excludedApps = []) {
   const current = readState(state);
   if (!current.enabled) return current;
 
   const now = Date.now();
   const rawApp = typeof snapshot?.app === 'string' ? snapshot.app : '';
+  if (screenExclusions.isExcluded({ app: rawApp }, excludedApps)) return current;
   const label = normalizeLabel(rawApp.replace(/\.exe$/i, ''));
   if (!rawApp || label === 'unknown' || !/^[a-z0-9_. -]{1,80}$/i.test(label)) return current;
   const key = label.toLowerCase();

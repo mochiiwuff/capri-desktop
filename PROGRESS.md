@@ -8,8 +8,9 @@
 - **GitHub:** push tentado sem force para `origin/feature/capri-autonomous-learning`, mas falhou com `Cannot prompt because user interactivity has been disabled`. `git ls-remote` e a listagem de branches confirmam que o remoto continua em `c9858d19feab87ceb8a302eef236335610bc3dcd`; o branch local está 11 commits à frente e preservado.
 - **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
+- **Avanço seguinte:** lista de exclusão de processos para aprendizado de atividade, editável pelo menu e aplicada antes de registrar cada amostra; não lê títulos de janela.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
-- **Testes da etapa:** `npm run test:messaging` passou (20/20); `node --test tests/*.test.js tests/*.test.mjs` passou (68/68); sintaxe, `package.json` e `git diff --check` passaram.
+- **Testes:** `npm run test:messaging` passou (20/20); após adicionar exclusões por processo, `node --test tests/*.test.js tests/*.test.mjs` passou (69/69); verificações de sintaxe e `git diff --check` passaram.
 
 ## Bloqueios e limites
 
@@ -21,8 +22,9 @@
 
 ## Próximo passo exato
 
-1. Autenticar o GitHub e publicar a branch de feature sem force-push; confirmar o SHA remoto.
-2. Continuar o próximo item do `TODO.md`: permissões por aplicativo e níveis de autorização no Windows, sem implementar coleta oculta.
+1. Commitar a exclusão por processo e registrar o SHA funcional.
+2. Autenticar o GitHub e publicar a branch de feature sem force-push; confirmar o SHA remoto.
+3. Continuar o próximo item do `TODO.md`: permissões granulares por modalidade e níveis de autorização no Windows, sem implementar coleta oculta.
 
 ## Recuperação
 

@@ -827,6 +827,25 @@ async function boot() {
         panel.say({ kind: 'info', face: 'smug', line: t.exclusionSaved, hold: 4000 });
         break;
       }
+      case 'activityExclusions': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const exclusions = await guide.askText({
+          face: 'look',
+          line: t.activityExclusionLine,
+          quote: (cfg.activityExcludeApps || []).join(', '),
+          placeholder: t.activityExclusionLine,
+          value: (cfg.activityExcludeApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'ACTIVITY PRIVACY',
+          note: t.activityExclusionHint,
+        });
+        if (!exclusions) break;
+        const rules = [...new Set(exclusions.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ activityExcludeApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.activityExclusionSaved, hold: 4000 });
+        break;
+      }
       case 'goScreen': // a screen picked in her menu: she goes there
         goToScreen(cmd.id);
         break;

@@ -58,6 +58,25 @@ test('activity learning stays paused until explicit consent and ignores window t
   assert.deepEqual(next.activity.apps, {});
 });
 
+test('activity learning excludes configured apps without reading their window titles', () => {
+  const optedIn = readState({
+    enabled: true,
+    facts: [],
+    activity: { enabled: true, apps: {}, routines: [], updatedAt: null },
+  });
+  const next = ingestWindowActivity(
+    { app: 'PrivateApp.exe', title: 'private conversation — do not store' },
+    optedIn,
+    15000,
+    ['privateapp'],
+  );
+  assert.deepEqual(next.activity.apps, {});
+  assert.deepEqual(next.activity.routines, []);
+
+  const allowed = ingestWindowActivity({ app: 'Code.exe' }, optedIn, 15000, ['privateapp']);
+  assert.equal(allowed.activity.apps.code.totalMs, 15000);
+});
+
 test('only accepted conversation notes are exposed as learned facts', () => {
   assert.deepEqual(acceptedConversationFacts([
     { status: 'accepted', kind: 'preference', text: '  concise   answers ', confidence: 0.96, updatedAt: 123 },
