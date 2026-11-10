@@ -4,8 +4,8 @@
 
 - **Completed:** inspected the latest upstream tree and commit; made a full local Git bundle backup; created the GitHub fork and `feature/capri-autonomous-learning`; verified that the branch starts at upstream `main` commit `c011764ca1fdbd191925321e3aaa8af5b84babe8`; documented architecture; implemented phase 1 conversation learning.
 - **Current phase:** phase 2 — authorized foreground-application metadata learning.
-- **Latest commit:** phase 1 code/docs checkpoint is being committed and pushed in this update; its verified SHA will be recorded immediately after push.
-- **Next exact step:** inspect the existing Windows foreground-window metadata path (`src/main/windows.js` and `src/main/windows.ps1`), then design opt-in aggregate app-duration records without titles, keystrokes, clipboard, or message contents.
+- **Latest verified implementation commit:** `6eb5b6d56f2636dce985c4a3f927cfd8fc2eacb0` (`feat: add opt-in local conversation learning`); the remote feature-branch SHA was checked and matches.
+- **Next exact step:** recheck upstream `main` for movement, then inspect `src/main/windows.js` and `src/main/windows.ps1` and design opt-in aggregate app-duration records without titles, keystrokes, clipboard, or message contents.
 
 ## Verification
 
@@ -17,6 +17,7 @@
 - Original repository `main`: untouched.
 - Fork branch: `feature/capri-autonomous-learning`; phase 1 is the first source-code change.
 - Conversation learning remains disabled until the user opts in. Current detection is explicit pattern matching, not unrestricted model inference.
+- Working tree is clean after the verified push. The source repository and both `main` branches remain untouched.
 
 ## Pending phases
 
