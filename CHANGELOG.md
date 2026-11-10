@@ -10,6 +10,9 @@
 - Discord e WhatsApp Business Cloud API ainda não estão implementados.
 - Adicionadas primitivas sem conexão externa para Discord Bot API/Gateway e WhatsApp Cloud API: comandos fechados, autorização por usuário/canal, allowlist de menções Discord, validação de assinatura webhook WhatsApp, quiet hours, deduplicação e limites de envio.
 - Documentados os pré-requisitos oficiais e deixado explícito que credenciais, UI, webhook público e entrega não estão conectados ao aplicativo.
+- Integrado Discord ao app com configuração secreta, token protegido pelo `safeStorage` do Windows, allowlists explícitas, respostas apenas a comandos autorizados, limite/antirrepetição, estado no tray e desconexão imediata.
+- Adicionadas ações Discord `status`, `pause`, `resume`, `memory`, `projects`, `report` e `update`; `memory` só expõe contagens, e `update` não executa código remoto.
+- Mantida a integração desligada por padrão; o fluxo não envia notificações espontâneas. WhatsApp continua sem endpoint público ou configuração no app.
 
 ## Trabalho anterior nesta branch
 

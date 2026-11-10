@@ -701,6 +701,37 @@ async function boot() {
       case 'setupKey': // "API key or address" in her menu's AI model, or a service picked there that needs one
         setup.key();
         break;
+      case 'setupMessaging':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const token = await guide.askText({
+            face: 'look', line: t.tokenLine, quote: t.tokenHow, secret: true,
+            placeholder: t.tokenPlaceholder, tag: 'DISCORD BOT', note: t.note,
+          });
+          if (!token?.text) return;
+          const users = await guide.askText({
+            face: 'look', line: t.usersLine, quote: t.usersHow,
+            placeholder: '123456789012345678', tag: 'AUTHORIZED USERS',
+          });
+          if (!users?.text) return;
+          const channels = await guide.askText({
+            face: 'look', line: t.channelsLine, quote: t.channelsHow,
+            placeholder: '123456789012345678', tag: 'AUTHORIZED CHANNELS',
+          });
+          if (!channels?.text) return;
+          const result = await host.configureDiscord({
+            token: token.text,
+            authorizedUsers: users.text,
+            authorizedChannels: channels.text,
+          });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.saved : result.error,
+            hold: 6500,
+          });
+        });
+        break;
       case 'setupFree': // --dev: Claude Code (or Codex) through Ollama
         setup.free();
         break;

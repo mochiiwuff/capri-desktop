@@ -471,20 +471,36 @@ it's never kept or sent anywhere.
 When she looks at your screen (only when you ask, or if you ticked *Look at my screen now and then*), a picture of the
 screen goes to her chat's AI: on your PC with Ollama (a local model), to the online service otherwise. It's never written to disk.
 
-## Discord and WhatsApp (not connected yet)
+## Discord and WhatsApp
 
-Capri does not currently connect to Discord or WhatsApp, store credentials for them, run a webhook, or send messages.
-`src/main/messaging.js` contains isolated, locally tested transport and privacy-policy primitives only; no external
-requests are made at startup. Do not paste messaging credentials into `config.json` or commit them.
+Discord supports authorized, command-only interaction through the official Bot API and Gateway. It is **off by
+default** and sends no spontaneous notifications. To configure it on Windows:
 
-When the integrations are completed, Discord will require a Discord application and bot, a bot token, enabled
-**Message Content Intent** for the Gateway, and an explicitly configured recipient/channel allowlist. WhatsApp must
-use Meta's WhatsApp Business Cloud API or an officially supported provider; it requires an eligible Meta business/app,
-a registered WhatsApp business phone number, a long-lived access token, and a public HTTPS webhook configured with
-the Meta webhook verification token and app secret. Business-initiated notifications outside WhatsApp's customer
-service window require an approved message template. The current build does not provide the secure setup UI,
-credential storage, public webhook, notification delivery, or immediate-disconnect controls needed to use either
-service, so these credentials and services cannot be configured in Capri yet.
+1. Create a private Discord application and bot, invite it only to the server you control, and enable
+   **Message Content Intent** in the Discord Developer Portal.
+2. Ensure the bot can view and send messages in the intended private server channels. In Capri's tray menu, choose
+   **External messaging → Set up Discord**. Enter the bot token in the hidden prompt, then enter the comma-separated
+   numeric Discord user IDs and channel IDs permitted to issue commands.
+3. Send a message containing exactly `/capri status`, `/capri pause`, `/capri resume`, `/capri memory`,
+   `/capri projects`, `/capri report`, or `/capri update` in an authorized channel. These are command-style messages,
+   not registered Discord application slash commands.
+   `pause` disables conversation/activity learning and screen observation; `resume` enables conversation learning
+   only, leaving activity learning and screen observation off. `memory` reports counts, never note contents.
+   `update` does not run code changes remotely.
+4. Choose **Disconnect Discord** in the same tray submenu for immediate disconnection; setup enables it again.
+
+The token is encrypted with Windows `safeStorage` and kept in the app's local user data, never passed back to the
+renderer. Capri refuses setup if secure storage is unavailable. The Gateway must have the Message Content Intent;
+messages are ignored unless both the sender and channel are explicitly allowlisted. Replies are rate-limited and
+repeated commands are suppressed. Discord currently has no reconnect UI, proactive notification delivery, or
+configurable notification quiet hours. A network drop may require restarting Capri.
+
+WhatsApp is **not connected**. The tested Cloud API/webhook helpers are not a deployed endpoint: Capri has no public
+HTTPS webhook, verification challenge, authorized-recipient setup, or message routing for WhatsApp. An official
+integration will require an eligible Meta business/app, a registered business phone number, approved credentials,
+and a public HTTPS webhook configured with the verification token and app secret. Business-initiated messages
+outside the customer-service window require an approved template. Do not paste messaging credentials into
+`config.json` or commit them.
 
 ## Art direction
 

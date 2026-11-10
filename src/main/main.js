@@ -25,6 +25,8 @@ const learning = require('./learning');
 const screenExclusions = require('./screen-exclusions');
 const { createRemoteControl } = require('./remote-control');
 const selfImprovement = require('./self-improvement');
+const { createDiscordService, parseDiscordIds } = require('./discord-service');
+const { createDiscordCommandHandler } = require('./discord-commands');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -59,6 +61,22 @@ let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
 // Ollama's cloud, as last seen: your account ({ name } or { signin }) and the models free with it
 let cloud = { at: 0, account: null, free: [] };
 const chats = new Map(); // id -> AbortController of an answer being streamed
+const handleDiscordCommand = createDiscordCommandHandler({
+  getConfig: () => config.load(),
+  updateConfig,
+});
+const discordService = createDiscordService({
+  getSettings: () => {
+    const cfg = config.load();
+    return { enabled: cfg.messagingEnabled === true, discord: cfg.messaging?.discord };
+  },
+  decryptToken: (encryptedToken) => setup.openKeys({ token: encryptedToken }).token,
+  onCommand: handleDiscordCommand,
+  onStatus: (status) => {
+    rebuildTray();
+    if (status === 'error') console.error('[capri] Discord Gateway reported a connection error');
+  },
+});
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
 const selfImprovementHistoryFile = () => path.join(app.getPath('userData'), 'self-improvement-test-history.json');
@@ -563,8 +581,21 @@ function resolveLang(setting) {
 
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
-  const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  const { apiKeys, messaging, messagingEnabled, ...cfg } = config.load(); // secrets and allowlists stay in the main process
+  const discord = messaging?.discord || {};
+  return {
+    ...cfg,
+    keys: Object.keys(apiKeys || {}),
+    messaging: {
+      enabled: messagingEnabled === true,
+      discordConfigured: typeof discord.encryptedToken === 'string' && discord.encryptedToken.startsWith('enc:'),
+      discordConnected: discordService.connected,
+    },
+    assistant: activeAssistant().id,
+    lang: resolveLang(cfg.lang),
+    langSetting: cfg.lang,
+    floorGap: overlayArea().gap,
+  };
 }
 
 function updateConfig(patch) {
@@ -648,6 +679,14 @@ function rebuildTray() {
     { label: t.demo, click: playDemo },
     { label: t.help, click: () => sendCommand('welcome') },
     { label: t.remote, click: () => openRemoteControl().catch((err) => console.error('[capri] could not open remote dashboard:', err.message)) },
+    {
+      label: t.messaging,
+      submenu: [
+        { label: discordService.connected ? t.discordConnected : t.discordDisconnected, enabled: false },
+        { label: t.discordSetup, click: () => sendCommand('setupMessaging') },
+        { label: t.discordDisconnect, enabled: cfg.messagingEnabled === true, click: () => disconnectDiscord() },
+      ],
+    },
     {
       label: t.selfImprove,
       submenu: [
@@ -1027,6 +1066,11 @@ async function pickClaudeFolder() {
   updateConfig({ claudeCwd: filePaths[0] });
 }
 
+function disconnectDiscord() {
+  discordService.stop();
+  updateConfig({ messagingEnabled: false });
+}
+
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(ROOT, 'assets', 'icons', 'tray.png'));
   tray = new Tray(icon);
@@ -1065,7 +1109,54 @@ function registerIpc() {
   });
   ipcMain.handle('config:get', () => rendererConfig());
   ipcMain.handle('hooks:status', () => activeHooks().status());
-  ipcMain.handle('config:set', (_e, patch) => updateConfig(patch));
+  ipcMain.handle('config:set', (_e, patch) => {
+    const { messaging: _messaging, messagingEnabled: _messagingEnabled, ...safePatch } = patch || {};
+    return updateConfig(safePatch);
+  });
+  ipcMain.handle('messaging:status', () => ({
+    enabled: config.load().messagingEnabled === true,
+    discordConnected: discordService.connected,
+    discordConfigured: Boolean(config.load().messaging?.discord?.encryptedToken?.startsWith('enc:')),
+  }));
+  ipcMain.handle('messaging:configureDiscord', async (_e, request = {}) => {
+    const token = typeof request.token === 'string' ? request.token.trim() : '';
+    if (!token || token.length > 512) return { ok: false, error: 'Enter a valid Discord bot token' };
+    if (!setup.canEncryptSecrets()) return { ok: false, error: 'Secure credential storage is unavailable on this device' };
+    let authorizedUsers;
+    let authorizedChannels;
+    try {
+      authorizedUsers = parseDiscordIds(request.authorizedUsers, 'Authorized users');
+      authorizedChannels = parseDiscordIds(request.authorizedChannels, 'Authorized channels');
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+    discordService.stop();
+    const before = config.load().messaging || {};
+    updateConfig({
+      messagingEnabled: true,
+      messaging: {
+        ...before,
+        discord: {
+          encryptedToken: setup.sealKey(token),
+          authorizedUsers,
+          authorizedChannels,
+        },
+      },
+    });
+    try {
+      const result = await discordService.start();
+      if (!result.ok) throw new Error(result.error);
+      return { ok: true, connected: result.connected };
+    } catch (error) {
+      discordService.stop();
+      updateConfig({ messagingEnabled: false });
+      return { ok: false, error: error.message };
+    }
+  });
+  ipcMain.handle('messaging:disconnectDiscord', () => {
+    disconnectDiscord();
+    return { ok: true };
+  });
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
   // right-clicking her: the same menu as the tray icon (which Windows often hides behind the ^ by the clock)
   ipcMain.on('menu:open', () => trayMenu?.popup({ window: overlay }));
@@ -1475,6 +1566,9 @@ function main() {
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
+    if (config.load().messagingEnabled === true) {
+      discordService.start().catch((err) => console.error('[capri] Discord connection failed:', err.message));
+    }
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     // a screen plugged in, unplugged, or rearranged: her window fitted again, and she learns of it
     const screensChanged = () => {
@@ -1494,6 +1588,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     clearInterval(activityTimer);
+    discordService.stop();
     windowWatch?.stop();
     remoteControl?.close().catch((err) => console.error('[capri] could not close remote dashboard:', err.message));
   });

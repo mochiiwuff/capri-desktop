@@ -269,6 +269,17 @@ export const LINES = {
     },
     // la mettre en route avec des boutons (setup.js) : Ollama, un modèle, une clé
     setup: {
+      messaging: {
+        tokenLine: 'Le jeton du bot Discord ?',
+        tokenHow: 'Colle le jeton du bot. Il sera chiffré sur ce PC et ne sera jamais montré à l’interface.',
+        tokenPlaceholder: 'Jeton du bot Discord',
+        usersLine: 'Quels comptes peuvent utiliser Capri ?',
+        usersHow: 'Saisis les identifiants Discord numériques autorisés, séparés par des virgules.',
+        channelsLine: 'Dans quels salons le bot peut-il répondre ?',
+        channelsHow: 'Saisis les identifiants des salons autorisés, séparés par des virgules. Les deux listes sont obligatoires.',
+        note: 'Discord Developer Portal : active Message Content Intent. Utilise uniquement un bot privé et des identifiants explicitement autorisés.',
+        saved: 'Discord est configuré. La connexion démarre ; aucun message n’est envoyé spontanément.',
+      },
       who: 'Pour te parler, il me faut une IA.',
       why: { noOllama: 'Ollama n’est pas installé sur ce PC.', asleep: 'Ollama est installé, mais il dort.', noModel: 'Ollama n’a pas encore de modèle.' },
       whoHow: 'Le plus simple : sur ton PC, avec Ollama. C’est gratuit, et rien ne sort de chez toi.\nSinon : en ligne sans compte, ou avec la clé d’un service.',
@@ -758,6 +769,17 @@ export const LINES = {
     },
     // setting her up with buttons (setup.js): Ollama, a model, a key
     setup: {
+      messaging: {
+        tokenLine: 'Discord bot token?',
+        tokenHow: 'Paste the bot token. It is encrypted on this PC and will never be shown to the interface.',
+        tokenPlaceholder: 'Discord bot token',
+        usersLine: 'Which accounts may use Capri?',
+        usersHow: 'Enter the authorized numeric Discord user IDs, separated by commas.',
+        channelsLine: 'Which channels may the bot answer in?',
+        channelsHow: 'Enter the authorized channel IDs, separated by commas. Both lists are required.',
+        note: 'Discord Developer Portal: enable Message Content Intent. Use a private bot and explicitly authorized IDs only.',
+        saved: 'Discord is configured. The connection is starting; no messages will be sent spontaneously.',
+      },
       who: 'To talk with you, I need an AI.',
       why: { noOllama: 'Ollama isn’t installed on this PC.', asleep: 'Ollama is installed, but it’s asleep.', noModel: 'Ollama has no model yet.' },
       whoHow: 'Easiest: on your PC, with Ollama. It’s free, and nothing leaves your machine.\nOr online with no account, or with a key from a service.',
@@ -1241,6 +1263,17 @@ export const LINES = {
     },
     // ponerla en marcha con botones (setup.js): Ollama, un modelo, una clave
     setup: {
+      messaging: {
+        tokenLine: '¿El token del bot de Discord?',
+        tokenHow: 'Pega el token del bot. Se cifrará en este PC y nunca se mostrará a la interfaz.',
+        tokenPlaceholder: 'Token del bot de Discord',
+        usersLine: '¿Qué cuentas pueden usar Capri?',
+        usersHow: 'Introduce los ID numéricos de Discord autorizados, separados por comas.',
+        channelsLine: '¿En qué canales puede responder el bot?',
+        channelsHow: 'Introduce los ID de los canales autorizados, separados por comas. Ambas listas son obligatorias.',
+        note: 'Discord Developer Portal: activa Message Content Intent. Usa solo un bot privado e ID autorizados explícitamente.',
+        saved: 'Discord está configurado. La conexión está iniciándose; no enviaré mensajes espontáneamente.',
+      },
       who: 'Para hablar contigo, necesito una IA.',
       why: { noOllama: 'Ollama no está instalado en este PC.', asleep: 'Ollama está instalado, pero dormido.', noModel: 'Ollama aún no tiene ningún modelo.' },
       whoHow: 'Lo más fácil: en tu PC, con Ollama. Es gratis y nada sale de tu equipo.\nSi no: en línea sin cuenta, o con la clave de un servicio.',
@@ -1726,6 +1759,17 @@ export const LINES = {
     },
     // deixar ela pronta com botões (setup.js): Ollama, um modelo, uma chave
     setup: {
+      messaging: {
+        tokenLine: 'Qual é o token do bot do Discord?',
+        tokenHow: 'Cole o token do bot. Ele será criptografado neste PC e nunca será exibido para a interface.',
+        tokenPlaceholder: 'Token do bot do Discord',
+        usersLine: 'Quais contas podem usar a Capri?',
+        usersHow: 'Digite os IDs numéricos autorizados do Discord, separados por vírgulas.',
+        channelsLine: 'Em quais canais o bot pode responder?',
+        channelsHow: 'Digite os IDs dos canais autorizados, separados por vírgulas. As duas listas são obrigatórias.',
+        note: 'Discord Developer Portal: ative Message Content Intent. Use somente um bot privado e IDs autorizados explicitamente.',
+        saved: 'Discord configurado. A conexão está iniciando; nenhuma mensagem será enviada espontaneamente.',
+      },
       who: 'Pra falar com você, eu preciso de uma IA.',
       why: { noOllama: 'O Ollama não está instalado neste PC.', asleep: 'O Ollama está instalado, mas dormindo.', noModel: 'O Ollama ainda não tem nenhum modelo.' },
       whoHow: 'O mais fácil: no seu PC, com o Ollama. É grátis e nada sai da sua máquina.\nSe não: online sem conta, ou com a chave de um serviço.',
@@ -2213,6 +2257,17 @@ export const LINES = {
     },
     // запустить её кнопками (setup.js): Ollama, модель, ключ
     setup: {
+      messaging: {
+        tokenLine: 'Токен бота Discord?',
+        tokenHow: 'Вставь токен бота. Он будет зашифрован на этом ПК и никогда не попадёт в интерфейс.',
+        tokenPlaceholder: 'Токен бота Discord',
+        usersLine: 'Каким аккаунтам можно пользоваться Capri?',
+        usersHow: 'Введи числовые ID разрешённых пользователей Discord через запятую.',
+        channelsLine: 'В каких каналах бот может отвечать?',
+        channelsHow: 'Введи ID разрешённых каналов через запятую. Обязательны оба списка.',
+        note: 'Discord Developer Portal: включи Message Content Intent. Используй только приватного бота и явно разрешённые ID.',
+        saved: 'Discord настроен. Подключение запускается; сообщения не будут отправляться самостоятельно.',
+      },
       who: 'Чтобы говорить с тобой, мне нужен ИИ.',
       why: { noOllama: 'Ollama не установлена на этом ПК.', asleep: 'Ollama установлена, но спит.', noModel: 'В Ollama пока нет ни одной модели.' },
       whoHow: 'Проще всего: у тебя на ПК, через Ollama. Бесплатно, и ничего не уходит наружу.\nИли онлайн без аккаунта, или с ключом какого-нибудь сервиса.',

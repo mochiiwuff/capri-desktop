@@ -26,8 +26,9 @@ Capri é o aplicativo Electron existente, com um processo principal que integra 
 - `activityLearning` começa desativado e exige ativação explícita na bandeja. `src/main/activity.js` mantém somente nome de processo, duração aproximada e contagens; não usa título, teclas, clipboard ou conteúdo de mensagens.
 - A observação de tela usa uma permissão distinta, controles de pausa/revogação e verificações locais de listas de aplicativos e termos de título excluídos. Capturas ficam temporariamente em memória; não são armazenadas como memórias permanentes.
 - `src/main/remote-control.js` serve o painel sob demanda em loopback, com token, validação de origem/host e controles restritos. O acesso pelo Android requer configuração separada do Tailscale Serve e verificação em dispositivo real; Capri não ativa nem configura a tailnet.
-- `src/main/messaging.js` é uma base isolada para transportes oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, allowlists de comandos, assinatura HMAC do webhook WhatsApp, quiet hours, deduplicação e limites de notificações. Ela não é inicializada pelo processo principal: não existe conexão externa, configuração de credenciais, webhook HTTP, interface de controle nem envio de notificações implementados ainda.
-- As chaves de provedores são mantidas no processo principal e usam `safeStorage` quando disponível. As integrações externas Discord e WhatsApp ainda não estão implementadas.
+- `src/main/messaging.js` implementa os adaptadores oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, autorização por usuário/canal, assinatura HMAC do webhook WhatsApp, quiet hours e limites/deduplicação. `src/main/discord-service.js` liga o Discord ao ciclo de vida principal; o tray inicia a configuração e permite desconectar; `src/preload.js` expõe somente operações IPC específicas e a configuração nunca entrega o token nem as allowlists ao renderer.
+- O Discord começa desligado. O token só é aceito quando `safeStorage` está disponível e é cifrado antes de ser guardado; falha ao decifrar impede a conexão. A configuração requer listas explícitas de usuários e canais. Só os comandos fechados `/capri <command>` e `!capri <command>` são processados; respostas têm limite por hora e supressão de repetição. Não há notificações espontâneas nem comandos remotos de edição/publicação de código. `pause` pausa aprendizado e observação de tela; `resume` reativa apenas o aprendizado de conversa, mantendo atividade e tela desligadas.
+- WhatsApp ainda não tem servidor HTTPS/webhook, configuração segura ou roteamento integrado. Nenhuma das duas plataformas envia notificações proativas; quiet hours e limites de notificações continuam sendo primitivas sem entrega externa.
 
 ## Autoaperfeiçoamento e segurança operacional
 
@@ -44,7 +45,8 @@ Chat ──> classificador local ──> proposta visível ──aceite──> l
 Metadados de processo ──consentimento separado──> agregados locais de atividade
 Observação de tela ──permissão separada/exclusões locais──> captura temporária
 Painel remoto autenticado ──loopback/proxy Tailscale configurado pelo usuário──> status/controles limitados
-Primitivas isoladas de mensageria ──sem conexão ou credenciais configuradas──> Discord / WhatsApp
+Comandos Discord autorizados ──token em safeStorage──> Gateway / Bot API oficial
+Primitivas WhatsApp ──sem servidor HTTPS/webhook integrado──> Cloud API
 ```
 
 ## Compatibilidade e verificação

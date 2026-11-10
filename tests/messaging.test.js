@@ -16,6 +16,124 @@ const {
   parseCommand,
   verifyWhatsAppSignature,
 } = require('../src/main/messaging');
+const { createDiscordService, parseDiscordIds } = require('../src/main/discord-service');
+const { createDiscordCommandHandler } = require('../src/main/discord-commands');
+
+test('Discord setup requires valid numeric allowlists', () => {
+  assert.deepEqual(parseDiscordIds('1234567890, 2234567890', 'users'), ['1234567890', '2234567890']);
+  assert.throws(() => parseDiscordIds('', 'users'), /comma-separated/);
+  assert.throws(() => parseDiscordIds('1234567890, nope', 'users'), /comma-separated/);
+});
+
+test('Discord commands pause privacy-sensitive observation, resume conversation learning only, and limit replies', async () => {
+  let timestamp = 100000;
+  const state = {
+    learningEnabled: true,
+    activityLearning: true,
+    watchScreen: true,
+    memories: ['private note'],
+    learningEntries: [{ text: 'private learning entry' }],
+    messaging: { maxPerHour: 3, commandHistory: [] },
+  };
+  const updates = [];
+  const handler = createDiscordCommandHandler({
+    getConfig: () => state,
+    updateConfig: (patch) => {
+      updates.push(patch);
+      Object.assign(state, patch);
+    },
+    now: () => timestamp,
+  });
+  const replies = [];
+  const reply = async (text) => replies.push(text);
+
+  await handler({ command: 'pause' }, reply);
+  assert.equal(state.learningEnabled, false);
+  assert.equal(state.activityLearning, false);
+  assert.equal(state.watchScreen, false);
+  timestamp += 16000;
+  await handler({ command: 'resume' }, reply);
+  assert.equal(state.learningEnabled, true);
+  assert.equal(state.activityLearning, false);
+  assert.equal(state.watchScreen, false);
+  timestamp += 16000;
+  await handler({ command: 'memory' }, reply);
+  assert.match(replies.at(-1), /1 manual notes and 1 reviewed learning entries/);
+  assert.equal(replies.at(-1).includes('private note'), false);
+  assert.equal(replies.at(-1).includes('private learning entry'), false);
+  timestamp += 16000;
+  await handler({ command: 'status' }, reply);
+  assert.equal(replies.length, 3);
+  assert.equal(updates.some((patch) => patch.messaging?.commandHistory?.length), true);
+});
+
+test('Discord service connects with encrypted settings, replies to authorized commands, and disconnects', async () => {
+  const sockets = [];
+  const requests = [];
+  class FakeWebSocket {
+    constructor(url) {
+      this.url = url;
+      this.readyState = 1;
+      this.listeners = new Map();
+      this.sent = [];
+      sockets.push(this);
+    }
+
+    addEventListener(name, callback) {
+      this.listeners.set(name, callback);
+    }
+
+    send(value) {
+      this.sent.push(JSON.parse(value));
+    }
+
+    close() {
+      this.readyState = 3;
+      this.listeners.get('close')?.();
+    }
+
+    emit(payload) {
+      this.listeners.get('message')?.({ data: JSON.stringify(payload) });
+    }
+  }
+  const service = createDiscordService({
+    getSettings: () => ({
+      enabled: true,
+      discord: {
+        encryptedToken: 'enc:protected',
+        authorizedUsers: ['123456789012345678'],
+        authorizedChannels: ['223456789012345678'],
+      },
+    }),
+    decryptToken: (stored) => stored === 'enc:protected' ? 'test-token' : '',
+    onCommand: async ({ command }, reply) => reply(`Received ${command}`),
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return url.endsWith('/gateway/bot')
+        ? { ok: true, json: async () => ({ url: 'wss://gateway.discord.gg' }) }
+        : { ok: true, json: async () => ({ id: 'reply-id' }) };
+    },
+    WebSocketImpl: FakeWebSocket,
+  });
+
+  assert.deepEqual(await service.start(), { ok: true, connected: false });
+  sockets[0].emit({ op: 10, d: { heartbeat_interval: 30000 } });
+  sockets[0].emit({ op: 0, t: 'READY', d: {} });
+  assert.equal(service.connected, true);
+  sockets[0].emit({
+    op: 0,
+    t: 'MESSAGE_CREATE',
+    d: { content: '/capri status', author: { id: '123456789012345678' }, channel_id: '223456789012345678' },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requests.some(({ url }) => url.endsWith('/channels/223456789012345678/messages')), true);
+  assert.deepEqual(JSON.parse(requests.at(-1).options.body), {
+    content: 'Received status',
+    allowed_mentions: { parse: [] },
+  });
+  service.stop();
+  assert.equal(service.connected, false);
+});
 
 test('commands are explicit and limited to the supported Capri command set', () => {
   assert.equal(parseCommand('/capri status'), 'status');

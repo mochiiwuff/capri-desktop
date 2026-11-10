@@ -19,6 +19,14 @@ const DEFAULTS = {
   chatModel: null,   // the model she talks with (null: the provider's first one)
   provider: 'ollama', // who answers her chat: a key of llm.js PROVIDERS
   apiKeys: {},       // { openai: 'sk-...' }, else the provider's env variable
+  messagingEnabled: false, // external messaging remains disconnected until explicit opt-in
+  messaging: {
+    discord: { encryptedToken: '', authorizedUsers: [], authorizedChannels: [] },
+    commandHistory: [],
+    notificationsEnabled: false,
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    maxPerHour: 10,
+  },
   customUrl: '',     // the 'custom' provider: any OpenAI-compatible base URL (http://host:port/v1)
   claudeCwd: null,   // the folder Claude Code works in (null: your home folder)
   userName: '',      // what she calls you

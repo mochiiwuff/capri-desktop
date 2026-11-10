@@ -41,19 +41,30 @@ function isQuietTime(now, quietHours = {}) {
   return start < end ? minute >= start && minute < end : minute >= start || minute < end;
 }
 
-function notificationDecision({ preferences = {}, history = [], key, now = Date.now() }) {
-  if (preferences.enabled !== true || preferences.notificationsEnabled !== true) return 'disabled';
-  if (isQuietTime(now, preferences.quietHours)) return 'quiet-hours';
+function rateLimitDecision(history = [], maxPerHour = 10, now = Date.now(), key = null, duplicateWindowMs = 5 * 60 * 1000) {
   const timestamp = Number(now instanceof Date ? now.getTime() : now);
+  if (!Number.isFinite(timestamp)) return 'invalid-time';
   const events = Array.isArray(history)
     ? history.filter((event) => Number(event?.at) > timestamp - 60 * 60 * 1000 && Number(event?.at) <= timestamp)
     : [];
-  const limit = Math.max(1, Math.min(60, Math.floor(Number(preferences.maxPerHour) || 10)));
+  const limit = Math.max(1, Math.min(60, Math.floor(Number(maxPerHour) || 10)));
   if (events.length >= limit) return 'rate-limited';
-  const duplicateWindow = Math.max(0, Math.min(24 * 60 * 60 * 1000, Number(preferences.duplicateWindowMs) || 5 * 60 * 1000));
+  const duplicateWindow = Math.max(0, Math.min(24 * 60 * 60 * 1000, Number(duplicateWindowMs) || 5 * 60 * 1000));
   if (key && events.some((event) => event.key === key && timestamp - Number(event.at) >= 0
     && timestamp - Number(event.at) < duplicateWindow)) return 'duplicate';
   return 'allowed';
+}
+
+function notificationDecision({ preferences = {}, history = [], key, now = Date.now() }) {
+  if (preferences.enabled !== true || preferences.notificationsEnabled !== true) return 'disabled';
+  if (isQuietTime(now, preferences.quietHours)) return 'quiet-hours';
+  return rateLimitDecision(
+    history,
+    preferences.maxPerHour,
+    now,
+    key,
+    preferences.duplicateWindowMs,
+  );
 }
 
 function authorizeCommand({ text, sender, channelId, authorizedUsers, authorizedChannels, requireChannel = false }) {
@@ -160,6 +171,7 @@ function createDiscordGateway({
   authorizedUsers = [],
   authorizedChannels = [],
   onCommand = () => {},
+  onStatus = () => {},
   fetchImpl = globalThis.fetch,
   WebSocketImpl = globalThis.WebSocket,
   setIntervalImpl = setInterval,
@@ -184,6 +196,7 @@ function createDiscordGateway({
     url.searchParams.set('v', '10');
     url.searchParams.set('encoding', 'json');
     socket = new WebSocketImpl(url.toString());
+    onStatus('connecting');
     socket.addEventListener('message', (event) => {
       let payload;
       try {
@@ -205,6 +218,7 @@ function createDiscordGateway({
         }));
       } else if (payload.op === 0 && payload.t === 'READY') {
         connected = true;
+        onStatus('connected');
       } else if (payload.op === 0 && payload.t === 'MESSAGE_CREATE' && payload.d?.author?.bot !== true) {
         const command = authorizeCommand({
           text: payload.d.content,
@@ -229,7 +243,9 @@ function createDiscordGateway({
       clearIntervalImpl(heartbeat);
       heartbeat = null;
       socket = null;
+      onStatus('disconnected');
     });
+    socket.addEventListener('error', () => onStatus('error'));
     return { ok: true, connected: false };
   }
 
@@ -258,6 +274,7 @@ module.exports = {
   isAuthorized,
   authorizeCommand,
   isQuietTime,
+  rateLimitDecision,
   notificationDecision,
   verifyWhatsAppSignature,
   createDiscordApi,
