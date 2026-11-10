@@ -11,6 +11,7 @@
 - **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
 - **Avanço desta continuação:** lista global de apps excluídos da observação de tela e do aprendizado de atividade; tela cancela captura ativa se a janela atual passar a ser bloqueada. Corrigidos também o IPC de normalização da lista de exclusão de atividade e os textos localizados do guia.
+- **Commit funcional atual:** `d48e5aa` — `feat: add global privacy pause controls`.
 - **Avanço atual:** pausa global de privacidade, com indicação de estado no tooltip/menu do tray (incluindo captura manual em andamento) e pausa/retomada pelo painel remoto. Cancela capturas e imagens temporárias, impede aprendizado enquanto pausado e preserva as opções individuais para retomada.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
 - **Testes:** suíte completa passou (71/71), incluindo pausa/retomada do aprendizado, tradução do status e acesso remoto aos controles globais. `node --check`, `git diff --check` e diagnósticos do editor também passaram.
@@ -25,7 +26,7 @@
 
 ## Próximo passo exato
 
-1. Commitar a pausa global de privacidade; tentar push sem force-push, registrando autenticação se continuar indisponível.
+1. Tentar push do commit `d48e5aa` sem force-push; registrar autenticação se continuar indisponível.
 2. Continuar permissões granulares por app/modalidade no Windows, sem implementar coleta oculta.
 
 ## Recuperação
