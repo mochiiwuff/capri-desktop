@@ -47,6 +47,7 @@ const DEFAULTS = {
   learningEntries: [], // user-reviewed local memories from conversation-learning candidates
   activityLearning: false, // activity tracking requires explicit opt-in
   activityExcludeApps: [], // process names excluded from local activity learning
+  privacyExcludeApps: [], // process names excluded from screen and activity learning
   learning: {
     enabled: false,
     facts: [],

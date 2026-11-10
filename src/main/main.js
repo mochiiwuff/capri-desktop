@@ -100,13 +100,6 @@ function readMemory() {
   } catch {
     return {};
   }
-  if ('activityExcludeApps' in patch) {
-    if (!Array.isArray(patch.activityExcludeApps)) throw new TypeError('Activity app exclusions must be a list');
-    changes = {
-      ...changes,
-      activityExcludeApps: screenExclusions.normalizeRules(patch.activityExcludeApps),
-    };
-  }
 }
 
 function learningSnapshot(cfg = config.load()) {
@@ -617,6 +610,20 @@ function rendererConfig() {
 
 function updateConfig(patch) {
   let changes = patch;
+  if ('activityExcludeApps' in patch) {
+    if (!Array.isArray(patch.activityExcludeApps)) throw new TypeError('Activity app exclusions must be a list');
+    changes = {
+      ...changes,
+      activityExcludeApps: screenExclusions.normalizeRules(patch.activityExcludeApps),
+    };
+  }
+  if ('privacyExcludeApps' in patch) {
+    if (!Array.isArray(patch.privacyExcludeApps)) throw new TypeError('Privacy app exclusions must be a list');
+    changes = {
+      ...changes,
+      privacyExcludeApps: screenExclusions.normalizeRules(patch.privacyExcludeApps),
+    };
+  }
   if ('lookExcludeApps' in patch || 'lookExcludeTerms' in patch) {
     changes = {
       ...changes,
@@ -638,11 +645,11 @@ function updateConfig(patch) {
       snaps.delete(id);
     }
   }
-  if ('lookExcludeApps' in changes || 'lookExcludeTerms' in changes) {
+  if ('privacyExcludeApps' in changes || 'lookExcludeApps' in changes || 'lookExcludeTerms' in changes) {
     const cfg = config.load();
     if (screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
-      cfg.lookExcludeApps,
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
       cfg.lookExcludeTerms,
     )) {
       for (const [id, controller] of screenLooks) {
@@ -760,6 +767,7 @@ function rebuildTray() {
           },
         },
         { label: t.lookExclusions, click: () => sendCommand('lookExclusions') },
+        { label: t.privacyExclusions, click: () => sendCommand('privacyExclusions') },
         {
           label: t.lookRevoke,
           enabled: cfg.lookAsked === true,
@@ -1297,7 +1305,7 @@ function registerIpc() {
     if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
     if (screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
-      cfg.lookExcludeApps,
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
       cfg.lookExcludeTerms,
     )) return { ok: false, code: 'excluded' };
     if (typeof id !== 'string' || !/^[\w-]{1,80}$/.test(id)) return { ok: false, error: 'invalid capture request' };
@@ -1646,7 +1654,12 @@ function main() {
       if (cfg.activityLearning !== true || !foregroundApp) return;
       const state = learning.readState(cfg.learning);
       state.activity.enabled = true;
-      const next = learning.ingestWindowActivity({ app: foregroundApp }, state, 15000, cfg.activityExcludeApps);
+      const next = learning.ingestWindowActivity(
+        { app: foregroundApp },
+        state,
+        15000,
+        [...(cfg.activityExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      );
       config.save({ learning: next });
     }, 15000);
     createBridge({

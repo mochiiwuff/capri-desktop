@@ -25,6 +25,7 @@ Capri é o aplicativo Electron existente, com um processo principal que integra 
 - A ingestão automática de frases em `config.learning.facts` não é acionada pelo chat. O painel local/remoto apresenta fatos de conversa aceitos, não propostas pendentes nem esse armazenamento legado.
 - `activityLearning` começa desativado e exige ativação explícita na bandeja. `src/main/activity.js` mantém somente nome de processo, duração aproximada e contagens; não usa título, teclas, clipboard ou conteúdo de mensagens.
 - `activityExcludeApps` permite bloquear processos específicos no aprendizado de atividade, sem coletar ou armazenar títulos de janela. As regras são normalizadas localmente e aplicadas antes de registrar cada amostra.
+- `privacyExcludeApps` é uma lista global de processos bloqueados tanto na análise de tela quanto no aprendizado de atividade. Ela é aplicada antes da captura e antes de cada amostra; se a lista mudar enquanto uma captura estiver em andamento e a janela ativa estiver bloqueada, a captura é cancelada. As exclusões específicas por modalidade continuam disponíveis.
 - A observação de tela usa uma permissão distinta, controles de pausa/revogação e verificações locais de listas de aplicativos e termos de título excluídos. Capturas ficam temporariamente em memória; não são armazenadas como memórias permanentes.
 - `src/main/remote-control.js` serve o painel sob demanda em loopback, com token, validação de origem/host e controles restritos. O acesso pelo Android requer configuração separada do Tailscale Serve e verificação em dispositivo real; Capri não ativa nem configura a tailnet.
 - `src/main/messaging.js` implementa os adaptadores oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, autorização por usuário/canal, assinatura HMAC do webhook WhatsApp, quiet hours e limites/deduplicação. `src/main/discord-service.js` liga o Discord ao ciclo de vida principal com reconexão exponencial limitada e parada após credenciais rejeitadas. `src/main/whatsapp-service.js` e `src/main/whatsapp-webhook.js` fornecem um webhook local opt-in; o renderer recebe apenas operações IPC específicas e a configuração nunca entrega segredos ou allowlists ao renderer.
@@ -53,7 +54,9 @@ Meta webhook ──proxy HTTPS do usuário──> loopback + allowlist/HMAC ─�
 ## Requisitos adicionados para futuras integrações
 
 Os requisitos adicionais de controle do Windows, interação com mensagens, níveis de autorização e distribuição foram
-incorporados ao backlog. O procedimento de configuração WhatsApp está em `docs/WHATSAPP.md`. Eles devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
+incorporados ao backlog. O procedimento de configuração WhatsApp está em `docs/WHATSAPP.md`. As exclusões globais de
+apps complementam as permissões por modalidade, mas não substituem uma matriz completa de autorização para cada
+ação do Windows. Os requisitos devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
 entrada `windows.js`, `look.js` e `activity.js`; ações de aplicativos passam por `apps.js`/`system.js`; permissões e
 auditoria devem ser verificadas no processo principal antes de qualquer ação. Integrações de mensagens devem chamar
 um dispatcher comum limitado, sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,

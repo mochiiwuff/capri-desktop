@@ -9,9 +9,9 @@
 - **GitHub:** último push tentado sem force falhou com `Cannot prompt because user interactivity has been disabled`. A última confirmação remota foi `c9858d19feab87ceb8a302eef236335610bc3dcd`; novos commits locais foram feitos depois, e devem ser enviados após autenticação. O branch local permanece preservado.
 - **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
-- **Avanço seguinte:** lista de exclusão de processos para aprendizado de atividade, editável pelo menu e aplicada antes de registrar cada amostra; não lê títulos de janela.
+- **Avanço desta continuação:** lista global de apps excluídos da observação de tela e do aprendizado de atividade; tela cancela captura ativa se a janela atual passar a ser bloqueada. Corrigidos também o IPC de normalização da lista de exclusão de atividade e os textos localizados do guia.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
-- **Testes:** `npm run test:messaging` passou (20/20); após adicionar exclusões por processo, `node --test tests/*.test.js tests/*.test.mjs` passou (69/69); verificações de sintaxe e `git diff --check` passaram.
+- **Testes:** suíte completa antes deste ajuste passou (69/69); após as exclusões globais, passou (70/70). Verificações de sintaxe, `problems` do editor e `git diff --check` passaram.
 
 ## Bloqueios e limites
 
@@ -23,8 +23,8 @@
 
 ## Próximo passo exato
 
-1. Autenticar o GitHub e publicar a branch de feature sem force-push; confirmar o SHA remoto.
-2. Continuar o próximo item do `TODO.md`: permissões granulares por modalidade e níveis de autorização no Windows, sem implementar coleta oculta.
+1. Commitar e tentar publicar as exclusões globais na branch de feature, sem force-push; verificar o SHA remoto.
+2. Continuar o próximo item do `TODO.md`: permissões por modalidade e níveis de autorização no Windows, sem implementar coleta oculta.
 
 ## Recuperação
 

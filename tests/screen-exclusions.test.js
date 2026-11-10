@@ -27,6 +27,12 @@ test('screen exclusion matching blocks an app name or a local window-title term'
   assert.equal(isExcluded({ app: 'chrome', title: 'New tab' }, apps, terms), false);
 });
 
+test('shared privacy app exclusions block screen analysis without storing titles', () => {
+  const sharedPrivacyApps = ['privateapp.exe'];
+  assert.equal(isExcluded({ app: 'PrivateApp', title: 'Personal conversation' }, sharedPrivacyApps), true);
+  assert.equal(isExcluded({ app: 'Browser', title: 'Personal conversation' }, sharedPrivacyApps), false);
+});
+
 test('screen consent, activity indicator, and exclusion controls have localized copy', async () => {
   const { LINES } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { TRAY } = require('../src/main/labels');
@@ -35,7 +41,12 @@ test('screen consent, activity indicator, and exclusion controls have localized 
     assert.ok(lines.look.cancel);
     assert.ok(lines.look.exclusionApps);
     assert.ok(lines.look.exclusionTerms);
+    assert.ok(lines.look.privacyExclusionLine);
+    assert.ok(lines.look.privacyExclusionHint);
+    assert.ok(lines.look.activityExclusionLine);
+    assert.ok(lines.look.activityExclusionSaved);
     assert.ok(TRAY[lang].lookExclusions);
+    assert.ok(TRAY[lang].privacyExclusions);
     assert.ok(TRAY[lang].lookRevoke);
   }
 });
