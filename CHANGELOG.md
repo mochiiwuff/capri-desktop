@@ -13,6 +13,7 @@
 - Integrado Discord ao app com configuração secreta, token protegido pelo `safeStorage` do Windows, allowlists explícitas, respostas apenas a comandos autorizados, limite/antirrepetição, estado no tray e desconexão imediata.
 - Adicionadas ações Discord `status`, `pause`, `resume`, `memory`, `projects`, `report` e `update`; `memory` só expõe contagens, e `update` não executa código remoto.
 - Mantida a integração desligada por padrão; o fluxo não envia notificações espontâneas. WhatsApp continua sem endpoint público ou configuração no app.
+- Incorporados ao `TODO.md` os requisitos adicionais de automação/acessibilidade do Windows, níveis de autorização, núcleo compartilhado Discord/WhatsApp, instalador/atualizações e auditoria final; itens existentes foram distinguidos de trabalho parcial e pendente.
 
 ## Trabalho anterior nesta branch
 

@@ -4,13 +4,13 @@
 
 - **Branch:** `feature/capri-autonomous-learning`, criada localmente a partir da branch homônima já existente no fork.
 - **Backup local:** branch `backup/pre-capri-autonomous-learning-20261110` aponta para a `main` local anterior à mesclagem.
-- **Último commit funcional verificado:** `8b7b6de` — `feat: integrate authorized Discord commands`.
+- **Último commit funcional verificado:** `8b7b6de` — `feat: integrate authorized Discord commands`; `9f056cb` registra o bloqueio de publicação.
 - **Etapas existentes:** aprendizado revisado, atividade opcional, privacidade de tela, painel remoto, autoaperfeiçoamento local delimitado, transportes oficiais e comandos Discord autorizados.
 - **Trabalho desta sessão:** configuração guiada e secreta do Discord, token cifrado com `safeStorage`, allowlists de usuários/canais, conexão Gateway/Bot API, comandos autorizados, desconexão no tray e limites/antirrepetição. Documentação do WhatsApp mantida como não integrado.
 - **Verificação:** `npm run test:messaging` passou (12/12); `node --test tests/*.test.js tests/*.test.mjs` passou (60/60); verificações de sintaxe e `git diff --check` passaram.
-- **Status do GitHub:** o push de `8b7b6de` falhou porque a autenticação requer prompt (`Cannot prompt because user interactivity has been disabled`). A referência remota da branch permanece em `c9858d1`; a branch local tem 7 commits à frente. Repetir apenas quando houver autenticação e verificar o SHA, nunca enviar para `main`.
+- **Status do GitHub:** o push de `8b7b6de` falhou porque a autenticação requer prompt (`Cannot prompt because user interactivity has been disabled`). A referência remota da branch permanece em `c9858d1`; a branch local tem 8 commits à frente, incluindo `9f056cb`. Repetir apenas quando houver autenticação e verificar o SHA, nunca enviar para `main`.
 - **Limites:** a conexão Discord usa mocks nos testes; não foi possível validar com uma aplicação/bot real. O Gateway ainda não reconecta automaticamente após queda de rede. Não há notificações espontâneas, UI de quiet hours ou endpoint público de WhatsApp. O autoaperfeiçoamento permanece local e requer revisão/confirmação.
-- **Próximo passo exato:** implementar reconexão observável e segura do Gateway Discord, com teste de desconexão/retomada; depois avançar para o webhook HTTPS verificável do WhatsApp. Teste Android/Tailscale segue dependente de dispositivo autorizado e o push exige autenticação GitHub disponível.
+- **Próximo passo exato:** implementar e testar reconexão observável do Gateway Discord; depois tratar o webhook público HTTPS e as credenciais WhatsApp, dependentes de configuração externa autorizada. O backlog agora inclui também acessibilidade/UI Automation, níveis de permissão, compartilhamento do núcleo de comandos, instalador validado/atualizações e auditoria final.
 
 ## Limites e trabalho pendente
 

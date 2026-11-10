@@ -49,6 +49,21 @@ Comandos Discord autorizados ──token em safeStorage──> Gateway / Bot API
 Primitivas WhatsApp ──sem servidor HTTPS/webhook integrado──> Cloud API
 ```
 
+## Requisitos adicionados para futuras integrações
+
+Os requisitos adicionais de controle do Windows, interação com mensagens, níveis de autorização e distribuição foram
+incorporados ao backlog. Eles devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
+entrada `windows.js`, `look.js` e `activity.js`; ações de aplicativos passam por `apps.js`/`system.js`; permissões e
+auditoria devem ser verificadas no processo principal antes de qualquer ação. Integrações de mensagens devem chamar
+um dispatcher comum limitado, sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,
+accessibility, permissions, interaction e integrations) só devem virar módulos próprios quando houver uma
+responsabilidade que não esteja coberta pelos módulos atuais.
+
+Ainda não há automação geral por UI Automation, leitura integrada de mensagens em apps, envio remoto de mensagens
+com confirmação, executor de tarefas remotas, webhook WhatsApp, atualização automática nem instalador validado em
+ambiente limpo. O `electron-builder` já declara o instalador NSIS e atalhos, mas a geração e a validação do artefato
+solicitado (`Capri-Setup.exe`) continuam pendentes.
+
 ## Compatibilidade e verificação
 
 Novos dados são aditivos; o histórico, as memórias manuais, o personagem, os assets e os hooks originais são preservados. Os testes Node existentes estão em `tests/`; a suite completa deve ser executada após resolver alterações da branch.
