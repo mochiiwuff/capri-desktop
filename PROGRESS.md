@@ -3,7 +3,7 @@
 ## Estado desta etapa
 
 - **Branch:** `feature/capri-autonomous-learning`; backup local preservado em `backup/pre-capri-autonomous-learning-20261110`.
-- **Commit local mais recente:** `1eaa863` — `refactor: share authorized messaging command handler`.
+- **Último commit funcional:** `1eaa863` — `refactor: share authorized messaging command handler`; a atualização de continuidade foi registrada em um commit documental posterior.
 - **Commit funcional desta etapa:** `1c3a77c` — `feat: add WhatsApp webhook and Discord reconnect`.
 - **Commit de privacidade por app:** `76b4b7d` — `feat: add per-app activity learning exclusions`.
 - **Commit de progresso:** `f2ef58f` registra os testes e o marco funcional.
@@ -28,7 +28,7 @@
 - WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
 - Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
 - Não há notificações espontâneas, atualização automática, execução remota arbitrária ou publicação autônoma.
-- Push do commit `1eaa863` falhou: `Cannot prompt because user interactivity has been disabled`. Remoto confirmado permanece `c9858d19feab87ceb8a302eef236335610bc3dcd`; a branch local está 23 commits à frente e permanece preservada. Não enviar à `main` nem usar force-push.
+- Push do commit `1eaa863` falhou: `Cannot prompt because user interactivity has been disabled`. Remoto confirmado permanece `c9858d19feab87ceb8a302eef236335610bc3dcd`; naquele momento a branch local estava 23 commits à frente. Os commits documentais posteriores também estão apenas locais. Não enviar à `main` nem usar force-push.
 - A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
 
 ## Próximo passo exato
