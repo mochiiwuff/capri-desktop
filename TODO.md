@@ -2,11 +2,12 @@
 
 ## Phase 1 — conversation learning
 
-- [ ] Implement an independent local learning engine for explicit preferences, corrections, interests, projects, and communication style.
-- [ ] Keep facts, preferences, and inferences distinct; retain evidence and confidence.
-- [ ] Add user review, correction, duplicate handling, expiry, deletion, and independent learning enable/pause controls.
-- [ ] Never automatically save sensitive content or silently convert chat history into memories.
-- [ ] Add focused unit tests and verify the existing chat and memory behaviors remain intact.
+- [x] Implement an independent, opt-in local learning engine for recognized explicit preferences, corrections, interests, projects, communication style, and supported facts.
+- [x] Keep categories/evidence distinct; retain confidence and timestamps; require review before accepting candidates.
+- [x] Add review, correction, duplicate handling, expiry, deletion, clear-all confirmation, and independent enable/pause controls.
+- [x] Do not propose content matching sensitive-content filters or import existing chat history as learned notes; redact matching new turns from persistent transcript history.
+- [x] Add focused unit tests and verify the existing hook regressions still pass.
+- [ ] Broaden statement coverage carefully; current pattern rules are heuristic and do not create inferred notes.
 
 ## Remaining phases
 

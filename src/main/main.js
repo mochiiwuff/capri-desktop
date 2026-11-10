@@ -330,6 +330,9 @@ function rebuildTray() {
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
     { label: t.talk, click: () => sendCommand('chat') },
     { label: t.lookNow, click: () => sendCommand('look') },
+    { label: t.learning, type: 'checkbox', checked: cfg.learningEnabled === true, click: (item) => updateConfig({ learningEnabled: item.checked }) },
+    { label: t.learningReview, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningReview') },
+    { label: t.learningForget, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningForget') },
     {
       label: t.reminders,
       submenu: reminders.length

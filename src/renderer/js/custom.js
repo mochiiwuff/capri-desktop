@@ -14,6 +14,7 @@ export class Custom {
     this.brain = brain;
     this.capri = capri;
     this.voice = voice;
+    this.learning = null;
   }
 
   get t() {
@@ -88,6 +89,54 @@ export class Custom {
       const text = got.text.trim().slice(0, 200);
       if (text) await this.save({ [key]: [...items.filter((i) => i !== text), text].slice(-max) });
     }
+  }
+
+  // Review only the new, opt-in learned store. Existing manually saved memories remain separate.
+  async reviewLearning() {
+    if (!this.learning) return;
+    return this.guide.scene(async () => {
+      const t = this.t;
+      for (const entry of [...this.learning.entries]) {
+        const evidence = this.learning.evidenceLabel(entry.evidence, this.brain.lang);
+        const kind = this.learning.kindLabel(entry.kind, this.brain.lang);
+        const got = await this.guide.askText({
+          face: 'look',
+          line: t.memories,
+          quote: `${kind} · ${evidence} · ${Math.round((entry.confidence || 0) * 100)}%\n${entry.text}`,
+          placeholder: t.memoryPlaceholder,
+          send: t.save,
+          actions: [{ id: 'delete', label: t.learningDelete }, { id: 'done', label: t.done }],
+        });
+        if (!got || got.action === 'done') return;
+        if (got.action === 'delete') {
+          await this.learning.remove(entry.id);
+        } else if (got.text) {
+          const saved = await this.learning.correct(entry.id, got.text);
+          if (!saved) {
+            await this.guide.ask({ face: 'aside', line: t.memories, quote: t.learningBlocked, actions: [{ id: 'ok', label: t.done, primary: true }] });
+          }
+        }
+      }
+    });
+  }
+
+  // Deleting the learned store is a separate, explicit confirmation; the original chat and manual
+  // memory lists are not touched.
+  async forgetLearning() {
+    if (!this.learning?.entries.length) return;
+    return this.guide.scene(async () => {
+      const t = this.t;
+      const id = await this.guide.ask({
+        face: 'aside',
+        line: t.memories,
+        quote: fmt(t.learningForgetAsk, { count: this.learning.entries.length }),
+        actions: [
+          { id: 'delete', label: t.learningDeleteAll, primary: true },
+          { id: 'cancel', label: t.skip },
+        ],
+      });
+      if (id === 'delete') await this.learning.clear();
+    });
   }
 
   // Saved, and known right away (brain.custom), before the config comes back around.

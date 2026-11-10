@@ -7,6 +7,7 @@ import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
 import { Chat } from './chat.js';
+import { Learning } from './learning.js';
 import { Setup } from './setup.js';
 import { Custom } from './custom.js';
 import { Bond, Jealousy } from './bond.js';
@@ -37,7 +38,10 @@ const AWAY_MS = 15 * 60 * 1000; // the pointer still this long: you were away fr
 const SNOOZE_MS = 10 * 60 * 1000;
 
 // what you made her, from the config (custom.js)
-const mine = (cfg) => ({ userName: cfg.userName || '', persona: cfg.persona || '', myLines: cfg.myLines || [], memories: cfg.memories || [] });
+const mine = (cfg) => ({
+  userName: cfg.userName || '', persona: cfg.persona || '', myLines: cfg.myLines || [],
+  memories: cfg.memories || [], learningEntries: cfg.learningEntries || [],
+});
 
 async function boot() {
   const [config, image, intro, ...cutins] = await Promise.all([
@@ -244,6 +248,10 @@ async function boot() {
   const custom = new Custom({ guide, host, brain, capri, voice });
   guide.custom = custom;
   brain.custom = mine(config);
+  const learning = new Learning({ host, brain });
+  learning.configure(config);
+  chat.learning = learning;
+  custom.learning = learning;
 
   // How close she is to you (bond.js), her jealousy of your other AIs, the reminders she keeps.
   const bond = new Bond({ host, data: config.bond });
@@ -657,6 +665,7 @@ async function boot() {
     }
     brain.watching = cfg.claude !== false;
     brain.custom = mine(cfg);
+    learning.configure(cfg);
     brain.assistant = cfg.assistant;
     panel.labels = linesFor(cfg.lang, cfg.assistant);
     if (cfg.scale !== capri.scale) capri.setScale(cfg.scale);
@@ -678,6 +687,12 @@ async function boot() {
         break;
       case 'customize': // "Make her yours" in her menu
         custom.open();
+        break;
+      case 'learningReview':
+        custom.reviewLearning();
+        break;
+      case 'learningForget':
+        custom.forgetLearning();
         break;
       case 'setupChat': // "Set it up with her" in her menu's AI model
         setup.chat();

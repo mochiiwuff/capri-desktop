@@ -164,6 +164,17 @@ itself: your messages go to `claude -p` in the folder you pick, continuing one c
 does. In that last one, permission mode `default` only lets it read (nobody is there to say yes); `acceptEdits` lets it
 edit files without asking. **Forget our conversations** clears what she remembers of your chats.
 
+**Learn from our chats** is a separate tray-menu option, off by default. When enabled, clear statements such as a
+preference, correction, interest, project, or communication-style request are offered back to you with their category
+and evidence label; nothing enters learned memory until you click **Add**. Messages matching the sensitive-content
+filters are not proposed; those filters are heuristics, not a complete detector. Accepted notes stay in Capri's local
+config, not a remote service; projects expire after 180 days and
+interests after a year. **Review learned notes** lets you correct or delete each one, and **Forget learned notes**
+clears only this learned store after confirmation. Unchecking **Learn from our chats** pauses new learning without
+deleting existing notes. This is separate from both the existing chat transcript and the memories you add yourself.
+For sensitive-looking turns, Capri keeps the live conversation usable but replaces that newest turn and reply with
+placeholders in the saved cross-restart chat history.
+
 **It's AI.** Her replies are written by the model, not by the show's writers: it's a fan version of her, and the chat
 panel says so every time.
 
@@ -448,6 +459,11 @@ Her chat goes to Ollama on your PC (`127.0.0.1:11434`, or `OLLAMA_HOST`) with wh
 project's name, Claude's last action, today's counts). On one of Ollama's cloud models (the ones ending in `:cloud`),
 Ollama sends it on to its servers, and her chat says "online AI" instead of "local AI". Her mission log stays in her own storage on your PC, like your
 reminders and where you two stand.
+
+Conversation learning itself runs locally and makes no separate model request. Chat messages still go to the model
+you selected, as described above; accepted learned notes are stored locally in `config.json`. The new learned-note
+store is separate from the older custom-memory list and chat history. Accepted notes are included in later chat
+prompts, so an online provider receives them as part of its normal chat request.
 
 The title of the window in front of you is only checked, on your PC, against a list of AI names (for her jealousy):
 it's never kept or sent anywhere.
