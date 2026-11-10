@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeRules, isExcluded, isAppAllowed } = require('../src/main/screen-exclusions');
+const { normalizeRules, isExcluded, isAppAllowed, isSensitiveWindow } = require('../src/main/screen-exclusions');
 const { DEFAULTS, closePagesEnabled } = require('../src/main/config');
 
 function moduleUrl(file) {
@@ -41,6 +41,26 @@ test('per-modality app permissions are exact, normalized, and unrestricted only 
   assert.equal(isAppAllowed(null, ['chrome']), false);
   assert.equal(isAppAllowed('chrome', ['  ']), false);
   assert.equal(isAppAllowed('chrome', 'chrome'), false);
+});
+
+test('sensitive apps and window titles are excluded before observation or activity learning', () => {
+  for (const app of ['1Password.exe', 'Bitwarden', 'KeePassXC.exe', 'ProtonPass']) {
+    assert.equal(isSensitiveWindow({ app, title: 'Vault' }), true, app);
+  }
+  for (const title of [
+    'Sign in to your account',
+    'Banking overview',
+    'Enter your password',
+    'Authentication code',
+    'Private conversation',
+    'Direct messages',
+    'Payment details',
+    'Incognito window',
+  ]) {
+    assert.equal(isSensitiveWindow({ app: 'browser', title }), true, title);
+  }
+  assert.equal(isSensitiveWindow({ app: 'code.exe', title: 'Capri project' }), false);
+  assert.equal(isSensitiveWindow({ app: 'browser', title: 'Documentation overview' }), false);
 });
 
 test('user-confirmed app closing can be limited to an exact process allowlist', () => {

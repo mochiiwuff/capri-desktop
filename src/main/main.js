@@ -1199,8 +1199,15 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const image = snaps.get(id);
   snaps.delete(id);
   if (!image) return { ok: false, error: 'the picture is gone' };
-  if (signal.aborted || config.load().lookAsked !== true || config.load().privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
   const cfg = config.load();
+  if (signal.aborted || cfg.lookAsked !== true || cfg.privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+  if (!screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)
+    || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+    || screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      cfg.lookExcludeTerms,
+    )) return { ok: false, error: 'screen analysis cancelled', code: 'excluded' };
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
@@ -1214,7 +1221,15 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const messages = [{ role: 'system', content: persona }, ...before, user];
   for (let attempt = 0; ; attempt++) {
     try {
-      if (signal.aborted || config.load().lookAsked !== true || config.load().privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+      const current = config.load();
+      if (signal.aborted || current.lookAsked !== true || current.privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+      if (!screenExclusions.isAppAllowed(foregroundApp, current.lookAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+        || screenExclusions.isExcluded(
+          { app: foregroundApp, title: foregroundTitle },
+          [...(current.lookExcludeApps || []), ...(current.privacyExcludeApps || [])],
+          current.lookExcludeTerms,
+        )) return { ok: false, error: 'screen analysis cancelled', code: 'excluded' };
       const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.any([signal, AbortSignal.timeout(120000)]));
       return { ok: true, text, model };
     } catch (err) {
@@ -1458,7 +1473,8 @@ function registerIpc() {
     if (cfg.privacyPaused === true) return { ok: false, code: 'paused' };
     if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
     if (!screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)) return { ok: false, code: 'app-not-authorized' };
-    if (screenExclusions.isExcluded(
+    if (screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+      || screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
       [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
       cfg.lookExcludeTerms,
@@ -1474,6 +1490,15 @@ function registerIpc() {
         rebuildTray();
         return { ok: false, code: 'stopped' };
       }
+      const current = config.load();
+      if (current.privacyPaused === true || current.lookAsked !== true) return { ok: false, code: 'stopped' };
+      if (!screenExclusions.isAppAllowed(foregroundApp, current.lookAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+        || screenExclusions.isExcluded(
+          { app: foregroundApp, title: foregroundTitle },
+          [...(current.lookExcludeApps || []), ...(current.privacyExcludeApps || [])],
+          current.lookExcludeTerms,
+        )) return { ok: false, code: 'excluded' };
       snaps.set(id, image);
       setTimeout(() => {
         snaps.delete(id);
@@ -1821,7 +1846,8 @@ function main() {
     activityTimer = setInterval(() => {
       const cfg = config.load();
       if (cfg.privacyPaused === true || cfg.activityLearning !== true || !foregroundApp
-        || !screenExclusions.isAppAllowed(foregroundApp, cfg.activityAllowedApps)) return;
+        || !screenExclusions.isAppAllowed(foregroundApp, cfg.activityAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })) return;
       const state = learning.readState(cfg.learning);
       state.activity.enabled = true;
       const next = learning.ingestWindowActivity(

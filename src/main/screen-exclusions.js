@@ -1,5 +1,11 @@
 'use strict';
 
+const SENSITIVE_APPS = new Set([
+  '1password', '1password7', 'bitwarden', 'dashlane', 'enpass',
+  'keepass', 'keepassxc', 'lastpass', 'nordpass', 'protonpass',
+]);
+const SENSITIVE_TITLE = /\b(?:password|passcode|passphrase|credential|credentials|sign[ -]?in|log[ -]?in|authentication|authenticator|verification code|one[- ]time code|2fa|mfa|bank(?:ing)?|credit card|payment|private browsing|incognito|direct messages?|private messages?|private conversation)\b/i;
+
 function normalizeRules(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
@@ -24,4 +30,9 @@ function isAppAllowed(app, allowedApps = []) {
   return Boolean(appName) && rules.some((rule) => appName === rule.replace(/\.exe$/i, ''));
 }
 
-module.exports = { normalizeRules, isExcluded, isAppAllowed };
+function isSensitiveWindow({ app, title } = {}) {
+  const appName = String(app || '').replace(/\.exe$/i, '').trim().toLowerCase();
+  return SENSITIVE_APPS.has(appName) || SENSITIVE_TITLE.test(String(title || ''));
+}
+
+module.exports = { normalizeRules, isExcluded, isAppAllowed, isSensitiveWindow };
