@@ -4,13 +4,13 @@
 
 - **Branch:** `feature/capri-autonomous-learning`, criada localmente a partir da branch homônima já existente no fork.
 - **Backup local:** branch `backup/pre-capri-autonomous-learning-20261110` aponta para a `main` local anterior à mesclagem.
-- **Último commit funcional verificado:** `ba346af` — `feat: add tested messaging transport foundations`; a integração Discord desta etapa aguarda checkpoint local.
+- **Último commit funcional verificado:** `8b7b6de` — `feat: integrate authorized Discord commands`.
 - **Etapas existentes:** aprendizado revisado, atividade opcional, privacidade de tela, painel remoto, autoaperfeiçoamento local delimitado, transportes oficiais e comandos Discord autorizados.
 - **Trabalho desta sessão:** configuração guiada e secreta do Discord, token cifrado com `safeStorage`, allowlists de usuários/canais, conexão Gateway/Bot API, comandos autorizados, desconexão no tray e limites/antirrepetição. Documentação do WhatsApp mantida como não integrado.
 - **Verificação:** `npm run test:messaging` passou (12/12); `node --test tests/*.test.js tests/*.test.mjs` passou (60/60); verificações de sintaxe e `git diff --check` passaram.
-- **Status do GitHub:** o push anterior falhou por falta de credenciais (`unable to get password from user`). A integração Discord ainda não foi publicada; confirmar SHA remoto depois de uma tentativa autenticada e nunca enviar para `main`.
+- **Status do GitHub:** o push de `8b7b6de` falhou porque a autenticação requer prompt (`Cannot prompt because user interactivity has been disabled`). A referência remota da branch permanece em `c9858d1`; a branch local tem 7 commits à frente. Repetir apenas quando houver autenticação e verificar o SHA, nunca enviar para `main`.
 - **Limites:** a conexão Discord usa mocks nos testes; não foi possível validar com uma aplicação/bot real. O Gateway ainda não reconecta automaticamente após queda de rede. Não há notificações espontâneas, UI de quiet hours ou endpoint público de WhatsApp. O autoaperfeiçoamento permanece local e requer revisão/confirmação.
-- **Próximo passo exato:** implementar WhatsApp Business Cloud com webhook HTTPS verificável e allowlist de remetentes, ou melhorar reconexão/preferências do Discord antes de habilitar notificações. Teste Android/Tailscale segue dependente de dispositivo autorizado e o push exige autenticação GitHub disponível.
+- **Próximo passo exato:** implementar reconexão observável e segura do Gateway Discord, com teste de desconexão/retomada; depois avançar para o webhook HTTPS verificável do WhatsApp. Teste Android/Tailscale segue dependente de dispositivo autorizado e o push exige autenticação GitHub disponível.
 
 ## Limites e trabalho pendente
 
