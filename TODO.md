@@ -48,6 +48,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [ ] Avaliar APIs oficiais de acessibilidade/UI Automation para identificar controles visíveis; usar captura/OCR somente com consentimento explícito. Não implementar keylogging, leitura oculta, extração de sessões/tokens ou vigilância de clipboard.
 - [ ] Permitir resumir mensagens visíveis em apps que o usuário autorizou, separando conversas e mantendo o escopo do conteúdo limitado ao que foi permitido.
 - [ ] Preparar respostas sem enviá-las automaticamente; exigir confirmação antes de enviar/publicar, excluir, comprar/pagar, alterar configurações importantes ou executar ações sensíveis/irreversíveis.
+- [x] Desativar por padrão o fechamento automático de páginas de outras IAs; exigir autorização explícita no menu. O fechamento de apps solicitado na conversa mantém confirmação própria e fechamento forçado requer uma segunda confirmação.
 - [ ] Desenvolver níveis de autorização observação, assistida e autonomia limitada; autonomia apenas para ações de baixo risco previamente autorizadas.
 - [ ] Adicionar verificação observável do resultado de ações e registro local mínimo de ações relevantes, sem salvar conteúdo sensível desnecessário.
 - [ ] Integrar contexto de apps/projetos à memória existente apenas após autorização e revisão; distinguir fatos confirmados de inferências e permitir correção/exclusão.

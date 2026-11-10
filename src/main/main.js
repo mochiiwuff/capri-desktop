@@ -600,6 +600,7 @@ function rendererConfig() {
   const discord = messaging?.discord || {};
   return {
     ...cfg,
+    closePages: cfg.closePagesAuthorized === true && cfg.closePages === true,
     keys: Object.keys(apiKeys || {}),
     messaging: {
       enabled: messagingEnabled === true,
@@ -874,8 +875,10 @@ function rebuildTray() {
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
     { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
     {
-      label: t.closePages, type: 'checkbox', checked: cfg.closePages !== false, enabled: cfg.jealous !== false,
-      click: (item) => updateConfig({ closePages: item.checked }),
+      label: t.closePages, type: 'checkbox',
+      checked: cfg.closePagesAuthorized === true && cfg.closePages === true,
+      enabled: cfg.jealous !== false,
+      click: (item) => updateConfig({ closePages: item.checked, closePagesAuthorized: true }),
     },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
     { label: t.breaks, type: 'checkbox', checked: cfg.breaks !== false, click: (item) => updateConfig({ breaks: item.checked }) },

@@ -12,10 +12,12 @@
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
 - **Avanço desta continuação:** lista global de apps excluídos da observação de tela e do aprendizado de atividade; tela cancela captura ativa se a janela atual passar a ser bloqueada. Corrigidos também o IPC de normalização da lista de exclusão de atividade e os textos localizados do guia.
 - **Commit funcional atual:** `d48e5aa` — `feat: add global privacy pause controls`.
+- **Commit de permissões de observação:** `171aa58` — `feat: add per-app observation permissions`.
 - **Avanço atual:** pausa global de privacidade, com indicação de estado no tooltip/menu do tray (incluindo captura manual em andamento) e pausa/retomada pelo painel remoto. Cancela capturas e imagens temporárias, impede aprendizado enquanto pausado e preserva as opções individuais para retomada.
 - **Implementado nesta continuação:** listas separadas de aplicativos autorizados para análise de tela e aprendizado de atividade, com nomes de processo exatos, edição pela bandeja em cinco idiomas e falha fechada para configuração inválida. Consentimento global e exclusões continuam prevalecendo; lista vazia preserva o escopo compatível anterior.
+- **Segurança de interação:** fechamento automático de páginas de outras IAs foi desativado por padrão e a autorização anterior implícita de versões antigas não é preservada; a pessoa precisa habilitar a opção explicitamente na bandeja. Fechamento solicitado de apps segue com confirmação e force-close com uma segunda.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
-- **Testes:** suíte completa passou (72/72), incluindo pausa/retomada, controles remotos, normalização e regras das listas autorizadas. `node --check`, `git diff --check` e diagnósticos do editor também passaram.
+- **Testes:** suíte completa passou (73/73), incluindo pausa/retomada, controles remotos, normalização e regras das listas autorizadas e defaults seguros de fechamento. `node --check`, `git diff --check` e diagnósticos do editor também passaram.
 
 ## Bloqueios e limites
 
@@ -27,7 +29,7 @@
 
 ## Próximo passo exato
 
-1. Commitar as listas autorizadas por modalidade e atualizar o SHA funcional; tentar push sem force-push, registrando autenticação se continuar indisponível.
+1. Commitar o gate de fechamento e atualizar o SHA funcional; tentar push sem force-push, registrando autenticação se continuar indisponível.
 2. Implementar controles por app para ações de interação e ampliar testes de negação/interrupção, sem coleta oculta.
 
 ## Recuperação

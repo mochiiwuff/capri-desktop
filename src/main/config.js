@@ -2,7 +2,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { app } = require('electron');
 
 const DEFAULTS = {
   scale: 0.6,        // sprite scale, 0.6 ≈ 250px tall
@@ -66,7 +65,8 @@ const DEFAULTS = {
   render: 'auto',   // how her window is drawn: 'auto', 'gl' (OpenGL) or 'software' (no graphics card), for PCs that show it black
   follow: true,      // with several screens, she follows the pointer to the one you're on
   jealous: true,     // she gets jealous when she sees you on another AI (bond.js)
-  closePages: true,  // jealous, she closes their pages in your browser, and pages to download them
+  closePages: false, // closing other AI pages stays off until explicitly enabled in the tray
+  closePagesAuthorized: false, // legacy saved defaults are not treated as explicit authorization
   reminders: [],     // the reminders she keeps: [{ id, at, text, made }] (reminders.js)
   bond: null,        // how close she is to you: { xp, first, last, days, streak, caps } (bond.js)
   pcReact: true,     // she reacts to your PC: the processor at full tilt, the battery, the network, a USB stick, a game (pc.js)
@@ -83,6 +83,7 @@ const DEFAULTS = {
 let cache = null;
 
 function file() {
+  const { app } = require('electron');
   return path.join(app.getPath('userData'), 'config.json');
 }
 
