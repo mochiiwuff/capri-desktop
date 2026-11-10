@@ -357,6 +357,7 @@ export class Chat {
     this.turn = id;
     this.answer = '';
     this.history.push({ role: 'user', content: text });
+    this.host.learn?.(String(text).trim()).catch(() => {});
     this.panel.setChatBusy(true);
     this.panel.setActions([]); // a close button she offered before goes with a new message
     this.panel.chatTurn({ quote: text, face: 'aside' });

@@ -25,6 +25,13 @@ const DEFAULTS = {
   persona: '',       // how you want her, in your words (her chat)
   myLines: [],       // lines of yours she says now and then, with hers
   memories: [],      // things you asked her to remember (her chat)
+  activityLearning: false, // activity tracking requires explicit opt-in
+  learning: {
+    enabled: true,
+    facts: [],
+    activity: { enabled: false, apps: {}, routines: [], updatedAt: null },
+    updatedAt: null,
+  }, // local behavioral memory from conversation and activity context
   claudeMode: 'default', // Claude Code's permission mode in her chat: 'default' only reads, 'acceptEdits' edits without asking
   claude: true,      // she watches Claude Code (off: she just keeps you company, no word of it)
   rest: 'corner',    // where she rests when nothing's going on: 'corner', or 'taskbar' (sitting on it)
@@ -40,6 +47,8 @@ const DEFAULTS = {
   pcReact: true,     // she reacts to your PC: the processor at full tilt, the battery, the network, a USB stick, a game (pc.js)
   watchScreen: false, // she looks at your screen now and then and says something about it (look.js)
   lookAsked: false,  // she told you what looking means (where the picture goes) and you said yes
+  lookExcludeApps: [], // app process names that must never be analyzed
+  lookExcludeTerms: [], // window-title terms checked locally before a screen capture
   breaks: true,      // after two hours at your PC without a real break, she tells you to take one (breaks.js)
   setups: {},        // your setups, by name: the apps you had open and where (setups.js)
   gameClose: [],     // the apps game mode closes, as you named them
