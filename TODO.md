@@ -19,16 +19,9 @@
 - [x] Executar testes completos e verificações de sintaxe; revisar a mesclagem e registrar o commit de integração (`4ad853b`).
 - [ ] Autenticar o GitHub neste ambiente, enviar a branch para o fork e verificar o SHA remoto. O push sem credenciais falhou; não enviar para `main`.
 - [ ] Validar painel e controles em um Android autenticado na mesma tailnet; confirmar configuração e limites do Tailscale Serve.
-- [ ] Implementar Discord somente com Bot API oficial, usuários/canais autorizados, comandos limitados, quiet hours, limites e desconexão visível.
-- [ ] Implementar WhatsApp somente via WhatsApp Business Cloud API ou provedor oficialmente suportado; documentar requisitos de verificação, templates e credenciais.
+- [x] Adicionar base isolada e testada para Discord Bot API/Gateway, WhatsApp Business Cloud API, allowlists, comandos restritos, horário silencioso, deduplicação, limites e verificação de assinatura webhook.
+- [ ] Integrar os transportes Discord ao ciclo de vida IPC/tray; implementar configuração segura de token, usuário/canal autorizados, envio/recebimento e controles visíveis de conexão.
+- [ ] Implementar servidor HTTPS/webhook WhatsApp com desafio de verificação, validação de assinatura sobre o corpo bruto e roteamento de mensagens autorizadas; documentar verificação empresarial e templates oficiais.
 - [ ] Criar controles desktop para destinatários autorizados e preferências de comunicação; manter envio externo desativado por padrão e oferecer pausa/desconexão imediata.
 - [ ] Acrescentar testes focados para limpeza de notas aceitas, consentimento global, pausa/retomada e preservação do fluxo original da Capri.
-- [ ] Documentar instalação Windows e configuração passo a passo das integrações externas quando implementadas.
-
-## Pendências conhecidas / limites
-
-- Não há envio ou recebimento por Discord/WhatsApp neste estado; nenhuma credencial externa deve ser adicionada ao repositório.
-- Não há push em segundo plano no painel Android/Tailscale.
-- A revisão de sensibilidade não é infalível.
-- O autoaperfeiçoamento atual não altera fontes, executa comandos arbitrários, faz commits ou publica sem revisão e confirmação explícitas.
-- Os testes em Android e as validações que exigem serviços/contas reais dependem do ambiente do usuário.
+- [x] Documentar a instalação Windows/limites atuais e os pré-requisitos das integrações oficiais sem afirmar que já podem ser configuradas.

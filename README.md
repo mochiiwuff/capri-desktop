@@ -471,6 +471,21 @@ it's never kept or sent anywhere.
 When she looks at your screen (only when you ask, or if you ticked *Look at my screen now and then*), a picture of the
 screen goes to her chat's AI: on your PC with Ollama (a local model), to the online service otherwise. It's never written to disk.
 
+## Discord and WhatsApp (not connected yet)
+
+Capri does not currently connect to Discord or WhatsApp, store credentials for them, run a webhook, or send messages.
+`src/main/messaging.js` contains isolated, locally tested transport and privacy-policy primitives only; no external
+requests are made at startup. Do not paste messaging credentials into `config.json` or commit them.
+
+When the integrations are completed, Discord will require a Discord application and bot, a bot token, enabled
+**Message Content Intent** for the Gateway, and an explicitly configured recipient/channel allowlist. WhatsApp must
+use Meta's WhatsApp Business Cloud API or an officially supported provider; it requires an eligible Meta business/app,
+a registered WhatsApp business phone number, a long-lived access token, and a public HTTPS webhook configured with
+the Meta webhook verification token and app secret. Business-initiated notifications outside WhatsApp's customer
+service window require an approved message template. The current build does not provide the secure setup UI,
+credential storage, public webhook, notification delivery, or immediate-disconnect controls needed to use either
+service, so these credentials and services cannot be configured in Capri yet.
+
 ## Art direction
 
 The goal: she should feel like she stepped out of the anime, not like a widget.
@@ -577,4 +592,3 @@ her, change her and share what you made, for free. Selling Capri, or anything ma
 paid access, paid orders), is not allowed. Versions up to 0.4.3 were under the MIT License.
 
 Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fontsource.
-

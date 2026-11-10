@@ -8,6 +8,8 @@
 - Limpar aprendizado também remove notas de conversa aceitas, sem apagar memórias manuais ou histórico de chat.
 - Atualizada a documentação de arquitetura, progresso e prioridades com os recursos existentes e as integrações ainda pendentes.
 - Discord e WhatsApp Business Cloud API ainda não estão implementados.
+- Adicionadas primitivas sem conexão externa para Discord Bot API/Gateway e WhatsApp Cloud API: comandos fechados, autorização por usuário/canal, allowlist de menções Discord, validação de assinatura webhook WhatsApp, quiet hours, deduplicação e limites de envio.
+- Documentados os pré-requisitos oficiais e deixado explícito que credenciais, UI, webhook público e entrega não estão conectados ao aplicativo.
 
 ## Trabalho anterior nesta branch
 
