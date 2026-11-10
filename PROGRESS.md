@@ -4,8 +4,9 @@
 
 - **Branch:** `feature/capri-autonomous-learning`; backup local preservado em `backup/pre-capri-autonomous-learning-20261110`.
 - **Commit funcional desta etapa:** `1c3a77c` — `feat: add WhatsApp webhook and Discord reconnect`.
+- **Commit de privacidade por app:** `76b4b7d` — `feat: add per-app activity learning exclusions`.
 - **Commit de progresso:** `f2ef58f` registra os testes e o marco funcional.
-- **GitHub:** push tentado sem force para `origin/feature/capri-autonomous-learning`, mas falhou com `Cannot prompt because user interactivity has been disabled`. `git ls-remote` e a listagem de branches confirmam que o remoto continua em `c9858d19feab87ceb8a302eef236335610bc3dcd`; o branch local está 11 commits à frente e preservado.
+- **GitHub:** último push tentado sem force falhou com `Cannot prompt because user interactivity has been disabled`. A última confirmação remota foi `c9858d19feab87ceb8a302eef236335610bc3dcd`; novos commits locais foram feitos depois, e devem ser enviados após autenticação. O branch local permanece preservado.
 - **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
 - **Avanço seguinte:** lista de exclusão de processos para aprendizado de atividade, editável pelo menu e aplicada antes de registrar cada amostra; não lê títulos de janela.
@@ -22,9 +23,8 @@
 
 ## Próximo passo exato
 
-1. Commitar a exclusão por processo e registrar o SHA funcional.
-2. Autenticar o GitHub e publicar a branch de feature sem force-push; confirmar o SHA remoto.
-3. Continuar o próximo item do `TODO.md`: permissões granulares por modalidade e níveis de autorização no Windows, sem implementar coleta oculta.
+1. Autenticar o GitHub e publicar a branch de feature sem force-push; confirmar o SHA remoto.
+2. Continuar o próximo item do `TODO.md`: permissões granulares por modalidade e níveis de autorização no Windows, sem implementar coleta oculta.
 
 ## Recuperação
 
