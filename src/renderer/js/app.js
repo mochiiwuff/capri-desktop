@@ -16,6 +16,7 @@ import { Look } from './look.js';
 import { Pc } from './pc.js';
 import { Care } from './care.js';
 import { Breaks } from './breaks.js';
+import { memoryView } from './memory-view.js';
 import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
 
@@ -712,6 +713,40 @@ async function boot() {
       case 'watchScreen': // "Look at my screen now and then" in her menu
         look.setAuto(cmd.on);
         break;
+      case 'revokeScreen':
+        await look.revoke();
+        panel.say({ kind: 'info', face: 'aside', line: brain.t.look.revokeLine, hold: 4500 });
+        break;
+      case 'lookExclusions': {
+        const t = brain.t.look;
+        const splitRules = (text) => [...new Set(text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        const cfg = await host.getConfig();
+        const apps = await guide.askText({
+          face: 'look',
+          line: t.exclusionApps,
+          quote: (cfg.lookExcludeApps || []).join(', '),
+          placeholder: t.exclusionApps,
+          value: (cfg.lookExcludeApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PRIVACY',
+          note: t.exclusionHint,
+        });
+        if (!apps) break;
+        const terms = await guide.askText({
+          face: 'look',
+          line: t.exclusionTerms,
+          quote: (cfg.lookExcludeTerms || []).join(', '),
+          placeholder: t.exclusionTerms,
+          value: (cfg.lookExcludeTerms || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PRIVACY',
+          note: t.exclusionHint,
+        });
+        if (!terms) break;
+        await host.setConfig({ lookExcludeApps: splitRules(apps.text), lookExcludeTerms: splitRules(terms.text) });
+        panel.say({ kind: 'info', face: 'smug', line: t.exclusionSaved, hold: 4000 });
+        break;
+      }
       case 'goScreen': // a screen picked in her menu: she goes there
         goToScreen(cmd.id);
         break;
@@ -763,6 +798,51 @@ async function boot() {
         capri.wake();
         if (brain.report()) capri.perform('curious', capri.towardCenter());
         break;
+      case 'memory': {
+        if (capri.stowed) {
+          host.setConfig({ visible: true });
+          await capri.unstow();
+        }
+        capri.wake();
+        const state = await host.learning();
+        const labels = brain.t.memory;
+        const view = memoryView(state, labels);
+        panel.say({
+          kind: 'info',
+          face: 'look',
+          ...view,
+          actions: [
+            { id: 'clear', label: labels.clear },
+            { id: 'close', label: labels.close },
+          ],
+          onAction: async (id) => {
+            if (id === 'close') {
+              panel.hide();
+              return;
+            }
+            if (id !== 'clear') return;
+            panel.say({
+              kind: 'info',
+              face: 'aside',
+              line: labels.confirmLine,
+              quote: labels.confirmQuote,
+              actions: [
+                { id: 'confirm-clear', label: labels.confirm, primary: true },
+                { id: 'cancel-clear', label: labels.cancel },
+              ],
+              onAction: async (choice) => {
+                if (choice === 'confirm-clear') {
+                  await host.clearLearning();
+                  panel.say({ kind: 'info', face: 'smug', line: labels.cleared, hold: 4000 });
+                } else {
+                  panel.hide();
+                }
+              },
+            });
+          },
+        });
+        break;
+      }
       case 'fakeClaude': { // --dev: the topmost window (the test window) is where a prompt was typed, and you're elsewhere
         const win = capri.windows.wins[0];
         if (win) {

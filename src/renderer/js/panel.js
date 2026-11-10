@@ -282,6 +282,7 @@ export class Panel {
     if (!chat) return;
     this.chatInput.type = chat.secret ? 'password' : 'text';
     this.chatInput.placeholder = chat.placeholder;
+    this.chatInput.value = chat.value || '';
     this.chatInput.setAttribute('aria-label', chat.placeholder);
     this.chatInput.disabled = false;
     this.chatSend.disabled = false;

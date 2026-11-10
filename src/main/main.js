@@ -3,6 +3,7 @@
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
+const { once } = require('node:events');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
@@ -20,6 +21,10 @@ const setup = require('./setup');
 const apps = require('./apps');
 const system = require('./system');
 const launch = require('./launch');
+const learning = require('./learning');
+const screenExclusions = require('./screen-exclusions');
+const { createRemoteControl } = require('./remote-control');
+const selfImprovement = require('./self-improvement');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -42,6 +47,10 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+let activityTimer = null;
+let remoteControl = null;
+let foregroundApp = null;
+let foregroundTitle = '';
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
@@ -52,6 +61,8 @@ let cloud = { at: 0, account: null, free: [] };
 const chats = new Map(); // id -> AbortController of an answer being streamed
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
+const selfImprovementHistoryFile = () => path.join(app.getPath('userData'), 'self-improvement-test-history.json');
+const selfImprovementStorageDir = () => path.join(app.getPath('userData'), 'self-improvement');
 
 // Her memory of your chats, across restarts: { history: [{ role, content }], claude: Claude Code's session }
 const memoryFile = () => path.join(app.getPath('userData'), 'memory.json');
@@ -61,6 +72,14 @@ function readMemory() {
   } catch {
     return {};
   }
+}
+
+function learningSnapshot(cfg = config.load()) {
+  return {
+    ...learning.readState(cfg.learning),
+    enabled: cfg.learningEnabled === true,
+    facts: learning.acceptedConversationFacts(cfg.learningEntries),
+  };
 }
 function saveMemory(patch) {
   try {
@@ -73,6 +92,269 @@ function forgetChats() {
   llm.resetClaude();
   saveMemory({ history: [], claude: null });
   sendCommand('forget');
+}
+
+async function openRemoteControl() {
+  if (!remoteControl) {
+    remoteControl = createRemoteControl({
+      staticDir: path.join(ROOT, 'src', 'renderer', 'remote'),
+      getState: () => {
+        const cfg = config.load();
+        const state = learningSnapshot(cfg);
+        const memory = {
+          facts: state.facts,
+          apps: Object.values(state.activity.apps)
+            .map(({ label, totalMs }) => ({ label, ...formatActivityDuration(totalMs) }))
+            .sort((a, b) => b.durationMinutes - a.durationMinutes)
+            .map(({ label, duration }) => ({ label, duration })),
+          routines: state.activity.routines.map(({ routine, count }) => ({ routine, count })),
+        };
+        return {
+          status: {
+            learningEnabled: state.enabled,
+            activityEnabled: cfg.activityLearning === true,
+            screenEnabled: cfg.watchScreen === true,
+            screenAuthorized: cfg.lookAsked === true,
+            assistant: activeAssistant().name,
+          },
+          memory,
+        };
+      },
+      control: async (action) => {
+        switch (action) {
+          case 'learning.pause':
+          case 'learning.resume': {
+            updateConfig({ learningEnabled: action === 'learning.resume' });
+            return { ok: true };
+          }
+          case 'activity.pause':
+            updateConfig({ activityLearning: false });
+            return { ok: true };
+          case 'activity.resume':
+            updateConfig({ activityLearning: true });
+            return { ok: true };
+          case 'screen.pause':
+            updateConfig({ watchScreen: false });
+            return { ok: true };
+          case 'screen.resume':
+            if (config.load().lookAsked !== true) return { ok: false, error: 'screen permission must first be granted at the desktop' };
+            updateConfig({ watchScreen: true });
+            return { ok: true };
+          case 'screen.revoke':
+            updateConfig({ watchScreen: false, lookAsked: false });
+            return { ok: true };
+          default:
+            return { ok: false, error: 'unsupported action' };
+        }
+      },
+    });
+    await once(remoteControl.server, 'listening');
+  }
+  await shell.openExternal(remoteControl.url);
+}
+
+async function showProjectReview() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const review = await selfImprovement.analyzeProject(ROOT);
+  const pending = review.backlog.filter((item) => !item.done);
+  const details = [
+    `${review.projectName} ${review.version}`,
+    `${t.projectTests}: ${review.testFiles.length}`,
+    `${t.backlogLabel}: ${pending.length}`,
+    ...(pending.length ? pending.slice(0, 8).map((item) => `• ${item.title}`) : [t.noBacklog]),
+    ...(review.missingDocs.length ? [`${t.missingDocs}: ${review.missingDocs.join(', ')}`] : []),
+    t.readOnlyReview,
+  ].join('\n');
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.projectReviewTitle,
+    message: t.projectReviewMessage,
+    detail: details,
+    buttons: [t.ok],
+  });
+}
+
+async function showSourceReview() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const result = await selfImprovement.analyzeSource(ROOT);
+  const findings = [
+    ...result.syntaxErrors.map((item) => `${item.file}\n${item.output.slice(0, 600)}`),
+    ...result.unresolvedImports.map((item) => `${item.file}:${item.line} · ${t.unresolvedImport}: ${item.specifier}\n${item.text}`),
+    ...result.importCycles.map((cycle) => `${t.importCycle}: ${cycle.files.join(' ↔ ')}\n${cycle.edges.map((edge) => `${edge.from}:${edge.line} → ${edge.to}`).join('\n')}`),
+    ...result.unreferencedModules.map((item) => `${t.unreferencedModule}: ${item.file}\n${item.reason}`),
+    ...result.maintenanceMarkers.map((item) => `${item.file}:${item.line} · ${item.marker} · ${item.text}`),
+  ];
+  const detail = [
+    `${t.sourceFiles}: ${result.filesScanned}`,
+    `${t.syntaxIssues}: ${result.syntaxErrors.length}`,
+    `${t.unresolvedImports}: ${result.unresolvedImports.length}`,
+    `${t.importCycles}: ${result.importCycles.length}`,
+    `${t.unreferencedModules}: ${result.unreferencedModules.length}`,
+    `${t.maintenanceMarkers}: ${result.maintenanceMarkers.length}`,
+    ...(result.suggestions.length ? [
+      t.evidenceSuggestions,
+      ...result.suggestions.map((suggestion) => (
+        `${t.sourceSuggestionActions[suggestion.actionKey]} (${suggestion.findingCount})\n`
+        + suggestion.evidence.map((item) => (
+          `${item.file}${item.line ? `:${item.line}` : ''} · ${item.detail}`
+        )).join('\n')
+      )),
+    ] : []),
+    ...(findings.length ? findings.slice(0, 20) : [t.noSourceFindings]),
+    ...(findings.length > 20 ? [`${t.moreFindings}: ${findings.length - 20}`] : []),
+    t.localAnalysisNote,
+  ].join('\n\n');
+  await dialog.showMessageBox(overlay, {
+    type: result.syntaxErrors.length ? 'warning' : 'info',
+    title: t.sourceReviewTitle,
+    message: t.sourceReviewMessage,
+    detail,
+    buttons: [t.ok],
+  });
+}
+
+async function runProjectChecks() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.runTestsTitle,
+    message: t.runTestsPrompt,
+    detail: `${t.testsOnlyNote}\n\n${t.testHistoryNote}`,
+    buttons: [t.runProjectTests, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const result = await selfImprovement.runProjectTests(ROOT);
+  let comparison = null;
+  let historyError = null;
+  try {
+    comparison = await selfImprovement.recordTestRun(selfImprovementHistoryFile(), result);
+  } catch (err) {
+    historyError = err;
+    console.error('[capri] could not save local test history:', err.message);
+  }
+  const summaryLine = t.testSummary(result.summary || {});
+  const previousLine = comparison?.previous
+    ? t.previousTestSummary(t.testSummary(comparison.previous.summary))
+    : t.firstTestRun;
+  const comparisonLine = comparison ? t.testComparison[comparison.comparison] : t.testHistoryUnavailable;
+  const detail = [
+    result.error,
+    summaryLine,
+    previousLine,
+    comparisonLine,
+    historyError ? `${t.testHistorySaveFailed}: ${historyError.message}` : '',
+    result.output || '',
+  ].filter(Boolean).join('\n\n');
+  await dialog.showMessageBox(overlay, {
+    type: result.ok ? 'info' : 'warning',
+    title: t.runTestsTitle,
+    message: result.timedOut ? t.testsTimedOut : result.ok ? t.testsPassed
+      : comparison?.comparison === 'regression' ? t.testsRegression : t.testsFailed,
+    detail: detail || t.noTestOutput,
+    buttons: [t.ok],
+  });
+}
+
+async function reviewLocalPatch() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const selection = await dialog.showOpenDialog(overlay, {
+    title: t.choosePatch,
+    properties: ['openFile'],
+    filters: [{ name: 'Capri patch proposal', extensions: ['json'] }],
+  });
+  if (selection.canceled || !selection.filePaths[0]) return;
+
+  const stat = await fs.promises.lstat(selection.filePaths[0]);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 128 * 1024) {
+    throw new Error(t.invalidPatchFile);
+  }
+  let patch;
+  try {
+    patch = JSON.parse(await fs.promises.readFile(selection.filePaths[0], 'utf8'));
+  } catch (err) {
+    throw new Error(`${t.invalidPatchFile}: ${err.message}`);
+  }
+
+  const preview = await selfImprovement.prepareReviewedChange(ROOT, patch);
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.reviewPatchTitle,
+    message: t.reviewPatchPrompt(preview.relativePath),
+    detail: `${t.patchConfirmNote}\nSHA-256: ${preview.currentSha256}\n\n${preview.diff}`,
+    buttons: [t.applyPatch, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const applied = await selfImprovement.applyReviewedChange(ROOT, selfImprovementStorageDir(), patch);
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.patchAppliedTitle,
+    message: t.patchAppliedMessage(applied.relativePath),
+    detail: `${t.changeId}: ${applied.id}`,
+    buttons: [t.ok],
+  });
+}
+
+async function undoLatestLocalPatch() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const changes = await selfImprovement.listReversibleChanges(selfImprovementStorageDir());
+  const latest = changes[0];
+  if (!latest) {
+    await dialog.showMessageBox(overlay, {
+      type: 'info', title: t.undoPatchTitle, message: t.noReversibleChanges, buttons: [t.ok],
+    });
+    return;
+  }
+
+  const preview = await selfImprovement.prepareChangeRevert(ROOT, selfImprovementStorageDir(), latest.id);
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.undoPatchTitle,
+    message: t.undoPatchPrompt(preview.relativePath),
+    detail: `${t.undoPatchNote}\n${t.changeId}: ${latest.id}\n\n${preview.diff}`,
+    buttons: [t.undoPatch, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const reverted = await selfImprovement.revertReviewedChange(ROOT, selfImprovementStorageDir(), latest.id);
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.undoPatchTitle,
+    message: t.patchRevertedMessage(reverted.relativePath),
+    buttons: [t.ok],
+  });
+}
+
+async function showProjectToolError(err) {
+  const t = TRAY[resolveLang(config.load().lang)];
+  console.error('[capri] project self-review failed:', err.message);
+  await dialog.showMessageBox(overlay, {
+    type: 'error',
+    title: t.selfImprove,
+    message: err.message,
+    buttons: [t.ok],
+  });
+}
+
+function formatActivityDuration(totalMs) {
+  const minutes = Math.round(Number(totalMs || 0) / 60000);
+  const durationMinutes = Number.isFinite(minutes) ? minutes : 0;
+  return {
+    durationMinutes,
+    duration: durationMinutes >= 60
+      ? `${Math.floor(durationMinutes / 60)} h ${durationMinutes % 60} min`
+      : `${durationMinutes} min`,
+  };
 }
 
 // capri://app/...        -> files of this repo
@@ -286,9 +568,47 @@ function rendererConfig() {
 }
 
 function updateConfig(patch) {
-  config.save(patch);
+  let changes = patch;
+  if ('lookExcludeApps' in patch || 'lookExcludeTerms' in patch) {
+    changes = {
+      ...changes,
+      ...(Array.isArray(patch.lookExcludeApps) && { lookExcludeApps: screenExclusions.normalizeRules(patch.lookExcludeApps) }),
+      ...(Array.isArray(patch.lookExcludeTerms) && { lookExcludeTerms: screenExclusions.normalizeRules(patch.lookExcludeTerms) }),
+    };
+  }
+  if (typeof patch.activityLearning === 'boolean' || typeof patch.learningEnabled === 'boolean') {
+    const state = learning.readState(config.load().learning);
+    if (typeof patch.activityLearning === 'boolean') state.activity.enabled = patch.activityLearning;
+    if (typeof patch.learningEnabled === 'boolean') state.enabled = patch.learningEnabled;
+    changes = { ...changes, learning: state };
+  }
+  config.save(changes);
+  if ((patch.lookAsked === false || patch.watchScreen === false)
+    && (Object.hasOwn(patch, 'lookAsked') || Object.hasOwn(patch, 'watchScreen'))) {
+    for (const [id, controller] of screenLooks) {
+      controller.abort();
+      snaps.delete(id);
+    }
+  }
+  if ('lookExcludeApps' in changes || 'lookExcludeTerms' in changes) {
+    const cfg = config.load();
+    if (screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      cfg.lookExcludeApps,
+      cfg.lookExcludeTerms,
+    )) {
+      for (const [id, controller] of screenLooks) {
+        controller.abort();
+        snaps.delete(id);
+      }
+    }
+  }
   if ('rest' in patch) {
     fitOverlay(); // the taskbar in her window or not
+    windowWatch?.refresh();
+  }
+  if ('activityLearning' in patch) {
+    foregroundApp = null;
     windowWatch?.refresh();
   }
   const cfg = rendererConfig();
@@ -327,7 +647,20 @@ function rebuildTray() {
     { label: t.satellite, click: () => sendCommand('satellite') },
     { label: t.demo, click: playDemo },
     { label: t.help, click: () => sendCommand('welcome') },
+    { label: t.remote, click: () => openRemoteControl().catch((err) => console.error('[capri] could not open remote dashboard:', err.message)) },
+    {
+      label: t.selfImprove,
+      submenu: [
+        { label: t.reviewProject, click: () => showProjectReview().catch(showProjectToolError) },
+        { label: t.reviewSource, click: () => showSourceReview().catch(showProjectToolError) },
+        { label: t.runProjectTests, click: () => runProjectChecks().catch(showProjectToolError) },
+        { type: 'separator' },
+        { label: t.reviewPatch, click: () => reviewLocalPatch().catch(showProjectToolError) },
+        { label: t.undoPatch, click: () => undoLatestLocalPatch().catch(showProjectToolError) },
+      ],
+    },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
+    { label: t.memory, click: () => sendCommand('memory') },
     { label: t.talk, click: () => sendCommand('chat') },
     { label: t.lookNow, click: () => sendCommand('look') },
     { label: t.learning, type: 'checkbox', checked: cfg.learningEnabled === true, click: (item) => updateConfig({ learningEnabled: item.checked }) },
@@ -362,6 +695,12 @@ function rebuildTray() {
             fs.mkdirSync(userSoundsDir(), { recursive: true });
             shell.openPath(userSoundsDir());
           },
+        },
+        { label: t.lookExclusions, click: () => sendCommand('lookExclusions') },
+        {
+          label: t.lookRevoke,
+          enabled: cfg.lookAsked === true,
+          click: () => sendCommand('revokeScreen'),
         },
       ],
     },
@@ -432,6 +771,10 @@ function rebuildTray() {
         sendCommand('watchScreen', { on: item.checked });
         rebuildTray(); // as it is until she's asked
       },
+    },
+    {
+      label: t.activityLearning, type: 'checkbox', checked: cfg.activityLearning === true,
+      click: (item) => updateConfig({ activityLearning: item.checked }),
     },
     {
       label: t.rest,
@@ -617,12 +960,14 @@ async function chatWithFallback(cfg, messages, send, signal, streamed) {
 // She looks at your screen (look.js): a picture of the screen she's on, kept here in memory a moment
 // for her AI to look at, never written anywhere. 1280 px wide at most: enough to read, light to send.
 const snaps = new Map(); // id -> the picture, base64 JPEG
-async function snapScreen() {
+const screenLooks = new Map(); // request id -> abort controller
+async function snapScreen(signal) {
   const d = targetDisplay();
   const k = d.scaleFactor || 1;
   const fit = Math.min(1, 1280 / (d.bounds.width * k));
   const size = { width: Math.round(d.bounds.width * k * fit), height: Math.round(d.bounds.height * k * fit) };
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+  if (signal.aborted) throw new DOMException('Screen capture cancelled', 'AbortError');
   const src = sources.find((s) => s.display_id === String(d.id)) || sources[0];
   if (!src || src.thumbnail.isEmpty()) throw new Error('no picture of the screen');
   return src.thumbnail.toJPEG(72).toString('base64');
@@ -630,10 +975,11 @@ async function snapScreen() {
 
 // What her AI says about that picture, as her (`persona`), asked `prompt`. With a code when it can't:
 // 'noai' (nothing to ask), 'novision' (that model can't look at pictures).
-async function sayAboutSnap({ id, persona, prompt, history = [] }) {
+async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const image = snaps.get(id);
   snaps.delete(id);
   if (!image) return { ok: false, error: 'the picture is gone' };
+  if (signal.aborted || config.load().lookAsked !== true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
   const cfg = config.load();
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
@@ -648,7 +994,8 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   const messages = [{ role: 'system', content: persona }, ...before, user];
   for (let attempt = 0; ; attempt++) {
     try {
-      const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.timeout(120000));
+      if (signal.aborted || config.load().lookAsked !== true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+      const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.any([signal, AbortSignal.timeout(120000)]));
       return { ok: true, text, model };
     } catch (err) {
       if (err.code === 'busy' && attempt === 0) {
@@ -762,17 +1109,46 @@ function registerIpc() {
   });
   ipcMain.on('chat:stop', (_e, id) => chats.get(id)?.abort());
   // she looks at your screen (look.js): the picture first, then what her AI says about it
-  ipcMain.handle('look:snap', async () => {
+  ipcMain.handle('look:snap', async (_e, id) => {
+    const cfg = config.load();
+    if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
+    if (screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      cfg.lookExcludeApps,
+      cfg.lookExcludeTerms,
+    )) return { ok: false, code: 'excluded' };
+    if (typeof id !== 'string' || !/^[\w-]{1,80}$/.test(id)) return { ok: false, error: 'invalid capture request' };
+    const controller = new AbortController();
+    screenLooks.set(id, controller);
     try {
-      const id = randomUUID();
-      snaps.set(id, await snapScreen());
+      const image = await snapScreen(controller.signal);
+      if (controller.signal.aborted) {
+        screenLooks.delete(id);
+        return { ok: false, code: 'stopped' };
+      }
+      snaps.set(id, image);
       setTimeout(() => snaps.delete(id), 120000);
       return { ok: true, id };
     } catch (err) {
+      screenLooks.delete(id);
+      if (controller.signal.aborted) return { ok: false, code: 'stopped' };
       return { ok: false, error: err.message };
     }
   });
-  ipcMain.handle('look:say', (_e, request) => sayAboutSnap(request || {}));
+  ipcMain.handle('look:say', async (_e, request) => {
+    const controller = screenLooks.get(request?.id);
+    if (!controller) return { ok: false, error: 'the capture request is gone' };
+    try {
+      return await sayAboutSnap(request || {}, controller.signal);
+    } finally {
+      screenLooks.delete(request.id);
+      snaps.delete(request.id);
+    }
+  });
+  ipcMain.on('look:stop', (_e, id) => {
+    screenLooks.get(id)?.abort();
+    snaps.delete(id);
+  });
   // how hard the processor works, in %, since the last time she asked (pc.js)
   let cpuBefore = null;
   ipcMain.handle('pc:cpu', () => {
@@ -796,6 +1172,17 @@ function registerIpc() {
   });
   ipcMain.handle('chat:memory', () => readMemory().history || []);
   ipcMain.on('chat:remember', (_e, history) => Array.isArray(history) && saveMemory({ history }));
+  ipcMain.handle('learning:read', () => learningSnapshot());
+  ipcMain.handle('activity:read', () => {
+    const state = learning.readState(config.load().learning).activity;
+    return { ...state, enabled: config.load().activityLearning === true };
+  });
+  ipcMain.handle('learning:clear', () => {
+    const cfg = config.load();
+    const next = learning.clearLearnedState(cfg.learning);
+    updateConfig({ learning: next, learningEntries: [] });
+    return next;
+  });
   ipcMain.on('chat:ollama', () => shell.openExternal(OLLAMA_SITE));
   // setting her up with buttons (setup.js): Ollama and a model, or a key, or an address
   const progress = (payload) => overlay?.webContents.send('setup:progress', payload);
@@ -1051,7 +1438,8 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
-    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    const watched = config.load().assistant;
+    if (!Object.prototype.hasOwnProperty.call(ASSISTANTS, watched)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();
@@ -1061,10 +1449,23 @@ function main() {
       onUpdate: (data) => {
         // a click on the taskbar brings it up over her: sitting on it, her legs would vanish behind it
         if (data.taskbar && !lastWindows?.taskbar && config.load().rest === 'taskbar') raiseOverlay();
-        lastWindows = data;
-        overlay?.webContents.send('windows:update', data);
+        foregroundApp = typeof data.app === 'string' ? data.app : null;
+        foregroundTitle = typeof data.title === 'string' ? data.title : '';
+        const windowData = { ...data };
+        delete windowData.app;
+        delete windowData.title;
+        lastWindows = windowData;
+        overlay?.webContents.send('windows:update', windowData);
       },
     });
+    activityTimer = setInterval(() => {
+      const cfg = config.load();
+      if (cfg.activityLearning !== true || !foregroundApp) return;
+      const state = learning.readState(cfg.learning);
+      state.activity.enabled = true;
+      const next = learning.ingestWindowActivity({ app: foregroundApp }, state, 15000);
+      config.save({ learning: next });
+    }, 15000);
     createBridge({
       port: PORT,
       // her own Claude Code chat's hooks would cover its answer with theirs
@@ -1092,7 +1493,9 @@ function main() {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    clearInterval(activityTimer);
     windowWatch?.stop();
+    remoteControl?.close().catch((err) => console.error('[capri] could not close remote dashboard:', err.message));
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

@@ -1,11 +1,16 @@
 # Changelog
 
-## Unreleased
+## Não lançado
 
-- Documented the existing Capri architecture, privacy boundaries, learning extension points, and staged implementation plan.
-- Established a full local repository backup and the `feature/capri-autonomous-learning` development branch in a personal fork.
-- Verified the original hook regression tests before making code changes.
-- Added opt-in, local conversation learning for explicit preferences, corrections, interests, projects, communication style, and supported durable facts.
-- Added user-reviewed category/evidence prompts, duplicate prevention, local expiry, correction, individual deletion, and confirmed clear-all.
-- Kept the new learned store separate from existing custom memories and chat history; sensitive-looking new turns are redacted from the saved transcript.
-- Added learning/privacy regression tests and documented that accepted notes are included in future selected-model chat prompts.
+- Reconciliada a branch de desenvolvimento com os recursos já implementados na `main` da cópia de trabalho: aprendizado por atividade, controles de privacidade de tela, painel remoto e autoaperfeiçoamento local delimitado.
+- Unificado o controle de consentimento: aprendizado de conversa e atividade começam desligados e o controle de aprendizado da bandeja também governa os controles remotos de pausa/retomada.
+- Removida a ingestão automática de conversa sem revisão; somente notas aceitas pela pessoa aparecem como fatos aprendidos nos painéis.
+- Limpar aprendizado também remove notas de conversa aceitas, sem apagar memórias manuais ou histórico de chat.
+- Atualizada a documentação de arquitetura, progresso e prioridades com os recursos existentes e as integrações ainda pendentes.
+- Discord e WhatsApp Business Cloud API ainda não estão implementados.
+
+## Trabalho anterior nesta branch
+
+- Documentada a arquitetura original da Capri e os pontos de extensão.
+- Adicionado aprendizado local e opcional de conversa com declarações explícitas, classificação, revisão antes de aceitar, correção, duplicatas, expiração e remoção.
+- Adicionadas salvaguardas heurísticas contra salvar conteúdo sensível e contra persistir turnos novos potencialmente sensíveis no histórico.

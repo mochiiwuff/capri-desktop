@@ -1,36 +1,23 @@
-# Capri autonomous learning — progress
+# Progresso da evolução da Capri
 
-## Current position
+## Estado atual
 
-- **Completed:** inspected the latest upstream tree and commit; made a full local Git bundle backup; created the GitHub fork and `feature/capri-autonomous-learning`; verified that the branch starts at upstream `main` commit `c011764ca1fdbd191925321e3aaa8af5b84babe8`; documented architecture; implemented phase 1 conversation learning.
-- **Current phase:** phase 2 — authorized foreground-application metadata learning.
-- **Latest verified implementation commit:** `6eb5b6d56f2636dce985c4a3f927cfd8fc2eacb0` (`feat: add opt-in local conversation learning`); the remote feature-branch SHA was checked and matches.
-- **Next exact step:** recheck upstream `main` for movement, then inspect `src/main/windows.js` and `src/main/windows.ps1` and design opt-in aggregate app-duration records without titles, keystrokes, clipboard, or message contents.
+- **Branch:** `feature/capri-autonomous-learning`, criada localmente a partir da branch homônima já existente no fork.
+- **Backup local:** branch `backup/pre-capri-autonomous-learning-20261110` aponta para a `main` local anterior à mesclagem.
+- **Etapas existentes:** aprendizado de conversa com revisão explícita, atividade opcional do Windows, privacidade de tela, painel remoto e ferramentas locais delimitadas de autoaperfeiçoamento.
+- **Trabalho desta sessão:** mesclar as implementações de `main` na branch de desenvolvimento e tornar o consentimento uniforme; garantir que só notas de conversa aceitas apareçam como aprendizado; incluir notas aceitas na limpeza de aprendizado; consolidar a documentação e os próximos passos.
+- **Verificação:** `node --test tests/*.test.js tests/*.test.mjs` passou: 48 testes, 0 falhas; `node --check` passou nos arquivos JavaScript alterados; `git diff --cached --check` passou sem conflitos pendentes.
+- **Status da mesclagem:** resolvida e testada localmente; revisão final, commit e push ainda precisam ser concluídos.
+- **Próximo passo exato:** revisar a mudança staged, criar o commit de merge em `feature/capri-autonomous-learning`, enviar apenas essa branch e verificar o SHA remoto.
 
-## Verification
+## Limites e trabalho pendente
 
-- Baseline `npm run test:hooks`: **5 passed, 0 failed**.
-- Phase 1 `npm run test:learning`: **10 passed, 0 failed**.
-- Post-change `npm run test:hooks`: **5 passed, 0 failed**.
-- `node --check src/main/main.js`, renderer-module syntax checks, JSON parsing, and `git diff --check`: passed.
-- `npm ci`: completed; npm reported 6 moderate dependency audit findings (not changed as part of the baseline).
-- Original repository `main`: untouched.
-- Fork branch: `feature/capri-autonomous-learning`; phase 1 is the first source-code change.
-- Conversation learning remains disabled until the user opts in. Current detection is explicit pattern matching, not unrestricted model inference.
-- Working tree is clean after the verified push. The source repository and both `main` branches remain untouched.
+- As regras de privacidade para conteúdo sensível são heurísticas; não classificam toda informação sensível com garantia.
+- Testes presenciais de Android/Tailscale ainda dependem de um dispositivo autorizado.
+- Discord e WhatsApp Business Cloud API não foram implementados.
+- O autoaperfeiçoamento inspeciona, testa e aceita patches locais com confirmação; não é um ciclo autônomo que modifica o código ou publica no GitHub por conta própria.
+- Confirmar o resultado de qualquer push consultando a referência remota; se falhar, preservar o commit local e registrar o bloqueio.
 
-## Pending phases
+## Recuperação
 
-1. **Complete:** conversation learning and review controls.
-2. Authorized foreground-app metadata learning.
-3. Screen-context privacy controls and exclusions.
-4. Additive memory integration and migration tests.
-5. Bounded self-improvement engine and recovery tests.
-6. Discord official API integration.
-7. WhatsApp Business Cloud API/provider integration.
-8. Desktop privacy, status, recipient, quiet-hours, limits, and disconnect UI.
-9. Full regression, privacy, platform, and setup documentation.
-
-## Resume protocol
-
-At the start of a new session, read `PROGRESS.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, and `TODO.md`; check the latest commits on this fork's feature branch and the upstream `main` before editing. Continue only on `feature/capri-autonomous-learning`. Never push to either repository's `main`.
+Ler este arquivo, `TODO.md`, `ARCHITECTURE.md` e `CHANGELOG.md`; verificar a branch atual e os commits locais/remotos. Continuar apenas em `feature/capri-autonomous-learning`; nunca enviar alterações à `main`.
