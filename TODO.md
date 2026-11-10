@@ -16,8 +16,8 @@
 
 ## Próximas etapas prioritárias
 
-- [ ] Executar testes completos e verificações de sintaxe; revisar a mesclagem; corrigir falhas e registrar um commit de integração.
-- [ ] Enviar a branch para o fork e verificar o SHA remoto. Não enviar para `main`; relatar explicitamente se o acesso ao GitHub falhar.
+- [x] Executar testes completos e verificações de sintaxe; revisar a mesclagem e registrar o commit de integração (`4ad853b`).
+- [ ] Autenticar o GitHub neste ambiente, enviar a branch para o fork e verificar o SHA remoto. O push sem credenciais falhou; não enviar para `main`.
 - [ ] Validar painel e controles em um Android autenticado na mesma tailnet; confirmar configuração e limites do Tailscale Serve.
 - [ ] Implementar Discord somente com Bot API oficial, usuários/canais autorizados, comandos limitados, quiet hours, limites e desconexão visível.
 - [ ] Implementar WhatsApp somente via WhatsApp Business Cloud API ou provedor oficialmente suportado; documentar requisitos de verificação, templates e credenciais.
