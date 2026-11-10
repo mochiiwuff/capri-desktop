@@ -3,7 +3,8 @@
 ## Estado desta etapa
 
 - **Branch:** `feature/capri-autonomous-learning`; backup local preservado em `backup/pre-capri-autonomous-learning-20261110`.
-- **Base remota conhecida:** `origin/feature/capri-autonomous-learning` em `c9858d1`; antes desta etapa, a branch local estava 9 commits à frente. O push anterior falhou por falta de autenticação interativa.
+- **Commit funcional desta etapa:** `1c3a77c` — `feat: add WhatsApp webhook and Discord reconnect`.
+- **Base remota conhecida:** `origin/feature/capri-autonomous-learning` em `c9858d1`; antes desta etapa, a branch local estava 9 commits à frente, agora 10. O push anterior falhou por falta de autenticação interativa.
 - **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
 - **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
@@ -19,9 +20,8 @@
 
 ## Próximo passo exato
 
-1. Fazer commit descritivo desta etapa na branch de feature; registrar o SHA.
-2. Tentar push sem forçar e verificar o SHA remoto. Se a autenticação bloquear, manter o commit e registrar o bloqueio.
-3. Continuar o próximo item do `TODO.md`: permissões por aplicativo e níveis de autorização no Windows, sem implementar coleta oculta.
+1. Tentar push sem forçar e verificar o SHA remoto. Se a autenticação bloquear, manter o commit e registrar o bloqueio.
+2. Continuar o próximo item do `TODO.md`: permissões por aplicativo e níveis de autorização no Windows, sem implementar coleta oculta.
 
 ## Recuperação
 
