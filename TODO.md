@@ -75,6 +75,5 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 
 ## Bloqueios de publicação e continuidade
 
-- [ ] Autenticar o GitHub e publicar a branch apenas em `feature/capri-autonomous-learning`; verificar o SHA remoto após o push. Nunca enviar para `main` nem force-push.
-- [ ] Pushes anteriores falharam por falta de autenticação não interativa; os commits e alterações atuais permanecem locais. Verificar a referência remota antes de tentar novamente e publicar somente em `feature/capri-autonomous-learning`, sem force-push.
+- [ ] Autenticar o GitHub e publicar os commits locais somente em `feature/capri-autonomous-learning`; o último push falhou por falta de autenticação interativa e a referência remota confirmada continua em `c9858d19feab87ceb8a302eef236335610bc3dcd`. Verificar o SHA remoto após o push; nunca enviar para `main` nem usar force-push.
 - [ ] Depois de cada etapa, atualizar `PROGRESS.md`, `CHANGELOG.md`, `ARCHITECTURE.md` e este backlog; registrar o próximo passo verificável.

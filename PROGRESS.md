@@ -3,7 +3,7 @@
 ## Estado desta etapa
 
 - **Branch:** `feature/capri-autonomous-learning`; backup local preservado em `backup/pre-capri-autonomous-learning-20261110`.
-- **Último commit funcional:** `1eaa863` — `refactor: share authorized messaging command handler`; a atualização de continuidade foi registrada em um commit documental posterior.
+- **Último commit funcional:** `a7bfbe0` — `feat: add manual release version check`.
 - **Commit funcional desta etapa:** `1c3a77c` — `feat: add WhatsApp webhook and Discord reconnect`.
 - **Commit de privacidade por app:** `76b4b7d` — `feat: add per-app activity learning exclusions`.
 - **Commit de progresso:** `f2ef58f` registra os testes e o marco funcional.
@@ -22,7 +22,7 @@
 - **Dispatcher compartilhado:** Discord e WhatsApp usam o mesmo handler limitado para os sete comandos autorizados, com permissões por plataforma, limite e deduplicação comuns; `memory` retorna apenas contagens. Regressão cruzada passou nos testes dos dois serviços.
 - **Notificações de desenvolvimento:** opt-in desligado por padrão; controles de ativação/pausa imediata e preferências de quiet hours/limite por hora no tray. As mensagens são textos fixos por evento, sem prompts, conversas, nomes de arquivos ou logs; Discord usa o último canal autorizado e WhatsApp o último remetente autorizado dentro da janela de 24 horas. Deduplicação serializada e histórico local com hash do identificador de sessão, sem armazenar o identificador.
 - **Verificação desta etapa:** suíte completa aprovada, 85/85 testes; testes de destinatário Discord/WhatsApp, pausa, opt-in, quiet hours, limites, deduplicação, não persistência de conteúdo, update-check e localização. Sem conta real de Discord/Meta, portanto integração externa continua **PENDENTE DE VALIDAÇÃO EXTERNA**.
-- **Commit funcional local:** `c10fef1` — `feat: add opt-in development notifications`; ainda não enviado ao GitHub.
+- **Commit funcional anterior:** `c10fef1` — `feat: add opt-in development notifications`.
 - **Empacotamento:** `npm ci` e `npm run dist` concluíram com sucesso; artefato local `dist/Capri-Setup.exe` (126.044.991 bytes, SHA-256 `81783E5E3113C25A2942335DFC77CC23E52B07E4ED668A37106677761185BFCC`). Sem assinatura de código; não foi instalado nem validado em uma máquina Windows limpa.
 - **Atualizações:** verificação manual informativa concluída: consulta somente a versão estável pública e abre a página oficial apenas após escolha do usuário. O endpoint GitHub respondeu com `v0.5.2`, igual à versão instalada; nenhum download/instalação automática.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
@@ -33,12 +33,12 @@
 - WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
 - Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
 - Notificações de desenvolvimento permanecem desligadas até opt-in; update não executa código remoto, e não há execução remota arbitrária nem publicação autônoma.
-- Pushes anteriores falharam com `Cannot prompt because user interactivity has been disabled`; os commits até `e7fba95` permanecem locais. A branch remota não foi atualizada; verificar o SHA remoto antes de tentar novamente. Nunca enviar à `main` nem usar force-push.
+- Push do commit `a7bfbe0` falhou por falta de autenticação interativa. A verificação confirmou que a branch remota continua em `c9858d19feab87ceb8a302eef236335610bc3dcd`; os commits locais não foram publicados. Nunca enviar à `main` nem usar force-push.
 - A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
 
 ## Próximo passo exato
 
-1. Validar Discord/WhatsApp com contas autorizadas e instalar/testar `Capri-Setup.exe` em Windows limpo; sem contas ou VM/dispositivo limpo, manter esses itens como pendentes. Continuar a matriz de autorização/ações Windows sem adicionar leitura não autorizada de mensagens.
+1. Habilitar autenticação GitHub não interativa e publicar a branch verificando o SHA remoto; depois continuar a matriz de autorização/ações Windows e os testes de regressão. Validações com contas reais e Windows limpo permanecem pendentes até haver recursos autorizados.
 
 ## Recuperação
 
