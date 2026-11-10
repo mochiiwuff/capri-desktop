@@ -13,6 +13,7 @@ const {
   isQuietTime,
   normalizeIds,
   notificationDecision,
+  parseNotificationPreferences,
   parseCommand,
   verifyWhatsAppSignature,
 } = require('../src/main/messaging');
@@ -138,8 +139,15 @@ test('Discord service connects with encrypted settings, replies to authorized co
     content: 'Received status',
     allowed_mentions: { parse: [] },
   });
+  assert.deepEqual(await service.sendNotification('The task is complete.'), { sent: true });
+  assert.equal(requests.at(-1).url.endsWith('/channels/223456789012345678/messages'), true);
+  assert.deepEqual(JSON.parse(requests.at(-1).options.body), {
+    content: 'The task is complete.',
+    allowed_mentions: { parse: [] },
+  });
   service.stop();
   assert.equal(service.connected, false);
+  assert.deepEqual(await service.sendNotification('Should not be sent'), { sent: false });
 });
 
 test('Discord service reconnects after transient loss but stops retrying after manual disconnect', async () => {
@@ -315,6 +323,25 @@ test('notifications require opt-in and enforce quiet hours, hourly limits, and d
   assert.equal(notificationDecision({ now, preferences, history: [{ at: now - 1000, key: 'one' }, { at: now - 2000, key: 'two' }] }), 'rate-limited');
   assert.equal(notificationDecision({ now, preferences, history: [{ at: now + 1000, key: 'future' }] }), 'allowed');
   assert.equal(notificationDecision({ now, preferences }), 'allowed');
+});
+
+test('notification preferences accept strict time ranges and bounded limits', () => {
+  assert.deepEqual(parseNotificationPreferences({ quietHours: '22:00, 08:00', maxPerHour: '10' }), {
+    quietHours: { enabled: true, start: '22:00', end: '08:00' },
+    maxPerHour: 10,
+  });
+  assert.deepEqual(parseNotificationPreferences({ quietHours: '', maxPerHour: 60 }), {
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    maxPerHour: 60,
+  });
+  for (const request of [
+    { quietHours: '24:00, 08:00', maxPerHour: 10 },
+    { quietHours: '22:00, 22:00', maxPerHour: 10 },
+    { quietHours: '22:00, 08:00', maxPerHour: 0 },
+    { quietHours: '22:00, 08:00', maxPerHour: 61 },
+    { quietHours: '22:00, 08:00', maxPerHour: '1e1' },
+    { quietHours: null, maxPerHour: 10 },
+  ]) assert.equal(parseNotificationPreferences(request), null);
 });
 
 test('WhatsApp webhook signatures are verified against the exact raw body', () => {

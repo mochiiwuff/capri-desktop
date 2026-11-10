@@ -56,7 +56,7 @@ function rateLimitDecision(history = [], maxPerHour = 10, now = Date.now(), key 
 }
 
 function notificationDecision({ preferences = {}, history = [], key, now = Date.now() }) {
-  if (preferences.enabled !== true || preferences.notificationsEnabled !== true) return 'disabled';
+  if (preferences.enabled !== true || preferences.notificationsEnabled !== true || preferences.notificationsPaused === true) return 'disabled';
   if (isQuietTime(now, preferences.quietHours)) return 'quiet-hours';
   return rateLimitDecision(
     history,
@@ -65,6 +65,19 @@ function notificationDecision({ preferences = {}, history = [], key, now = Date.
     key,
     preferences.duplicateWindowMs,
   );
+}
+
+function parseNotificationPreferences(request) {
+  if (!request || typeof request !== 'object' || typeof request.quietHours !== 'string') return null;
+  const rawHours = request.quietHours.trim();
+  const rawLimit = String(request.maxPerHour ?? '');
+  if (!/^\d+$/.test(rawLimit)) return null;
+  const maxPerHour = Number(rawLimit);
+  if (!Number.isInteger(maxPerHour) || maxPerHour < 1 || maxPerHour > 60) return null;
+  if (!rawHours) return { quietHours: { enabled: false, start: '22:00', end: '08:00' }, maxPerHour };
+  const match = rawHours.match(/^((?:[01]\d|2[0-3]):[0-5]\d)\s*,\s*((?:[01]\d|2[0-3]):[0-5]\d)$/);
+  if (!match || match[1] === match[2]) return null;
+  return { quietHours: { enabled: true, start: match[1], end: match[2] }, maxPerHour };
 }
 
 function authorizeCommand({ text, sender, channelId, authorizedUsers, authorizedChannels, requireChannel = false }) {
@@ -296,6 +309,7 @@ module.exports = {
   isQuietTime,
   rateLimitDecision,
   notificationDecision,
+  parseNotificationPreferences,
   verifyWhatsAppSignature,
   createDiscordApi,
   createDiscordGateway,

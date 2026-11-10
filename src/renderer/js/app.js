@@ -781,6 +781,38 @@ async function boot() {
           });
         });
         break;
+      case 'setupNotifications':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const cfg = await host.getConfig();
+          const messaging = cfg.messaging || {};
+          const hours = await guide.askText({
+            face: 'look',
+            line: t.notificationHoursLine,
+            quote: t.notificationHoursHow,
+            placeholder: '22:00, 08:00',
+            value: messaging.quietHours?.enabled ? `${messaging.quietHours.start}, ${messaging.quietHours.end}` : '',
+            tag: 'QUIET HOURS',
+          });
+          if (!hours) return;
+          const maxPerHour = await guide.askText({
+            face: 'look',
+            line: t.notificationLimitLine,
+            quote: t.notificationLimitHow,
+            placeholder: '10',
+            value: String(messaging.maxPerHour || 10),
+            tag: 'NOTIFICATION LIMIT',
+          });
+          if (!maxPerHour) return;
+          const result = await host.configureNotifications({ quietHours: hours.text, maxPerHour: maxPerHour.text });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.notificationPreferencesSaved : t.notificationPreferencesInvalid,
+            hold: 6500,
+          });
+        });
+        break;
       case 'setupFree': // --dev: Claude Code (or Codex) through Ollama
         setup.free();
         break;

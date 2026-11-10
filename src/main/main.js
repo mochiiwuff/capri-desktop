@@ -28,6 +28,8 @@ const selfImprovement = require('./self-improvement');
 const { createDiscordService, parseDiscordIds } = require('./discord-service');
 const { createWhatsAppService, parseWhatsAppSenders } = require('./whatsapp-service');
 const { createMessagingCommandHandler } = require('./messaging-commands');
+const { createMessagingNotifications } = require('./messaging-notifications');
+const { parseNotificationPreferences } = require('./messaging');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -85,6 +87,22 @@ const whatsappService = createWhatsAppService({
   onStatus: (status) => {
     rebuildTray();
     if (status === 'error') console.error('[capri] WhatsApp webhook failed to start');
+  },
+});
+const messagingNotifications = createMessagingNotifications({
+  getConfig: () => config.load(),
+  updateConfig: (patch) => updateConfig(patch),
+  sendDiscord: (text) => discordService.sendNotification(text),
+  sendWhatsApp: (text) => whatsappService.sendNotification(text),
+  getMessage: (event) => {
+    const messages = {
+      UserPromptSubmit: 'notificationStarted',
+      Stop: 'notificationCompleted',
+      StopFailure: 'notificationFailed',
+      PostToolUseFailure: 'notificationFailed',
+      Notification: 'notificationApproval',
+    };
+    return TRAY[resolveLang(config.load().lang)][messages[event]];
   },
 });
 
@@ -766,6 +784,20 @@ function rebuildTray() {
           enabled: cfg.messaging?.whatsapp?.enabled === true,
           click: () => disconnectWhatsApp().catch((err) => console.error('[capri] WhatsApp shutdown failed:', err.message)),
         },
+        { type: 'separator' },
+        {
+          label: t.developmentNotifications,
+          type: 'checkbox',
+          checked: cfg.messaging?.notificationsEnabled === true,
+          click: (item) => saveMessagingSettings({ notificationsEnabled: item.checked }),
+        },
+        {
+          label: t.pauseNotifications,
+          type: 'checkbox',
+          checked: cfg.messaging?.notificationsPaused === true,
+          click: (item) => saveMessagingSettings({ notificationsPaused: item.checked }),
+        },
+        { label: t.notificationPreferences, click: () => sendCommand('setupNotifications') },
       ],
     },
     {
@@ -1162,6 +1194,12 @@ async function pickClaudeFolder() {
   updateConfig({ claudeCwd: filePaths[0] });
 }
 
+function saveMessagingSettings(patch) {
+  const messaging = config.load().messaging || {};
+  updateConfig({ messaging: { ...messaging, ...patch } });
+  rebuildTray();
+}
+
 function disconnectDiscord() {
   discordService.stop();
   updateConfig({ messagingEnabled: false });
@@ -1222,6 +1260,12 @@ function registerIpc() {
     whatsappListening: whatsappService.listening,
     whatsappEnabled: config.load().messaging?.whatsapp?.enabled === true,
   }));
+  ipcMain.handle('messaging:configureNotifications', (_e, request = {}) => {
+    const preferences = parseNotificationPreferences(request);
+    if (!preferences) return { ok: false, error: 'invalid-notification-preferences' };
+    saveMessagingSettings(preferences);
+    return { ok: true };
+  });
   ipcMain.handle('messaging:configureDiscord', async (_e, request = {}) => {
     const token = typeof request.token === 'string' ? request.token.trim() : '';
     if (!token || token.length > 512) return { ok: false, error: 'Enter a valid Discord bot token' };
@@ -1738,7 +1782,12 @@ function main() {
     createBridge({
       port: PORT,
       // her own Claude Code chat's hooks would cover its answer with theirs
-      onEvent: (evt) => !llm.isChatSession(evt.session_id) && overlay?.webContents.send('claude:event', evt),
+      onEvent: (evt) => {
+        if (llm.isChatSession(evt.session_id)) return;
+        messagingNotifications.notify(evt.hook_event_name, evt.session_id)
+          .catch((err) => console.error('[capri] development notification failed:', err.message));
+        overlay?.webContents.send('claude:event', evt);
+      },
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());

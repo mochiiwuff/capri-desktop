@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('host', {
   configureWhatsApp: (settings) => ipcRenderer.invoke('messaging:configureWhatsApp', settings),
   disconnectWhatsApp: () => ipcRenderer.invoke('messaging:disconnectWhatsApp'),
   messagingStatus: () => ipcRenderer.invoke('messaging:status'),
+  configureNotifications: (settings) => ipcRenderer.invoke('messaging:configureNotifications', settings),
   keyPage: (provider) => ipcRenderer.send('setup:keyPage', provider),
   launchThroughOllama: (integration) => ipcRenderer.invoke('setup:launch', integration),
   onSetupProgress: on('setup:progress'),

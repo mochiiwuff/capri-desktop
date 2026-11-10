@@ -119,7 +119,7 @@ test('WhatsApp service requires encrypted credentials and can be stopped cleanly
       whatsapp: {
         enabled,
         encryptedAccessToken: 'enc:access',
-        encryptedAppSecret: 'enc:app-secret',
+        encryptedAppSecret: `enc:${APP_SECRET}`,
         encryptedVerifyToken: 'enc:verify-token',
         phoneNumberId: '123456789012345',
         authorizedSenders: ['1234567890'],
@@ -145,6 +145,61 @@ test('WhatsApp service requires encrypted credentials and can be stopped cleanly
   assert.equal(state, 'disconnected');
   enabled = false;
   assert.deepEqual(await service.start(), { ok: false, error: 'WhatsApp is disabled' });
+});
+
+test('WhatsApp notifications only reach an authorized sender within the 24-hour service window', async (t) => {
+  const outbound = [];
+  let timestamp = Date.now();
+  const service = createWhatsAppService({
+    getSettings: () => ({
+      whatsapp: {
+        enabled: true,
+        encryptedAccessToken: 'enc:access',
+        encryptedAppSecret: `enc:${APP_SECRET}`,
+        encryptedVerifyToken: 'enc:verify-token',
+        phoneNumberId: '123456789012345',
+        authorizedSenders: ['1234567890'],
+        port: 0,
+      },
+    }),
+    decryptSecret: (value) => value.slice(4),
+    onCommand: async () => {},
+    now: () => timestamp,
+    fetchImpl: async (url, options) => {
+      outbound.push({ url, options });
+      return { ok: true, json: async () => ({ messages: [{ id: 'outbound-id' }] }) };
+    },
+  });
+  t.after(() => service.stop());
+
+  const started = await service.start();
+  assert.equal(started.ok, true);
+  const body = Buffer.from(JSON.stringify({
+    object: 'whatsapp_business_account',
+    entry: [{ changes: [{ value: { messages: [{
+      type: 'text', text: { body: '/capri status' }, from: '1234567890',
+    }] } }] }],
+  }));
+  const response = await fetch(`http://${started.address}/webhook`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-hub-signature-256': sign(body) },
+    body,
+  });
+  assert.equal(response.status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.deepEqual(await service.sendNotification('The task is complete.'), { sent: true });
+  assert.deepEqual(JSON.parse(outbound[0].options.body), {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: '1234567890',
+    type: 'text',
+    text: { preview_url: false, body: 'The task is complete.' },
+  });
+
+  timestamp += 24 * 60 * 60 * 1000;
+  assert.deepEqual(await service.sendNotification('Expired window'), { sent: false });
+  assert.equal(outbound.length, 1);
 });
 
 test('WhatsApp authorized sender input is strictly validated and normalized', () => {

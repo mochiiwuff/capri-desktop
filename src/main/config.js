@@ -33,8 +33,11 @@ const DEFAULTS = {
     },
     commandHistory: [],
     notificationsEnabled: false,
+    notificationsPaused: false,
     quietHours: { enabled: false, start: '22:00', end: '08:00' },
     maxPerHour: 10,
+    duplicateWindowMs: 900000,
+    notificationHistory: [],
   },
   customUrl: '',     // the 'custom' provider: any OpenAI-compatible base URL (http://host:port/v1)
   claudeCwd: null,   // the folder Claude Code works in (null: your home folder)

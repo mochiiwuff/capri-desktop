@@ -36,6 +36,8 @@ function createDiscordService({
   let generation = 0;
   let state = 'disconnected';
   let attempts = 0;
+  let api = null;
+  let notificationChannelId = null;
 
   function report(nextState) {
     state = nextState;
@@ -79,6 +81,7 @@ function createDiscordService({
       }
 
       const nextApi = createDiscordApi({ token, fetchImpl });
+      api = nextApi;
       const nextGateway = createDiscordGateway({
         token,
         authorizedUsers,
@@ -105,6 +108,7 @@ function createDiscordService({
           }
         },
         onCommand: async (event) => {
+          notificationChannelId = event.channelId;
           await onCommand(event, (text) => nextApi.sendMessage(event.channelId, text));
         },
       });
@@ -177,14 +181,23 @@ function createDiscordService({
     reconnectTimer = null;
     gateway?.disconnect();
     gateway = null;
+    api = null;
+    notificationChannelId = null;
     attempts = 0;
     report('disconnected');
     return { ok: true };
   }
 
+  async function sendNotification(text) {
+    if (!gateway?.connected || !api || !notificationChannelId) return { sent: false };
+    await api.sendMessage(notificationChannelId, text);
+    return { sent: true };
+  }
+
   return {
     start,
     stop,
+    sendNotification,
     get connected() { return gateway?.connected === true; },
     get state() { return state; },
     get reconnectAttempts() { return attempts; },
