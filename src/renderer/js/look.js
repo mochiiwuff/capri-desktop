@@ -174,6 +174,7 @@ export class Look {
       if (!snap.ok) {
         this.activeRequest = null;
         if (snap.code === 'excluded') this.panel.say({ kind: 'info', face: 'aside', line: t.excluded, hold: 6500 });
+        else if (snap.code === 'app-not-authorized') this.panel.say({ kind: 'info', face: 'aside', line: t.notAuthorized, hold: 6500 });
         else if (manual && snap.code !== 'consent') this.panel.say({ kind: 'info', face: 'aside', line: fmt(t.failed, { error: snap.error || snap.code }), hold: 6000 });
         return;
       }

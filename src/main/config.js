@@ -47,8 +47,10 @@ const DEFAULTS = {
   privacyPaused: false, // pauses all learning and screen observation without forgetting individual choices
   learningEntries: [], // user-reviewed local memories from conversation-learning candidates
   activityLearning: false, // activity tracking requires explicit opt-in
+  activityAllowedApps: [], // empty keeps the existing opt-in scope; otherwise only these apps are learned
   activityExcludeApps: [], // process names excluded from local activity learning
   privacyExcludeApps: [], // process names excluded from screen and activity learning
+  lookAllowedApps: [], // empty keeps the existing consent scope; otherwise only these apps may be analyzed
   learning: {
     enabled: false,
     facts: [],

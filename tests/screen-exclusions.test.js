@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeRules, isExcluded } = require('../src/main/screen-exclusions');
+const { normalizeRules, isExcluded, isAppAllowed } = require('../src/main/screen-exclusions');
 
 function moduleUrl(file) {
   const source = fs.readFileSync(file, 'utf8');
@@ -33,6 +33,15 @@ test('shared privacy app exclusions block screen analysis without storing titles
   assert.equal(isExcluded({ app: 'Browser', title: 'Personal conversation' }, sharedPrivacyApps), false);
 });
 
+test('per-modality app permissions are exact, normalized, and unrestricted only when empty', () => {
+  assert.equal(isAppAllowed('chrome.exe', []), true);
+  assert.equal(isAppAllowed('Chrome.EXE', [' chrome ']), true);
+  assert.equal(isAppAllowed('chromium', ['chrome']), false);
+  assert.equal(isAppAllowed(null, ['chrome']), false);
+  assert.equal(isAppAllowed('chrome', ['  ']), false);
+  assert.equal(isAppAllowed('chrome', 'chrome'), false);
+});
+
 test('screen consent, activity indicator, and exclusion controls have localized copy', async () => {
   const { LINES } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { TRAY } = require('../src/main/labels');
@@ -45,7 +54,13 @@ test('screen consent, activity indicator, and exclusion controls have localized 
     assert.ok(lines.look.privacyExclusionHint);
     assert.ok(lines.look.activityExclusionLine);
     assert.ok(lines.look.activityExclusionSaved);
+    assert.ok(lines.look.activityAllowedAppsLine);
+    assert.ok(lines.look.activityAllowedAppsHint);
+    assert.ok(lines.look.lookAllowedAppsLine);
+    assert.ok(lines.look.lookAllowedAppsHint);
     assert.ok(TRAY[lang].lookExclusions);
+    assert.ok(TRAY[lang].lookAllowedApps);
+    assert.ok(TRAY[lang].activityAllowedApps);
     assert.ok(TRAY[lang].privacyExclusions);
     assert.ok(TRAY[lang].privacyPause);
     assert.match(TRAY[lang].privacyState(true, true, true, true), /pause|paused|pausad|suspend|приостанов/i);

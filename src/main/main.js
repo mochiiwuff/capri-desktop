@@ -632,6 +632,20 @@ function updateConfig(patch) {
       privacyExcludeApps: screenExclusions.normalizeRules(patch.privacyExcludeApps),
     };
   }
+  if ('activityAllowedApps' in patch) {
+    if (!Array.isArray(patch.activityAllowedApps)) throw new TypeError('Activity app permissions must be a list');
+    changes = {
+      ...changes,
+      activityAllowedApps: screenExclusions.normalizeRules(patch.activityAllowedApps),
+    };
+  }
+  if ('lookAllowedApps' in patch) {
+    if (!Array.isArray(patch.lookAllowedApps)) throw new TypeError('Screen app permissions must be a list');
+    changes = {
+      ...changes,
+      lookAllowedApps: screenExclusions.normalizeRules(patch.lookAllowedApps),
+    };
+  }
   if ('lookExcludeApps' in patch || 'lookExcludeTerms' in patch) {
     changes = {
       ...changes,
@@ -663,13 +677,14 @@ function updateConfig(patch) {
     }
   }
   if ('privacyPaused' in patch) windowWatch?.refresh();
-  if ('privacyExcludeApps' in changes || 'lookExcludeApps' in changes || 'lookExcludeTerms' in changes) {
+  if ('privacyExcludeApps' in changes || 'lookExcludeApps' in changes || 'lookExcludeTerms' in changes
+    || 'lookAllowedApps' in changes) {
     const cfg = config.load();
     if (screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
       [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
       cfg.lookExcludeTerms,
-    )) {
+    ) || !screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)) {
       for (const [id, controller] of screenLooks) {
         controller.abort();
         snaps.delete(id);
@@ -795,6 +810,7 @@ function rebuildTray() {
           },
         },
         { label: t.lookExclusions, click: () => sendCommand('lookExclusions') },
+        { label: t.lookAllowedApps, click: () => sendCommand('lookAllowedApps') },
         { label: t.privacyExclusions, click: () => sendCommand('privacyExclusions') },
         {
           label: t.lookRevoke,
@@ -880,6 +896,7 @@ function rebuildTray() {
           checked: cfg.activityLearning === true,
           click: (item) => updateConfig({ activityLearning: item.checked }),
         },
+        { label: t.activityAllowedApps, click: () => sendCommand('activityAllowedApps') },
         { label: t.activityExclusions, click: () => sendCommand('activityExclusions') },
       ],
     },
@@ -1332,6 +1349,7 @@ function registerIpc() {
     const cfg = config.load();
     if (cfg.privacyPaused === true) return { ok: false, code: 'paused' };
     if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
+    if (!screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)) return { ok: false, code: 'app-not-authorized' };
     if (screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
       [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
@@ -1689,7 +1707,8 @@ function main() {
     });
     activityTimer = setInterval(() => {
       const cfg = config.load();
-      if (cfg.privacyPaused === true || cfg.activityLearning !== true || !foregroundApp) return;
+      if (cfg.privacyPaused === true || cfg.activityLearning !== true || !foregroundApp
+        || !screenExclusions.isAppAllowed(foregroundApp, cfg.activityAllowedApps)) return;
       const state = learning.readState(cfg.learning);
       state.activity.enabled = true;
       const next = learning.ingestWindowActivity(

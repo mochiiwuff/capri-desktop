@@ -15,4 +15,13 @@ function isExcluded({ app, title }, apps = [], terms = []) {
     || normalizeRules(terms).some((term) => windowTitle.includes(term));
 }
 
-module.exports = { normalizeRules, isExcluded };
+function isAppAllowed(app, allowedApps = []) {
+  if (!Array.isArray(allowedApps)) return false;
+  if (!allowedApps.length) return true;
+  const rules = normalizeRules(allowedApps);
+  if (!rules.length) return false;
+  const appName = String(app || '').replace(/\.exe$/i, '').trim().toLowerCase();
+  return Boolean(appName) && rules.some((rule) => appName === rule.replace(/\.exe$/i, ''));
+}
+
+module.exports = { normalizeRules, isExcluded, isAppAllowed };

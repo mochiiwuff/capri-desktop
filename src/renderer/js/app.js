@@ -827,6 +827,25 @@ async function boot() {
         panel.say({ kind: 'info', face: 'smug', line: t.exclusionSaved, hold: 4000 });
         break;
       }
+      case 'lookAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.lookAllowedAppsLine,
+          quote: (cfg.lookAllowedApps || []).join(', '),
+          placeholder: t.lookAllowedAppsLine,
+          value: (cfg.lookAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PERMISSIONS',
+          note: t.lookAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ lookAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.lookAllowedAppsSaved, hold: 4000 });
+        break;
+      }
       case 'activityExclusions': {
         const t = brain.t.look;
         const cfg = await host.getConfig();
@@ -844,6 +863,25 @@ async function boot() {
         const rules = [...new Set(exclusions.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
         await host.setConfig({ activityExcludeApps: rules });
         panel.say({ kind: 'info', face: 'smug', line: t.activityExclusionSaved, hold: 4000 });
+        break;
+      }
+      case 'activityAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.activityAllowedAppsLine,
+          quote: (cfg.activityAllowedApps || []).join(', '),
+          placeholder: t.activityAllowedAppsLine,
+          value: (cfg.activityAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'ACTIVITY PERMISSIONS',
+          note: t.activityAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ activityAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.activityAllowedAppsSaved, hold: 4000 });
         break;
       }
       case 'privacyExclusions': {

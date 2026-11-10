@@ -13,8 +13,9 @@
 - **Avanço desta continuação:** lista global de apps excluídos da observação de tela e do aprendizado de atividade; tela cancela captura ativa se a janela atual passar a ser bloqueada. Corrigidos também o IPC de normalização da lista de exclusão de atividade e os textos localizados do guia.
 - **Commit funcional atual:** `d48e5aa` — `feat: add global privacy pause controls`.
 - **Avanço atual:** pausa global de privacidade, com indicação de estado no tooltip/menu do tray (incluindo captura manual em andamento) e pausa/retomada pelo painel remoto. Cancela capturas e imagens temporárias, impede aprendizado enquanto pausado e preserva as opções individuais para retomada.
+- **Implementado nesta continuação:** listas separadas de aplicativos autorizados para análise de tela e aprendizado de atividade, com nomes de processo exatos, edição pela bandeja em cinco idiomas e falha fechada para configuração inválida. Consentimento global e exclusões continuam prevalecendo; lista vazia preserva o escopo compatível anterior.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
-- **Testes:** suíte completa passou (71/71), incluindo pausa/retomada do aprendizado, tradução do status e acesso remoto aos controles globais. `node --check`, `git diff --check` e diagnósticos do editor também passaram.
+- **Testes:** suíte completa passou (72/72), incluindo pausa/retomada, controles remotos, normalização e regras das listas autorizadas. `node --check`, `git diff --check` e diagnósticos do editor também passaram.
 
 ## Bloqueios e limites
 
@@ -26,8 +27,8 @@
 
 ## Próximo passo exato
 
-1. Tentar push do commit `d48e5aa` sem force-push; registrar autenticação se continuar indisponível.
-2. Continuar permissões granulares por app/modalidade no Windows, sem implementar coleta oculta.
+1. Commitar as listas autorizadas por modalidade e atualizar o SHA funcional; tentar push sem force-push, registrando autenticação se continuar indisponível.
+2. Implementar controles por app para ações de interação e ampliar testes de negação/interrupção, sem coleta oculta.
 
 ## Recuperação
 
