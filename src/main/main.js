@@ -27,7 +27,7 @@ const { createRemoteControl } = require('./remote-control');
 const selfImprovement = require('./self-improvement');
 const { createDiscordService, parseDiscordIds } = require('./discord-service');
 const { createWhatsAppService, parseWhatsAppSenders } = require('./whatsapp-service');
-const { createDiscordCommandHandler } = require('./discord-commands');
+const { createMessagingCommandHandler } = require('./messaging-commands');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -62,7 +62,7 @@ let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
 // Ollama's cloud, as last seen: your account ({ name } or { signin }) and the models free with it
 let cloud = { at: 0, account: null, free: [] };
 const chats = new Map(); // id -> AbortController of an answer being streamed
-const handleDiscordCommand = createDiscordCommandHandler({
+const handleMessagingCommand = createMessagingCommandHandler({
   getConfig: () => config.load(),
   updateConfig,
 });
@@ -72,7 +72,7 @@ const discordService = createDiscordService({
     return { enabled: cfg.messagingEnabled === true, discord: cfg.messaging?.discord };
   },
   decryptToken: (encryptedToken) => setup.openKeys({ token: encryptedToken }).token,
-  onCommand: handleDiscordCommand,
+  onCommand: handleMessagingCommand,
   onStatus: (status) => {
     rebuildTray();
     if (status === 'error') console.error('[capri] Discord Gateway reported a connection error');
@@ -81,7 +81,7 @@ const discordService = createDiscordService({
 const whatsappService = createWhatsAppService({
   getSettings: () => ({ whatsapp: config.load().messaging?.whatsapp }),
   decryptSecret: (encryptedSecret) => setup.openKeys({ secret: encryptedSecret }).secret,
-  onCommand: handleDiscordCommand,
+  onCommand: handleMessagingCommand,
   onStatus: (status) => {
     rebuildTray();
     if (status === 'error') console.error('[capri] WhatsApp webhook failed to start');

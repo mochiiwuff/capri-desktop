@@ -24,7 +24,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [ ] Discord: validar autenticação e mensagens com um bot/servidor real autorizado; testes atuais usam mocks.
 - [x] Discord: reconexão automática com backoff limitado, cancelamento em parada e tratamento sem retry para credenciais rejeitadas; validar com conta real continua pendente.
 - [ ] Discord: painel de preferências de notificações, destinatários e quiet hours; entrega proativa só após opt-in e com limites/deduplicação.
-- [ ] Discord: compartilhar o dispatcher/núcleo autorizado da Capri para perguntas úteis, sem transformar comandos remotos em execução irrestrita de tarefas. `memory` continua sem enviar conteúdo privado.
+- [x] Compartilhar entre Discord e WhatsApp o dispatcher autorizado com comandos fechados e limites comuns; `memory` informa contagens, sem enviar conteúdo privado. A execução remota arbitrária segue desativada.
 - [ ] Windows: consolidar o que já existe (janela ativa, lista de apps, captura autorizada, abrir/fechar e ações disponíveis) com teste ponta a ponta e confirmação por risco.
 - [ ] Empacotamento: a configuração do `electron-builder` já declara NSIS e atalhos, mas ainda falta gerar e testar o instalador em ambiente Windows limpo; o nome solicitado é `Capri-Setup.exe`.
 
@@ -34,7 +34,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Implementar webhook local WhatsApp Business Cloud API com desafio, assinatura HMAC, allowlist e roteamento de comandos autorizados; o HTTPS público deve ser encaminhado pelo usuário.
 - [x] Implementar respostas a comandos recebidos pela Cloud API oficial e documentar a janela de atendimento; templates aprovados e mensagens iniciadas pela empresa não são implementados.
 - [x] Criar configuração segura WhatsApp (tokens/segredos em `safeStorage` quando suportado), conexão/desconexão, porta local e allowlist.
-- [ ] Integrar Discord e WhatsApp a um núcleo comum de comandos/memória/permissões, sem compartilhar conteúdo do computador ou memória sem autorização específica.
+- [x] Integrar Discord e WhatsApp ao mesmo dispatcher de comandos autorizados e às permissões/limites comuns; nenhum conteúdo privado do computador ou das memórias é compartilhado.
 - [ ] Adicionar preferências para quiet hours, limites por hora, deduplicação e pausa global de comunicação.
 - [ ] Testar integrações com serviços reais somente quando o usuário fornecer contas/credenciais autorizadas; marcar ausência de validação como **PENDENTE DE VALIDAÇÃO EXTERNA**.
 

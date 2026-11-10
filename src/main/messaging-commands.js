@@ -2,9 +2,9 @@
 
 const { COMMANDS, rateLimitDecision } = require('./messaging');
 
-function createDiscordCommandHandler({ getConfig, updateConfig, now = Date.now } = {}) {
+function createMessagingCommandHandler({ getConfig, updateConfig, now = Date.now } = {}) {
   if (typeof getConfig !== 'function' || typeof updateConfig !== 'function') {
-    throw new TypeError('Discord command callbacks are required');
+    throw new TypeError('Messaging command callbacks are required');
   }
 
   return async ({ command }, reply) => {
@@ -53,4 +53,4 @@ function createDiscordCommandHandler({ getConfig, updateConfig, now = Date.now }
   };
 }
 
-module.exports = { createDiscordCommandHandler };
+module.exports = { createMessagingCommandHandler };

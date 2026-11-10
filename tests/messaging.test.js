@@ -17,7 +17,7 @@ const {
   verifyWhatsAppSignature,
 } = require('../src/main/messaging');
 const { createDiscordService, parseDiscordIds } = require('../src/main/discord-service');
-const { createDiscordCommandHandler } = require('../src/main/discord-commands');
+const { createMessagingCommandHandler } = require('../src/main/messaging-commands');
 
 test('Discord setup requires valid numeric allowlists', () => {
   assert.deepEqual(parseDiscordIds('1234567890, 2234567890', 'users'), ['1234567890', '2234567890']);
@@ -25,7 +25,7 @@ test('Discord setup requires valid numeric allowlists', () => {
   assert.throws(() => parseDiscordIds('1234567890, nope', 'users'), /comma-separated/);
 });
 
-test('Discord commands pause privacy-sensitive observation, resume conversation learning only, and limit replies', async () => {
+test('shared messaging commands pause privacy-sensitive observation and limit replies', async () => {
   let timestamp = 100000;
   const state = {
     learningEnabled: true,
@@ -33,10 +33,10 @@ test('Discord commands pause privacy-sensitive observation, resume conversation 
     watchScreen: true,
     memories: ['private note'],
     learningEntries: [{ text: 'private learning entry' }],
-    messaging: { maxPerHour: 3, commandHistory: [] },
+    messaging: { maxPerHour: 10, commandHistory: [] },
   };
   const updates = [];
-  const handler = createDiscordCommandHandler({
+  const handler = createMessagingCommandHandler({
     getConfig: () => state,
     updateConfig: (patch) => {
       updates.push(patch);
@@ -62,9 +62,16 @@ test('Discord commands pause privacy-sensitive observation, resume conversation 
   assert.equal(replies.at(-1).includes('private note'), false);
   assert.equal(replies.at(-1).includes('private learning entry'), false);
   timestamp += 16000;
-  await handler({ command: 'status' }, reply);
-  assert.equal(replies.length, 3);
+  await handler({ platform: 'discord', command: 'status' }, reply);
+  assert.equal(replies.length, 4);
   assert.equal(updates.some((patch) => patch.messaging?.commandHistory?.length), true);
+
+  timestamp += 16000;
+  await handler({ platform: 'whatsapp', command: 'status' }, reply);
+  assert.equal(replies.length, 5);
+  assert.match(replies.at(-1), /Capri is running/);
+  await handler({ platform: 'whatsapp', command: 'status' }, reply);
+  assert.equal(replies.length, 5);
 });
 
 test('Discord service connects with encrypted settings, replies to authorized commands, and disconnects', async () => {

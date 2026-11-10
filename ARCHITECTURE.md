@@ -50,7 +50,7 @@ Chat ──> classificador local ──> proposta visível ──aceite──> l
 Metadados de processo ──consentimento separado──> agregados locais de atividade
 Observação de tela ──permissão separada/exclusões locais──> captura temporária
 Painel remoto autenticado ──loopback/proxy Tailscale configurado pelo usuário──> status/controles limitados
-Comandos Discord autorizados ──token em safeStorage──> Gateway / Bot API oficial
+Discord/WhatsApp autorizados ──allowlists + credenciais em safeStorage──> dispatcher comum limitado ──> Gateway/Bot API oficial
 Meta webhook ──proxy HTTPS do usuário──> loopback + allowlist/HMAC ──> Cloud API oficial
 ```
 
@@ -61,8 +61,8 @@ incorporados ao backlog. O procedimento de configuração WhatsApp está em `doc
 apps e a pausa global complementam as permissões por modalidade, mas não substituem uma matriz completa de autorização
 para cada ação do Windows. Os requisitos devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
 entrada `windows.js`, `look.js` e `activity.js`; ações de aplicativos passam por `apps.js`/`system.js`; permissões e
-auditoria devem ser verificadas no processo principal antes de qualquer ação. Integrações de mensagens devem chamar
-um dispatcher comum limitado, sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,
+auditoria devem ser verificadas no processo principal antes de qualquer ação. Discord e WhatsApp já chamam o mesmo
+dispatcher de comandos fechados, compartilhando limites e comportamento sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,
 accessibility, permissions, interaction e integrations) só devem virar módulos próprios quando houver uma
 responsabilidade que não esteja coberta pelos módulos atuais.
 

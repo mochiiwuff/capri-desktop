@@ -19,6 +19,7 @@
 - **Implementado nesta continuação:** listas separadas de aplicativos autorizados para análise de tela e aprendizado de atividade, com nomes de processo exatos, edição pela bandeja em cinco idiomas e falha fechada para configuração inválida. Consentimento global e exclusões continuam prevalecendo; lista vazia preserva o escopo compatível anterior.
 - **Segurança de interação:** fechamento automático de páginas de outras IAs foi desativado por padrão e a autorização anterior implícita de versões antigas não é preservada; a pessoa precisa habilitar a opção explicitamente na bandeja. Fechamento solicitado de apps segue com confirmação e force-close com uma segunda.
 - **Controle de fechamento por app:** lista opcional de processos permitidos, editável pelo tray em cinco idiomas; o processo principal bloqueia apps fora da lista na ação individual e no modo jogo. O modo jogo informa quais apps ficaram bloqueados.
+- **Dispatcher compartilhado:** Discord e WhatsApp usam o mesmo handler limitado para os sete comandos autorizados, com permissões por plataforma, limite e deduplicação comuns; `memory` retorna apenas contagens. Regressão cruzada passou nos testes dos dois serviços.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
 - **Testes:** suíte completa passou (74/74); sintaxe dos arquivos alterados e `git diff --check` também passaram.
 
@@ -27,12 +28,12 @@
 - WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
 - Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
 - Não há notificações espontâneas, atualização automática, execução remota arbitrária ou publicação autônoma.
-- Push mais recente de `fdb05c11d1fbf39581fd9f18f553d9436947d8c7` falhou: `Cannot prompt because user interactivity has been disabled`. Remoto confirmado permanece `c9858d19feab87ceb8a302eef236335610bc3dcd`; branch local está 21 commits à frente e está preservada. Não enviar à `main` nem usar force-push.
+- Push de `20b90c7d86f5daf92c1bf63530e61240cc32be6f` falhou: `Cannot prompt because user interactivity has been disabled`. Remoto confirmado permanece `c9858d19feab87ceb8a302eef236335610bc3dcd`; a branch local estava 22 commits à frente antes desta continuação e permanece preservada. Não enviar à `main` nem usar force-push.
 - A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
 
 ## Próximo passo exato
 
-1. Extrair o dispatcher autorizado comum das integrações Discord/WhatsApp e adicionar testes de compatibilidade das permissões, sem permitir execução remota arbitrária.
+1. Conectar notificações de desenvolvimento opt-in ao Discord/WhatsApp, com preferências editáveis, quiet hours, deduplicação, limite horário e pausa imediata; usar apenas resumos sem prompts, conversas ou conteúdo sensível.
 
 ## Recuperação
 
