@@ -59,7 +59,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Gerar o instalador NSIS x64 para Windows com nome `Capri-Setup.exe`, dependências incluídas e atalhos declarados; build local concluído sem certificado de assinatura.
 - [ ] Validar instalação, inicialização, opção de iniciar com Windows, preservação de configurações/memórias e desinstalação em ambiente limpo sem VS Code/ambiente de desenvolvimento.
 - [ ] Avaliar versão portátil sem comprometer armazenamento seguro de segredos nem persistência dos dados.
-- [ ] Implementar verificação de atualização que apenas informe o usuário; exigir autorização antes de baixar/instalar e preservar dados locais.
+- [x] Implementar verificação manual e somente informativa da versão estável publicada; abrir a página oficial de releases exige clique e nenhum instalador é baixado/executado automaticamente. Download/instalação automática continuam intencionalmente fora do escopo atual.
 - [ ] Projetar recuperação/rollback de versão e testar atualização e desinstalação sem apagar dados pessoais inadvertidamente.
 - [ ] Publicar instalador em GitHub Releases somente após testes, revisão e autorização explícita; nunca publicar credenciais ou dados privados.
 

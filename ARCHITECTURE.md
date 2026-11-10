@@ -40,6 +40,7 @@ Capri é o aplicativo Electron existente, com um processo principal que integra 
 - `src/main/self-improvement.js` inspeciona fontes/documentação localmente, executa análises estáticas delimitadas e testes selecionados após confirmação, e compara resumos de execuções.
 - Propostas locais de alteração são exibidas para revisão e confirmação, restritas a arquivo existente em `src/`, verificadas por hash, respaldadas e reversíveis por journal. Aplicações concorrentes são serializadas.
 - O fluxo atual não é desenvolvimento autônomo irrestrito: não executa comandos arbitrários, não publica alterações nem edita/exclui arquivos sem confirmação. Um fluxo isolado de Git com revisão, testes e autorização de publicação ainda é pendente.
+- A verificação manual de atualização em `src/main/update-check.js` lê somente o metadado público da release estável no GitHub; se houver versão mais nova, a pessoa escolhe abrir a página oficial. Nenhum pacote é baixado, instalado ou executado pelo verificador.
 
 ## Fluxo resumido
 

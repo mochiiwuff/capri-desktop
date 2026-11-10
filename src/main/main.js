@@ -30,6 +30,7 @@ const { createWhatsAppService, parseWhatsAppSenders } = require('./whatsapp-serv
 const { createMessagingCommandHandler } = require('./messaging-commands');
 const { createMessagingNotifications } = require('./messaging-notifications');
 const { parseNotificationPreferences } = require('./messaging');
+const { checkForUpdate } = require('./update-check');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -732,6 +733,57 @@ function updateConfig(patch) {
   return cfg;
 }
 
+async function checkCapriUpdates() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  let result;
+  try {
+    result = await checkForUpdate({ currentVersion: app.getVersion() });
+  } catch (error) {
+    console.error('[capri] update check failed:', error.message);
+    await dialog.showMessageBox(overlay, {
+      type: 'warning',
+      title: t.updateCheck,
+      message: t.updateCheckFailed,
+      buttons: [t.ok],
+      defaultId: 0,
+    });
+    return;
+  }
+  if (!result.updateAvailable) {
+    await dialog.showMessageBox(overlay, {
+      type: 'info',
+      title: t.updateCurrentTitle,
+      message: t.updateCurrent(result.currentVersion),
+      buttons: [t.ok],
+      defaultId: 0,
+    });
+    return;
+  }
+  const choice = await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.updateAvailableTitle,
+    message: t.updateAvailable(result.latestVersion),
+    detail: t.updateCurrent(result.currentVersion),
+    buttons: [t.openRelease, t.later],
+    defaultId: 1,
+    cancelId: 1,
+  });
+  if (choice.response === 0) {
+    try {
+      await shell.openExternal(result.releaseUrl);
+    } catch (error) {
+      console.error('[capri] could not open update releases page:', error.message);
+      await dialog.showMessageBox(overlay, {
+        type: 'warning',
+        title: t.updateAvailableTitle,
+        message: t.openReleaseFailed,
+        buttons: [t.ok],
+        defaultId: 0,
+      });
+    }
+  }
+}
+
 function rebuildTray() {
   if (!tray) return;
   const cfg = config.load();
@@ -811,6 +863,7 @@ function rebuildTray() {
         { label: t.undoPatch, click: () => undoLatestLocalPatch().catch(showProjectToolError) },
       ],
     },
+    { label: t.updateCheck, click: () => checkCapriUpdates().catch((err) => console.error('[capri] update dialog failed:', err.message)) },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
     { label: t.memory, click: () => sendCommand('memory') },
     { label: t.talk, click: () => sendCommand('chat') },
@@ -1784,8 +1837,13 @@ function main() {
       // her own Claude Code chat's hooks would cover its answer with theirs
       onEvent: (evt) => {
         if (llm.isChatSession(evt.session_id)) return;
-        messagingNotifications.notify(evt.hook_event_name, evt.session_id)
-          .catch((err) => console.error('[capri] development notification failed:', err.message));
+        if (!evt.demo) {
+          const source = /^(codex|agy):/.exec(String(evt.session_id || ''))?.[1] || 'claude';
+          if (source === activeAssistant().id) {
+            messagingNotifications.notify(evt.hook_event_name, evt.session_id)
+              .catch((err) => console.error('[capri] development notification failed:', err.message));
+          }
+        }
         overlay?.webContents.send('claude:event', evt);
       },
       onDebug: DEV ? debugHandler : null,

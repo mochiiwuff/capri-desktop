@@ -317,7 +317,7 @@ own. You can choose another one in her menu.
 
 ### Quick start (Windows, no coding)
 
-1. Download **`Capri-Setup-x.y.z.exe`** from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
+1. Download **`Capri-Setup.exe`** from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
    and run it. It installs for your user only (no admin rights), adds a desktop shortcut and starts Capri.
    You don't need Node.js or anything else.
 2. The installer isn't signed (a code-signing certificate costs money), so Windows SmartScreen may say
@@ -506,6 +506,10 @@ to the most recent authorized sender, within WhatsApp's 24-hour customer-service
 generic event text. Quiet hours, hourly limits, deduplication, and immediate pause apply. Capri does not implement
 approved templates or business-initiated messaging outside that window. Do not paste messaging credentials into
 `config.json` or commit them.
+
+To check for a Capri release manually, choose **Check for updates** from the tray menu. Capri reads the latest
+public release version and reports whether one is available. If there is an update, opening its official GitHub
+releases page is a separate choice; Capri never downloads or installs an update automatically.
 
 ## Art direction
 

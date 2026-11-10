@@ -21,23 +21,24 @@
 - **Controle de fechamento por app:** lista opcional de processos permitidos, editável pelo tray em cinco idiomas; o processo principal bloqueia apps fora da lista na ação individual e no modo jogo. O modo jogo informa quais apps ficaram bloqueados.
 - **Dispatcher compartilhado:** Discord e WhatsApp usam o mesmo handler limitado para os sete comandos autorizados, com permissões por plataforma, limite e deduplicação comuns; `memory` retorna apenas contagens. Regressão cruzada passou nos testes dos dois serviços.
 - **Notificações de desenvolvimento:** opt-in desligado por padrão; controles de ativação/pausa imediata e preferências de quiet hours/limite por hora no tray. As mensagens são textos fixos por evento, sem prompts, conversas, nomes de arquivos ou logs; Discord usa o último canal autorizado e WhatsApp o último remetente autorizado dentro da janela de 24 horas. Deduplicação serializada e histórico local com hash do identificador de sessão, sem armazenar o identificador.
-- **Verificação desta etapa:** suíte completa aprovada, 81/81 testes; testes de destinatário Discord/WhatsApp, pausa, opt-in, quiet hours, limites, deduplicação, não persistência de conteúdo e localização. Sem conta real de Discord/Meta, portanto integração externa continua **PENDENTE DE VALIDAÇÃO EXTERNA**.
+- **Verificação desta etapa:** suíte completa aprovada, 85/85 testes; testes de destinatário Discord/WhatsApp, pausa, opt-in, quiet hours, limites, deduplicação, não persistência de conteúdo, update-check e localização. Sem conta real de Discord/Meta, portanto integração externa continua **PENDENTE DE VALIDAÇÃO EXTERNA**.
 - **Commit funcional local:** `c10fef1` — `feat: add opt-in development notifications`; ainda não enviado ao GitHub.
-- **Empacotamento:** `npm ci` e `npm run dist` concluíram com sucesso; artefato local `dist/Capri-Setup.exe` (126.043.688 bytes, SHA-256 `D83E606F25D30CE252321A92A469180729F888255D2041DE088D6ABE7EA65160`). Sem assinatura de código; não foi instalado nem validado em uma máquina Windows limpa.
+- **Empacotamento:** `npm ci` e `npm run dist` concluíram com sucesso; artefato local `dist/Capri-Setup.exe` (126.044.991 bytes, SHA-256 `81783E5E3113C25A2942335DFC77CC23E52B07E4ED668A37106677761185BFCC`). Sem assinatura de código; não foi instalado nem validado em uma máquina Windows limpa.
+- **Atualizações:** verificação manual informativa concluída: consulta somente a versão estável pública e abre a página oficial apenas após escolha do usuário. O endpoint GitHub respondeu com `v0.5.2`, igual à versão instalada; nenhum download/instalação automática.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
-- **Testes:** suíte completa passou (74/74); sintaxe dos arquivos alterados e `git diff --check` também passaram.
+- **Testes:** suíte completa passou (85/85); sintaxe dos arquivos alterados e `git diff --check` também passaram.
 
 ## Bloqueios e limites
 
 - WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
 - Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
 - Notificações de desenvolvimento permanecem desligadas até opt-in; update não executa código remoto, e não há execução remota arbitrária nem publicação autônoma.
-- Pushes anteriores falharam com `Cannot prompt because user interactivity has been disabled`; os commits novos, incluindo `c10fef1`, permanecem locais. A branch remota não foi atualizada; verificar o SHA remoto antes de tentar novamente. Nunca enviar à `main` nem usar force-push.
+- Pushes anteriores falharam com `Cannot prompt because user interactivity has been disabled`; os commits até `e7fba95` permanecem locais. A branch remota não foi atualizada; verificar o SHA remoto antes de tentar novamente. Nunca enviar à `main` nem usar force-push.
 - A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
 
 ## Próximo passo exato
 
-1. Validar Discord/WhatsApp com contas autorizadas e instalar/testar `Capri-Setup.exe` em Windows limpo; sem contas ou VM/dispositivo limpo, manter esses itens como pendentes.
+1. Validar Discord/WhatsApp com contas autorizadas e instalar/testar `Capri-Setup.exe` em Windows limpo; sem contas ou VM/dispositivo limpo, manter esses itens como pendentes. Continuar a matriz de autorização/ações Windows sem adicionar leitura não autorizada de mensagens.
 
 ## Recuperação
 
