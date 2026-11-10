@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeRules, isExcluded, isAppAllowed } = require('../src/main/screen-exclusions');
-const { DEFAULTS } = require('../src/main/config');
+const { DEFAULTS, closePagesEnabled } = require('../src/main/config');
 
 function moduleUrl(file) {
   const source = fs.readFileSync(file, 'utf8');
@@ -46,6 +46,9 @@ test('per-modality app permissions are exact, normalized, and unrestricted only 
 test('destructive page closing is disabled unless explicitly authorized', () => {
   assert.equal(DEFAULTS.closePages, false);
   assert.equal(DEFAULTS.closePagesAuthorized, false);
+  assert.equal(closePagesEnabled({ closePages: true }), false);
+  assert.equal(closePagesEnabled({ closePages: true, closePagesAuthorized: true }), true);
+  assert.equal(closePagesEnabled({ closePages: false, closePagesAuthorized: true }), false);
 });
 
 test('screen consent, activity indicator, and exclusion controls have localized copy', async () => {

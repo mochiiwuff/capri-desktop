@@ -108,4 +108,8 @@ function save(patch) {
   return cache;
 }
 
-module.exports = { load, save, file, DEFAULTS };
+function closePagesEnabled(cfg = load()) {
+  return cfg.closePages === true && cfg.closePagesAuthorized === true;
+}
+
+module.exports = { load, save, file, DEFAULTS, closePagesEnabled };
