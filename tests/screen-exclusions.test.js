@@ -43,6 +43,14 @@ test('per-modality app permissions are exact, normalized, and unrestricted only 
   assert.equal(isAppAllowed('chrome', 'chrome'), false);
 });
 
+test('user-confirmed app closing can be limited to an exact process allowlist', () => {
+  assert.deepEqual(DEFAULTS.closeAllowedApps, []);
+  assert.equal(isAppAllowed('notepad.exe', DEFAULTS.closeAllowedApps), true);
+  assert.equal(isAppAllowed('notepad.exe', normalizeRules([' Notepad.EXE '])), true);
+  assert.equal(isAppAllowed('notepad-helper.exe', ['notepad']), false);
+  assert.equal(isAppAllowed(null, ['notepad']), false);
+});
+
 test('destructive page closing is disabled unless explicitly authorized', () => {
   assert.equal(DEFAULTS.closePages, false);
   assert.equal(DEFAULTS.closePagesAuthorized, false);
@@ -55,6 +63,8 @@ test('screen consent, activity indicator, and exclusion controls have localized 
   const { LINES } = await import(moduleUrl(path.join(__dirname, '../src/renderer/js/lines.js')));
   const { TRAY } = require('../src/main/labels');
   for (const [lang, lines] of Object.entries(LINES)) {
+    const hasCopy = (value, key) => Boolean(value && typeof value === 'object'
+      && (Object.hasOwn(value, key) || Object.values(value).some((nested) => hasCopy(nested, key))));
     assert.ok(lines.look.active);
     assert.ok(lines.look.cancel);
     assert.ok(lines.look.exclusionApps);
@@ -67,8 +77,12 @@ test('screen consent, activity indicator, and exclusion controls have localized 
     assert.ok(lines.look.activityAllowedAppsHint);
     assert.ok(lines.look.lookAllowedAppsLine);
     assert.ok(lines.look.lookAllowedAppsHint);
+    assert.ok(lines.look.closeAllowedAppsLine);
+    assert.ok(lines.look.closeAllowedAppsHint);
+    assert.ok(hasCopy(lines, 'gameCloseBlocked'));
     assert.ok(TRAY[lang].lookExclusions);
     assert.ok(TRAY[lang].lookAllowedApps);
+    assert.ok(TRAY[lang].closeAllowedApps);
     assert.ok(TRAY[lang].activityAllowedApps);
     assert.ok(TRAY[lang].privacyExclusions);
     assert.ok(TRAY[lang].privacyPause);

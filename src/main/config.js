@@ -50,6 +50,7 @@ const DEFAULTS = {
   activityExcludeApps: [], // process names excluded from local activity learning
   privacyExcludeApps: [], // process names excluded from screen and activity learning
   lookAllowedApps: [], // empty keeps the existing consent scope; otherwise only these apps may be analyzed
+  closeAllowedApps: [], // optional additional process allowlist for user-confirmed app closing
   learning: {
     enabled: false,
     facts: [],

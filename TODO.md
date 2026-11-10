@@ -43,7 +43,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Adicionar lista de processos excluídos do aprendizado de atividade, preservando as exclusões de app/título já existentes para análise de tela.
 - [x] Adicionar lista global de processos excluídos tanto da análise de tela como do aprendizado de atividade.
 - [x] Permitir limitar análise de tela e aprendizado de atividade a listas separadas de apps autorizados; lista vazia preserva o consentimento global anterior para compatibilidade.
-- [ ] Completar permissões granulares por aplicativo para cada modalidade de observação e interação no Windows; listas autorizadas individuais já limitam tela e atividade, mas ações de interação ainda não têm escopo configurável por app.
+- [x] Adicionar lista opcional de processos autorizados para fechamento solicitado; quando preenchida, bloqueia processos não listados no fechamento individual e no modo jogo. O pedido de fechamento continua exigindo confirmação, e encerramento forçado exige uma segunda.
 - [x] Mostrar no tooltip/menu do tray quando aprendizado/observação estão ativos e oferecer interrupção imediata e pausa global que cancela capturas e preserva as permissões individuais.
 - [ ] Avaliar APIs oficiais de acessibilidade/UI Automation para identificar controles visíveis; usar captura/OCR somente com consentimento explícito. Não implementar keylogging, leitura oculta, extração de sessões/tokens ou vigilância de clipboard.
 - [ ] Permitir resumir mensagens visíveis em apps que o usuário autorizou, separando conversas e mantendo o escopo do conteúdo limitado ao que foi permitido.
@@ -76,5 +76,5 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 ## Bloqueios de publicação e continuidade
 
 - [ ] Autenticar o GitHub e publicar a branch apenas em `feature/capri-autonomous-learning`; verificar o SHA remoto após o push. Nunca enviar para `main` nem force-push.
-- [ ] Última tentativa de push da branch falhou por falta de autenticação não interativa; `origin/feature/capri-autonomous-learning` permanece em `c9858d1`. A branch local estava 20 commits à frente no SHA `4b0b57a`; preservar e publicar apenas após autenticação, sem force-push.
+- [ ] Última tentativa de push da branch falhou por falta de autenticação não interativa; `origin/feature/capri-autonomous-learning` permanece em `c9858d1`. A branch local está 21 commits à frente no SHA `fdb05c1`; preservar e publicar apenas após autenticação, sem force-push.
 - [ ] Depois de cada etapa, atualizar `PROGRESS.md`, `CHANGELOG.md`, `ARCHITECTURE.md` e este backlog; registrar o próximo passo verificável.

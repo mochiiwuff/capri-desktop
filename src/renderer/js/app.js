@@ -846,6 +846,25 @@ async function boot() {
         panel.say({ kind: 'info', face: 'smug', line: t.lookAllowedAppsSaved, hold: 4000 });
         break;
       }
+      case 'closeAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.closeAllowedAppsLine,
+          quote: (cfg.closeAllowedApps || []).join(', '),
+          placeholder: t.closeAllowedAppsLine,
+          value: (cfg.closeAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'APP PERMISSIONS',
+          note: t.closeAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ closeAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.closeAllowedAppsSaved, hold: 4000 });
+        break;
+      }
       case 'activityExclusions': {
         const t = brain.t.look;
         const cfg = await host.getConfig();

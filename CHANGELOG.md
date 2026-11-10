@@ -25,6 +25,7 @@
 - Adicionadas listas de apps autorizados separadas para observação de tela e aprendizado de atividade; uma lista preenchida aplica correspondência exata de processos, enquanto exclusões e consentimento global continuam prevalecendo.
 - Desativado por padrão o fechamento automático de páginas de outras IAs; valores legados não contam como autorização explícita e a opção precisa ser habilitada no menu da bandeja.
 - Adicionados testes HTTP locais para desafio, assinatura, remetentes autorizados, JSON inválido, limite de corpo e parada do serviço; nenhuma credencial real foi usada.
+- Adicionada lista opcional de processos autorizados para fechamento de apps, aplicada tanto à ação confirmada individual quanto ao fechamento pelo modo jogo; ações bloqueadas são informadas ao usuário e os textos estão localizados.
 
 ## Trabalho anterior nesta branch
 

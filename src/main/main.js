@@ -647,6 +647,13 @@ function updateConfig(patch) {
       lookAllowedApps: screenExclusions.normalizeRules(patch.lookAllowedApps),
     };
   }
+  if ('closeAllowedApps' in patch) {
+    if (!Array.isArray(patch.closeAllowedApps)) throw new TypeError('App closing permissions must be a list');
+    changes = {
+      ...changes,
+      closeAllowedApps: screenExclusions.normalizeRules(patch.closeAllowedApps),
+    };
+  }
   if ('lookExcludeApps' in patch || 'lookExcludeTerms' in patch) {
     changes = {
       ...changes,
@@ -812,6 +819,7 @@ function rebuildTray() {
         },
         { label: t.lookExclusions, click: () => sendCommand('lookExclusions') },
         { label: t.lookAllowedApps, click: () => sendCommand('lookAllowedApps') },
+        { label: t.closeAllowedApps, click: () => sendCommand('closeAllowedApps') },
         { label: t.privacyExclusions, click: () => sendCommand('privacyExclusions') },
         {
           label: t.lookRevoke,
@@ -1485,7 +1493,12 @@ function registerIpc() {
   const appInfo = (app) => app && { name: app.process, label: app.label };
   ipcMain.handle('apps:list', async () => (await apps.list().catch(() => [])).map(appInfo));
   ipcMain.handle('apps:find', async (_e, wanted) => appInfo(await apps.find(wanted).catch(() => null)));
-  ipcMain.handle('apps:close', (_e, { name, force }) => apps.close(name, { force }).catch((err) => ({ error: err.message })));
+  ipcMain.handle('apps:close', (_e, { name, force }) => {
+    if (!screenExclusions.isAppAllowed(name, config.load().closeAllowedApps)) {
+      return { running: true, error: 'This app is not on the allowed-to-close list.' };
+    }
+    return apps.close(name, { force }).catch((err) => ({ error: err.message }));
+  });
   // opening things you ask her to (launch.js): an app or a game, your music, a website
   ipcMain.handle('apps:findLaunch', async (_e, text) => {
     const item = await launch.find(String(text || '')).catch(() => null);
