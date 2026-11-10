@@ -23,6 +23,7 @@
 - **Notificações de desenvolvimento:** opt-in desligado por padrão; controles de ativação/pausa imediata e preferências de quiet hours/limite por hora no tray. As mensagens são textos fixos por evento, sem prompts, conversas, nomes de arquivos ou logs; Discord usa o último canal autorizado e WhatsApp o último remetente autorizado dentro da janela de 24 horas. Deduplicação serializada e histórico local com hash do identificador de sessão, sem armazenar o identificador.
 - **Verificação desta etapa:** suíte completa aprovada, 81/81 testes; testes de destinatário Discord/WhatsApp, pausa, opt-in, quiet hours, limites, deduplicação, não persistência de conteúdo e localização. Sem conta real de Discord/Meta, portanto integração externa continua **PENDENTE DE VALIDAÇÃO EXTERNA**.
 - **Commit funcional local:** `c10fef1` — `feat: add opt-in development notifications`; ainda não enviado ao GitHub.
+- **Empacotamento:** `npm ci` e `npm run dist` concluíram com sucesso; artefato local `dist/Capri-Setup.exe` (126.043.688 bytes, SHA-256 `D83E606F25D30CE252321A92A469180729F888255D2041DE088D6ABE7EA65160`). Sem assinatura de código; não foi instalado nem validado em uma máquina Windows limpa.
 - **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
 - **Testes:** suíte completa passou (74/74); sintaxe dos arquivos alterados e `git diff --check` também passaram.
 
@@ -36,7 +37,7 @@
 
 ## Próximo passo exato
 
-1. Validar o fluxo Discord e WhatsApp ponta a ponta com contas autorizadas fornecidas pelo usuário; sem credenciais, manter esse estado como pendente e seguir para geração do instalador NSIS e teste em Windows limpo.
+1. Validar Discord/WhatsApp com contas autorizadas e instalar/testar `Capri-Setup.exe` em Windows limpo; sem contas ou VM/dispositivo limpo, manter esses itens como pendentes.
 
 ## Recuperação
 

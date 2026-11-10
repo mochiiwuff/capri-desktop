@@ -70,8 +70,9 @@ responsabilidade que não esteja coberta pelos módulos atuais.
 Ainda não há automação geral por UI Automation, leitura integrada de mensagens em apps, envio remoto de mensagens
 com confirmação, executor de tarefas remotas, atualização automática nem instalador validado em ambiente limpo.
 O webhook WhatsApp está integrado localmente, mas requer credenciais e proxy HTTPS pelo usuário e não foi validado
-com conta Meta real. O `electron-builder` já declara instalador NSIS e atalhos, mas a geração e validação do artefato
-solicitado (`Capri-Setup.exe`) continuam pendentes.
+com conta Meta real. O `electron-builder` gera localmente o instalador NSIS x64 `Capri-Setup.exe` com atalhos. A instalação e
+desinstalação em Windows limpo, a preservação dos dados e a validação do SmartScreen continuam pendentes; o
+artefato atual não tem assinatura de código.
 
 ## Compatibilidade e verificação
 

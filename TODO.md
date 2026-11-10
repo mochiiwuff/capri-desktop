@@ -26,7 +26,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Notificações de desenvolvimento com opt-in e pausa imediata, quiet hours, limite por hora e deduplicação; destino limitado ao último canal/remetente que interagiu por uma allowlist autorizada (sem envio em massa).
 - [x] Compartilhar entre Discord e WhatsApp o dispatcher autorizado com comandos fechados e limites comuns; `memory` informa contagens, sem enviar conteúdo privado. A execução remota arbitrária segue desativada.
 - [ ] Windows: consolidar o que já existe (janela ativa, lista de apps, captura autorizada, abrir/fechar e ações disponíveis) com teste ponta a ponta e confirmação por risco.
-- [ ] Empacotamento: a configuração do `electron-builder` já declara NSIS e atalhos, mas ainda falta gerar e testar o instalador em ambiente Windows limpo; o nome solicitado é `Capri-Setup.exe`.
+- [x] Gerar instalador NSIS x64 `Capri-Setup.exe` pelo `electron-builder`; a geração local passou, mas o artefato não foi instalado/testado em Windows limpo.
 
 ## Prioridade 1 — completar as integrações de mensagens
 
@@ -56,7 +56,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 
 ## Prioridade 3 — instalador, atualização e distribuição Windows
 
-- [ ] Gerar o instalador NSIS para Windows 10/11 com o nome final `Capri-Setup.exe`, dependências incluídas e atalhos do Menu Iniciar/área de trabalho.
+- [x] Gerar o instalador NSIS x64 para Windows com nome `Capri-Setup.exe`, dependências incluídas e atalhos declarados; build local concluído sem certificado de assinatura.
 - [ ] Validar instalação, inicialização, opção de iniciar com Windows, preservação de configurações/memórias e desinstalação em ambiente limpo sem VS Code/ambiente de desenvolvimento.
 - [ ] Avaliar versão portátil sem comprometer armazenamento seguro de segredos nem persistência dos dados.
 - [ ] Implementar verificação de atualização que apenas informe o usuário; exigir autorização antes de baixar/instalar e preservar dados locais.
