@@ -14,6 +14,11 @@
 - Adicionadas ações Discord `status`, `pause`, `resume`, `memory`, `projects`, `report` e `update`; `memory` só expõe contagens, e `update` não executa código remoto.
 - Mantida a integração desligada por padrão; o fluxo não envia notificações espontâneas. WhatsApp continua sem endpoint público ou configuração no app.
 - Incorporados ao `TODO.md` os requisitos adicionais de automação/acessibilidade do Windows, níveis de autorização, núcleo compartilhado Discord/WhatsApp, instalador/atualizações e auditoria final; itens existentes foram distinguidos de trabalho parcial e pendente.
+- Adicionada reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual e interrupção de tentativas após rejeição de credenciais; adicionados testes para queda transitória, cancelamento durante conexão e credenciais inválidas.
+- Implementado webhook local WhatsApp Business opt-in com desafio Meta, validação HMAC do corpo bruto, limite de payload, allowlist de remetentes e comandos autorizados compartilhando o handler existente.
+- Adicionada configuração IPC WhatsApp com segredos cifrados via `safeStorage`, início/parada explícitos e bind exclusivo em loopback; a recepção externa ainda exige proxy HTTPS configurado pelo usuário.
+- Adicionado fluxo guiado multilíngue na bandeja para credenciais e allowlist WhatsApp, mais instruções de configuração da Meta e do proxy em `docs/WHATSAPP.md`.
+- Adicionados testes HTTP locais para desafio, assinatura, remetentes autorizados, JSON inválido, limite de corpo e parada do serviço; nenhuma credencial real foi usada.
 
 ## Trabalho anterior nesta branch
 

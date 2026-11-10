@@ -13,13 +13,16 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Painel remoto autenticado e limitado; acesso externo depende de proxy Tailscale configurado pelo usuário.
 - [x] Autoaperfeiçoamento local delimitado: análise, testes com confirmação e patches revisados, respaldados e reversíveis.
 - [x] Discord opt-in: token cifrado via `safeStorage`, allowlists explícitas de usuários/canais, comandos fechados, respostas limitadas e desconexão no tray.
-- [x] Manter WhatsApp desligado/não integrado até existir configuração segura e webhook HTTPS verificável.
+- [x] Implementar webhook local WhatsApp Business com desafio, HMAC, limite de payload, allowlist e roteamento restrito; bind somente loopback.
+- [x] Guardar segredos WhatsApp com `safeStorage` e fornecer conexão/desconexão via IPC; serviço fica opt-in e não abre portas públicas.
+- [x] Criar configuração guiada WhatsApp na bandeja e documentar o proxy HTTPS; a Meta exige endpoint alcançável pelo usuário.
+- [ ] Validar WhatsApp e Discord com contas autorizadas reais; mocks não comprovam a integração externa.
 - [x] Atualizar documentação do estado atual sem afirmar que integrações não testadas estão prontas.
 
 ## Parcial — completar antes de declarar o recurso pronto
 
 - [ ] Discord: validar autenticação e mensagens com um bot/servidor real autorizado; testes atuais usam mocks.
-- [ ] Discord: reconexão automática com backoff, estado visível de erro/conexão e encerramento limpo.
+- [x] Discord: reconexão automática com backoff limitado, cancelamento em parada e tratamento sem retry para credenciais rejeitadas; validar com conta real continua pendente.
 - [ ] Discord: painel de preferências de notificações, destinatários e quiet hours; entrega proativa só após opt-in e com limites/deduplicação.
 - [ ] Discord: compartilhar o dispatcher/núcleo autorizado da Capri para perguntas úteis, sem transformar comandos remotos em execução irrestrita de tarefas. `memory` continua sem enviar conteúdo privado.
 - [ ] Windows: consolidar o que já existe (janela ativa, lista de apps, captura autorizada, abrir/fechar e ações disponíveis) com teste ponta a ponta e confirmação por risco.
@@ -27,10 +30,10 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 
 ## Prioridade 1 — completar as integrações de mensagens
 
-- [ ] Implementar reconexão Discord robusta e testá-la em interrupções, falhas de autenticação e encerramento do app.
-- [ ] Implementar servidor/webhook WhatsApp Business Cloud API: desafio de verificação, HTTPS público configurado explicitamente, assinatura HMAC do corpo bruto, allowlist de remetentes e roteamento apenas de mensagens autorizadas.
-- [ ] Implementar envio WhatsApp segundo as regras oficiais, incluindo janela de atendimento e templates aprovados quando exigidos; não embutir credenciais nem abrir endpoint público sem opt-in/configuração.
-- [ ] Criar configuração segura WhatsApp (tokens/segredos em `safeStorage` quando suportado), conexão/desconexão imediata, destinatários e preferências.
+- [x] Implementar reconexão Discord com backoff e testá-la em interrupções, falhas de autenticação e encerramento durante conexão; validação com rede/conta real continua pendente.
+- [x] Implementar webhook local WhatsApp Business Cloud API com desafio, assinatura HMAC, allowlist e roteamento de comandos autorizados; o HTTPS público deve ser encaminhado pelo usuário.
+- [x] Implementar respostas a comandos recebidos pela Cloud API oficial e documentar a janela de atendimento; templates aprovados e mensagens iniciadas pela empresa não são implementados.
+- [x] Criar configuração segura WhatsApp (tokens/segredos em `safeStorage` quando suportado), conexão/desconexão, porta local e allowlist.
 - [ ] Integrar Discord e WhatsApp a um núcleo comum de comandos/memória/permissões, sem compartilhar conteúdo do computador ou memória sem autorização específica.
 - [ ] Adicionar preferências para quiet hours, limites por hora, deduplicação e pausa global de comunicação.
 - [ ] Testar integrações com serviços reais somente quando o usuário fornecer contas/credenciais autorizadas; marcar ausência de validação como **PENDENTE DE VALIDAÇÃO EXTERNA**.

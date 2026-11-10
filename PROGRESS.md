@@ -1,25 +1,28 @@
 # Progresso da evolução da Capri
 
-## Estado atual
+## Estado desta etapa
 
-- **Branch:** `feature/capri-autonomous-learning`, criada localmente a partir da branch homônima já existente no fork.
-- **Backup local:** branch `backup/pre-capri-autonomous-learning-20261110` aponta para a `main` local anterior à mesclagem.
-- **Último commit funcional verificado:** `8b7b6de` — `feat: integrate authorized Discord commands`; `9f056cb` registra o bloqueio de publicação.
-- **Etapas existentes:** aprendizado revisado, atividade opcional, privacidade de tela, painel remoto, autoaperfeiçoamento local delimitado, transportes oficiais e comandos Discord autorizados.
-- **Trabalho desta sessão:** configuração guiada e secreta do Discord, token cifrado com `safeStorage`, allowlists de usuários/canais, conexão Gateway/Bot API, comandos autorizados, desconexão no tray e limites/antirrepetição. Documentação do WhatsApp mantida como não integrado.
-- **Verificação:** `npm run test:messaging` passou (12/12); `node --test tests/*.test.js tests/*.test.mjs` passou (60/60); verificações de sintaxe e `git diff --check` passaram.
-- **Status do GitHub:** o push de `8b7b6de` falhou porque a autenticação requer prompt (`Cannot prompt because user interactivity has been disabled`). A referência remota da branch permanece em `c9858d1`; a branch local tem 8 commits à frente, incluindo `9f056cb`. Repetir apenas quando houver autenticação e verificar o SHA, nunca enviar para `main`.
-- **Limites:** a conexão Discord usa mocks nos testes; não foi possível validar com uma aplicação/bot real. O Gateway ainda não reconecta automaticamente após queda de rede. Não há notificações espontâneas, UI de quiet hours ou endpoint público de WhatsApp. O autoaperfeiçoamento permanece local e requer revisão/confirmação.
-- **Próximo passo exato:** implementar e testar reconexão observável do Gateway Discord; depois tratar o webhook público HTTPS e as credenciais WhatsApp, dependentes de configuração externa autorizada. O backlog agora inclui também acessibilidade/UI Automation, níveis de permissão, compartilhamento do núcleo de comandos, instalador validado/atualizações e auditoria final.
+- **Branch:** `feature/capri-autonomous-learning`; backup local preservado em `backup/pre-capri-autonomous-learning-20261110`.
+- **Base remota conhecida:** `origin/feature/capri-autonomous-learning` em `c9858d1`; antes desta etapa, a branch local estava 9 commits à frente. O push anterior falhou por falta de autenticação interativa.
+- **Implementado nesta etapa:** reconexão Discord com backoff exponencial limitado, cancelamento em desconexão manual, parada após credenciais rejeitadas e controles contra corrida durante conexão.
+- **Implementado nesta etapa:** WhatsApp Cloud API opt-in, credenciais cifradas via `safeStorage`, configuração guiada pela bandeja em cinco idiomas, serviço HTTP restrito a loopback, verificação do desafio Meta, HMAC do corpo bruto, limite de payload, allowlist de números e roteamento do conjunto fechado de comandos existente.
+- **Documentação:** `docs/WHATSAPP.md` explica credenciais oficiais, proxy HTTPS externo e limitações da janela/template; arquitetura, backlog e changelog atualizados.
+- **Testes da etapa:** `npm run test:messaging` passou (20/20); `node --test tests/*.test.js tests/*.test.mjs` passou (68/68); sintaxe, `package.json` e `git diff --check` passaram.
 
-## Limites e trabalho pendente
+## Bloqueios e limites
 
-- As regras de privacidade para conteúdo sensível são heurísticas; não classificam toda informação sensível com garantia.
-- Testes presenciais de Android/Tailscale ainda dependem de um dispositivo autorizado.
-- Discord pode ser configurado e conectado após opt-in, mas requer teste com credenciais reais; reconexão automática e notificações proativas permanecem pendentes. WhatsApp continua sem configuração integrada ou webhook.
-- O autoaperfeiçoamento inspeciona, testa e aceita patches locais com confirmação; não é um ciclo autônomo que modifica o código ou publica no GitHub por conta própria.
-- Confirmar o resultado de qualquer push consultando a referência remota; se falhar, preservar o commit local e registrar o bloqueio.
+- WhatsApp e Discord ainda não foram testados com contas reais; WhatsApp requer um proxy HTTPS público configurado pelo usuário. Capri não abre portas públicas nem cria túnel.
+- Respostas WhatsApp são apenas a comandos recebidos; mensagens proativas e templates aprovados não estão implementados.
+- Não há notificações espontâneas, atualização automática, execução remota arbitrária ou publicação autônoma.
+- O push depende de autenticação GitHub disponível. Preservar commits locais e verificar o SHA remoto após qualquer tentativa; nunca enviar à `main` nem force-push.
+- A privacidade de conteúdo sensível usa heurísticas, sem garantia de classificar todo conteúdo.
+
+## Próximo passo exato
+
+1. Fazer commit descritivo desta etapa na branch de feature; registrar o SHA.
+2. Tentar push sem forçar e verificar o SHA remoto. Se a autenticação bloquear, manter o commit e registrar o bloqueio.
+3. Continuar o próximo item do `TODO.md`: permissões por aplicativo e níveis de autorização no Windows, sem implementar coleta oculta.
 
 ## Recuperação
 
-Ler este arquivo, `TODO.md`, `ARCHITECTURE.md` e `CHANGELOG.md`; verificar a branch atual e os commits locais/remotos. Continuar apenas em `feature/capri-autonomous-learning`; nunca enviar alterações à `main`.
+Ler este arquivo, `TODO.md`, `ARCHITECTURE.md` e `CHANGELOG.md`; verificar a branch e commits locais/remotos. Continuar somente em `feature/capri-autonomous-learning`; nunca enviar alterações à `main`.

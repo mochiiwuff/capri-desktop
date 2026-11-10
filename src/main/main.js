@@ -26,6 +26,7 @@ const screenExclusions = require('./screen-exclusions');
 const { createRemoteControl } = require('./remote-control');
 const selfImprovement = require('./self-improvement');
 const { createDiscordService, parseDiscordIds } = require('./discord-service');
+const { createWhatsAppService, parseWhatsAppSenders } = require('./whatsapp-service');
 const { createDiscordCommandHandler } = require('./discord-commands');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
@@ -75,6 +76,15 @@ const discordService = createDiscordService({
   onStatus: (status) => {
     rebuildTray();
     if (status === 'error') console.error('[capri] Discord Gateway reported a connection error');
+  },
+});
+const whatsappService = createWhatsAppService({
+  getSettings: () => ({ whatsapp: config.load().messaging?.whatsapp }),
+  decryptSecret: (encryptedSecret) => setup.openKeys({ secret: encryptedSecret }).secret,
+  onCommand: handleDiscordCommand,
+  onStatus: (status) => {
+    rebuildTray();
+    if (status === 'error') console.error('[capri] WhatsApp webhook failed to start');
   },
 });
 
@@ -685,6 +695,13 @@ function rebuildTray() {
         { label: discordService.connected ? t.discordConnected : t.discordDisconnected, enabled: false },
         { label: t.discordSetup, click: () => sendCommand('setupMessaging') },
         { label: t.discordDisconnect, enabled: cfg.messagingEnabled === true, click: () => disconnectDiscord() },
+        { label: whatsappService.listening ? t.whatsappConnected : t.whatsappDisconnected, enabled: false },
+        { label: t.whatsappSetup, click: () => sendCommand('setupWhatsApp') },
+        {
+          label: t.whatsappDisconnect,
+          enabled: cfg.messaging?.whatsapp?.enabled === true,
+          click: () => disconnectWhatsApp().catch((err) => console.error('[capri] WhatsApp shutdown failed:', err.message)),
+        },
       ],
     },
     {
@@ -1071,6 +1088,12 @@ function disconnectDiscord() {
   updateConfig({ messagingEnabled: false });
 }
 
+function disconnectWhatsApp() {
+  const messaging = config.load().messaging || {};
+  updateConfig({ messaging: { ...messaging, whatsapp: { ...messaging.whatsapp, enabled: false } } });
+  return whatsappService.stop();
+}
+
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(ROOT, 'assets', 'icons', 'tray.png'));
   tray = new Tray(icon);
@@ -1117,6 +1140,8 @@ function registerIpc() {
     enabled: config.load().messagingEnabled === true,
     discordConnected: discordService.connected,
     discordConfigured: Boolean(config.load().messaging?.discord?.encryptedToken?.startsWith('enc:')),
+    whatsappListening: whatsappService.listening,
+    whatsappEnabled: config.load().messaging?.whatsapp?.enabled === true,
   }));
   ipcMain.handle('messaging:configureDiscord', async (_e, request = {}) => {
     const token = typeof request.token === 'string' ? request.token.trim() : '';
@@ -1155,6 +1180,58 @@ function registerIpc() {
   });
   ipcMain.handle('messaging:disconnectDiscord', () => {
     disconnectDiscord();
+    return { ok: true };
+  });
+  ipcMain.handle('messaging:configureWhatsApp', async (_e, request = {}) => {
+    const accessToken = typeof request.accessToken === 'string' ? request.accessToken.trim() : '';
+    const appSecret = typeof request.appSecret === 'string' ? request.appSecret.trim() : '';
+    const verifyToken = typeof request.verifyToken === 'string' ? request.verifyToken.trim() : '';
+    const phoneNumberId = typeof request.phoneNumberId === 'string' ? request.phoneNumberId.trim() : '';
+    let authorizedSenders;
+    try {
+      authorizedSenders = parseWhatsAppSenders(request.authorizedSenders);
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+    const port = Number(request.port ?? 47824);
+    if (!setup.canEncryptSecrets()) return { ok: false, error: 'Secure credential storage is unavailable on this device' };
+    if (!accessToken || accessToken.length > 4096 || !appSecret || appSecret.length > 512
+      || !verifyToken || verifyToken.length > 512 || !/^\d{8,24}$/.test(phoneNumberId)
+      || !Number.isInteger(port) || port < 1024 || port > 65535) {
+      return { ok: false, error: 'Provide valid WhatsApp API credentials, authorized phone numbers, and a local port' };
+    }
+    await whatsappService.stop();
+    const messaging = config.load().messaging || {};
+    const before = messaging.whatsapp || {};
+    updateConfig({
+      messaging: {
+        ...messaging,
+        whatsapp: {
+          ...before,
+          enabled: true,
+          encryptedAccessToken: setup.sealKey(accessToken),
+          encryptedAppSecret: setup.sealKey(appSecret),
+          encryptedVerifyToken: setup.sealKey(verifyToken),
+          phoneNumberId,
+          authorizedSenders,
+          graphVersion: 'v23.0',
+          port,
+        },
+      },
+    });
+    try {
+      const result = await whatsappService.start();
+      if (!result.ok) throw new Error(result.error);
+      return { ...result, publicWebhookRequired: true };
+    } catch (error) {
+      await whatsappService.stop().catch((stopError) => console.error('[capri] WhatsApp cleanup failed:', stopError.message));
+      const current = config.load().messaging || {};
+      updateConfig({ messaging: { ...current, whatsapp: { ...current.whatsapp, enabled: false } } });
+      return { ok: false, error: error.message };
+    }
+  });
+  ipcMain.handle('messaging:disconnectWhatsApp', async () => {
+    await disconnectWhatsApp();
     return { ok: true };
   });
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
@@ -1569,6 +1646,13 @@ function main() {
     if (config.load().messagingEnabled === true) {
       discordService.start().catch((err) => console.error('[capri] Discord connection failed:', err.message));
     }
+    if (config.load().messaging?.whatsapp?.enabled === true) {
+      whatsappService.start()
+        .then((result) => {
+          if (!result.ok) console.error('[capri] WhatsApp webhook was not started:', result.error);
+        })
+        .catch((err) => console.error('[capri] WhatsApp webhook failed:', err.message));
+    }
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     // a screen plugged in, unplugged, or rearranged: her window fitted again, and she learns of it
     const screensChanged = () => {
@@ -1589,6 +1673,7 @@ function main() {
     globalShortcut.unregisterAll();
     clearInterval(activityTimer);
     discordService.stop();
+    whatsappService.stop().catch((err) => console.error('[capri] WhatsApp webhook shutdown failed:', err.message));
     windowWatch?.stop();
     remoteControl?.close().catch((err) => console.error('[capri] could not close remote dashboard:', err.message));
   });

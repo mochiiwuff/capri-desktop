@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('host', {
   useProvider: (choice) => ipcRenderer.invoke('setup:use', choice),
   configureDiscord: (settings) => ipcRenderer.invoke('messaging:configureDiscord', settings),
   disconnectDiscord: () => ipcRenderer.invoke('messaging:disconnectDiscord'),
+  configureWhatsApp: (settings) => ipcRenderer.invoke('messaging:configureWhatsApp', settings),
+  disconnectWhatsApp: () => ipcRenderer.invoke('messaging:disconnectWhatsApp'),
   messagingStatus: () => ipcRenderer.invoke('messaging:status'),
   keyPage: (provider) => ipcRenderer.send('setup:keyPage', provider),
   launchThroughOllama: (integration) => ipcRenderer.invoke('setup:launch', integration),

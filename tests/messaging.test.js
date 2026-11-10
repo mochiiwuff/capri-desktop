@@ -135,6 +135,116 @@ test('Discord service connects with encrypted settings, replies to authorized co
   assert.equal(service.connected, false);
 });
 
+test('Discord service reconnects after transient loss but stops retrying after manual disconnect', async () => {
+  const sockets = [];
+  const timers = [];
+  class FakeWebSocket {
+    constructor() {
+      this.readyState = 1;
+      this.listeners = new Map();
+      sockets.push(this);
+    }
+
+    addEventListener(name, callback) { this.listeners.set(name, callback); }
+    send() {}
+    close(code = 1000) {
+      this.readyState = 3;
+      this.listeners.get('close')?.({ code, reason: '' });
+    }
+    emit(payload) { this.listeners.get('message')?.({ data: JSON.stringify(payload) }); }
+  }
+  const service = createDiscordService({
+    getSettings: () => ({
+      enabled: true,
+      discord: { encryptedToken: 'enc:token', authorizedUsers: ['1234567890'], authorizedChannels: ['2234567890'] },
+    }),
+    decryptToken: () => 'test-token',
+    onCommand: async () => {},
+    fetchImpl: async () => ({ ok: true, json: async () => ({ url: 'wss://gateway.discord.gg' }) }),
+    WebSocketImpl: FakeWebSocket,
+    setTimeoutImpl: (callback, delay) => {
+      const timer = { callback, delay, cleared: false };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimeoutImpl: (timer) => { if (timer) timer.cleared = true; },
+    baseReconnectMs: 100,
+  });
+
+  await service.start();
+  sockets[0].emit({ op: 10, d: { heartbeat_interval: 30000 } });
+  sockets[0].emit({ op: 0, t: 'READY', d: {} });
+  sockets[0].close(1006);
+  assert.equal(service.state, 'reconnecting');
+  assert.equal(timers[0].delay, 100);
+  timers[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(sockets.length, 2);
+
+  service.stop();
+  sockets[1].close(1006);
+  assert.equal(service.state, 'disconnected');
+  assert.equal(timers.length, 1);
+});
+
+test('Discord service does not leave a connection behind when stopped during Gateway lookup', async () => {
+  let releaseLookup;
+  const sockets = [];
+  class FakeWebSocket {
+    constructor() {
+      this.readyState = 1;
+      this.listeners = new Map();
+      sockets.push(this);
+    }
+    addEventListener(name, callback) { this.listeners.set(name, callback); }
+    close(code = 1000) {
+      this.readyState = 3;
+      this.listeners.get('close')?.({ code, reason: '' });
+    }
+    send() {}
+  }
+  const service = createDiscordService({
+    getSettings: () => ({
+      enabled: true,
+      discord: { encryptedToken: 'enc:token', authorizedUsers: ['1234567890'], authorizedChannels: ['2234567890'] },
+    }),
+    decryptToken: () => 'test-token',
+    onCommand: async () => {},
+    fetchImpl: () => new Promise((resolve) => { releaseLookup = resolve; }),
+    WebSocketImpl: FakeWebSocket,
+  });
+  const starting = service.start();
+  service.stop();
+  releaseLookup({ ok: true, json: async () => ({ url: 'wss://gateway.discord.gg' }) });
+  assert.deepEqual(await starting, { ok: false, error: 'Discord connection was cancelled' });
+  assert.equal(service.connected, false);
+  assert.equal(service.state, 'disconnected');
+  assert.equal(sockets.length, 1);
+  assert.equal(sockets[0].readyState, 3);
+});
+
+test('Discord service does not retry rejected credentials', async () => {
+  const timers = [];
+  const service = createDiscordService({
+    getSettings: () => ({
+      enabled: true,
+      discord: { encryptedToken: 'enc:token', authorizedUsers: ['1234567890'], authorizedChannels: ['2234567890'] },
+    }),
+    decryptToken: () => 'invalid-token',
+    onCommand: async () => {},
+    fetchImpl: async () => ({ status: 401, ok: false, json: async () => ({}) }),
+    WebSocketImpl: class {},
+    setTimeoutImpl: (callback) => {
+      timers.push(callback);
+      return callback;
+    },
+    clearTimeoutImpl: () => {},
+  });
+  await assert.rejects(service.start(), /credentials were rejected/);
+  assert.equal(service.state, 'fatal');
+  assert.equal(timers.length, 0);
+});
+
 test('commands are explicit and limited to the supported Capri command set', () => {
   assert.equal(parseCommand('/capri status'), 'status');
   assert.equal(parseCommand('!CAPRI pause'), 'pause');
@@ -305,7 +415,8 @@ test('Discord gateway dispatches only allowlisted, supported commands and discon
   const socket = sockets[0];
   assert.match(socket.url, /^wss:\/\/gateway\.discord\.gg\/\?v=10&encoding=json$/);
   socket.emit({ op: 10, d: { heartbeat_interval: 45000 } });
-  assert.equal(socket.sent[0].op, 2);
+  assert.equal(socket.sent[0].op, 1);
+  assert.equal(socket.sent[1].op, 2);
   socket.emit({ op: 0, t: 'READY', d: {} });
   socket.emit({
     op: 0,

@@ -86,9 +86,13 @@ function verifyWhatsAppSignature(rawBody, signature, appSecret) {
 }
 
 function apiError(response, body) {
-  if (response.status === 429) return new Error('Messaging provider rate limit reached');
-  if (response.status === 401 || response.status === 403) return new Error('Messaging credentials were rejected');
-  return new Error(`Messaging provider request failed (${response.status})${body?.error?.code ? `, code ${body.error.code}` : ''}`);
+  const error = response.status === 429
+    ? new Error('Messaging provider rate limit reached')
+    : response.status === 401 || response.status === 403
+      ? new Error('Messaging credentials were rejected')
+      : new Error(`Messaging provider request failed (${response.status})${body?.error?.code ? `, code ${body.error.code}` : ''}`);
+  if (response.status === 401 || response.status === 403) error.code = 'MESSAGING_AUTH_REJECTED';
+  return error;
 }
 
 function createDiscordApi({ token, fetchImpl = globalThis.fetch } = {}) {
@@ -184,6 +188,7 @@ function createDiscordGateway({
   let socket = null;
   let heartbeat = null;
   let connected = false;
+  let awaitingHeartbeatAck = false;
 
   async function connect() {
     if (socket) return { ok: true, connected };
@@ -206,8 +211,16 @@ function createDiscordGateway({
       }
       if (payload.op === 10 && Number.isFinite(payload.d?.heartbeat_interval)) {
         heartbeat = setIntervalImpl(() => {
-          if (socket?.readyState === 1) socket.send(JSON.stringify({ op: 1, d: null }));
+          if (socket?.readyState !== 1) return;
+          if (awaitingHeartbeatAck) {
+            socket.close(4000, 'Heartbeat acknowledgement timed out');
+            return;
+          }
+          awaitingHeartbeatAck = true;
+          socket.send(JSON.stringify({ op: 1, d: null }));
         }, Math.max(1000, payload.d.heartbeat_interval));
+        awaitingHeartbeatAck = true;
+        socket.send(JSON.stringify({ op: 1, d: null }));
         socket.send(JSON.stringify({
           op: 2,
           d: {
@@ -219,6 +232,10 @@ function createDiscordGateway({
       } else if (payload.op === 0 && payload.t === 'READY') {
         connected = true;
         onStatus('connected');
+      } else if (payload.op === 11) {
+        awaitingHeartbeatAck = false;
+      } else if (payload.op === 7 || payload.op === 9) {
+        socket.close(4001, 'Gateway requested a fresh connection');
       } else if (payload.op === 0 && payload.t === 'MESSAGE_CREATE' && payload.d?.author?.bot !== true) {
         const command = authorizeCommand({
           text: payload.d.content,
@@ -238,12 +255,14 @@ function createDiscordGateway({
         }
       }
     });
-    socket.addEventListener('close', () => {
+    socket.addEventListener('close', (event) => {
       connected = false;
       clearIntervalImpl(heartbeat);
       heartbeat = null;
+      awaitingHeartbeatAck = false;
       socket = null;
-      onStatus('disconnected');
+      const fatal = [4004, 4010, 4011, 4012, 4013, 4014].includes(event?.code);
+      onStatus(fatal ? 'fatal' : 'disconnected', { code: event?.code || 0, reason: event?.reason || '' });
     });
     socket.addEventListener('error', () => onStatus('error'));
     return { ok: true, connected: false };
@@ -253,6 +272,7 @@ function createDiscordGateway({
     connected = false;
     clearIntervalImpl(heartbeat);
     heartbeat = null;
+    awaitingHeartbeatAck = false;
     const current = socket;
     socket = null;
     current?.close(1000, 'Disconnected by user');

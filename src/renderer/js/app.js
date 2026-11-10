@@ -732,6 +732,55 @@ async function boot() {
           });
         });
         break;
+      case 'setupWhatsApp':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const accessToken = await guide.askText({
+            face: 'look', line: t.whatsappTokenLine, quote: t.whatsappTokenHow, secret: true,
+            placeholder: t.whatsappTokenPlaceholder, tag: 'WHATSAPP CLOUD API',
+          });
+          if (!accessToken?.text) return;
+          const appSecret = await guide.askText({
+            face: 'look', line: t.whatsappAppSecretLine, quote: t.whatsappAppSecretHow, secret: true,
+            placeholder: t.whatsappAppSecretPlaceholder, tag: 'META APP SECRET',
+          });
+          if (!appSecret?.text) return;
+          const verifyToken = await guide.askText({
+            face: 'look', line: t.whatsappVerifyLine, quote: t.whatsappVerifyHow, secret: true,
+            placeholder: t.whatsappVerifyPlaceholder, tag: 'WEBHOOK VERIFY TOKEN',
+          });
+          if (!verifyToken?.text) return;
+          const phoneNumberId = await guide.askText({
+            face: 'look', line: t.whatsappPhoneLine, quote: t.whatsappPhoneHow,
+            placeholder: t.whatsappPhonePlaceholder, tag: 'PHONE NUMBER ID',
+          });
+          if (!phoneNumberId?.text) return;
+          const senders = await guide.askText({
+            face: 'look', line: t.whatsappSendersLine, quote: t.whatsappSendersHow,
+            placeholder: t.whatsappSendersPlaceholder, tag: 'AUTHORIZED NUMBERS',
+          });
+          if (!senders?.text) return;
+          const port = await guide.askText({
+            face: 'look', line: t.whatsappPortLine, quote: t.whatsappPortHow,
+            placeholder: '47824', tag: 'LOCAL WEBHOOK PORT',
+          });
+          if (!port?.text) return;
+          const result = await host.configureWhatsApp({
+            accessToken: accessToken.text,
+            appSecret: appSecret.text,
+            verifyToken: verifyToken.text,
+            phoneNumberId: phoneNumberId.text,
+            authorizedSenders: senders.text.split(',').map((number) => number.trim()),
+            port: Number(port.text),
+          });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.whatsappProxy.replace('{port}', String(result.address?.split(':').at(-1) || '47824')) : result.error,
+            hold: 10000,
+          });
+        });
+        break;
       case 'setupFree': // --dev: Claude Code (or Codex) through Ollama
         setup.free();
         break;

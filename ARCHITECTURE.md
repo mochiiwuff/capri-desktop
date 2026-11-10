@@ -26,9 +26,9 @@ Capri é o aplicativo Electron existente, com um processo principal que integra 
 - `activityLearning` começa desativado e exige ativação explícita na bandeja. `src/main/activity.js` mantém somente nome de processo, duração aproximada e contagens; não usa título, teclas, clipboard ou conteúdo de mensagens.
 - A observação de tela usa uma permissão distinta, controles de pausa/revogação e verificações locais de listas de aplicativos e termos de título excluídos. Capturas ficam temporariamente em memória; não são armazenadas como memórias permanentes.
 - `src/main/remote-control.js` serve o painel sob demanda em loopback, com token, validação de origem/host e controles restritos. O acesso pelo Android requer configuração separada do Tailscale Serve e verificação em dispositivo real; Capri não ativa nem configura a tailnet.
-- `src/main/messaging.js` implementa os adaptadores oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, autorização por usuário/canal, assinatura HMAC do webhook WhatsApp, quiet hours e limites/deduplicação. `src/main/discord-service.js` liga o Discord ao ciclo de vida principal; o tray inicia a configuração e permite desconectar; `src/preload.js` expõe somente operações IPC específicas e a configuração nunca entrega o token nem as allowlists ao renderer.
+- `src/main/messaging.js` implementa os adaptadores oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, autorização por usuário/canal, assinatura HMAC do webhook WhatsApp, quiet hours e limites/deduplicação. `src/main/discord-service.js` liga o Discord ao ciclo de vida principal com reconexão exponencial limitada e parada após credenciais rejeitadas. `src/main/whatsapp-service.js` e `src/main/whatsapp-webhook.js` fornecem um webhook local opt-in; o renderer recebe apenas operações IPC específicas e a configuração nunca entrega segredos ou allowlists ao renderer.
 - O Discord começa desligado. O token só é aceito quando `safeStorage` está disponível e é cifrado antes de ser guardado; falha ao decifrar impede a conexão. A configuração requer listas explícitas de usuários e canais. Só os comandos fechados `/capri <command>` e `!capri <command>` são processados; respostas têm limite por hora e supressão de repetição. Não há notificações espontâneas nem comandos remotos de edição/publicação de código. `pause` pausa aprendizado e observação de tela; `resume` reativa apenas o aprendizado de conversa, mantendo atividade e tela desligadas.
-- WhatsApp ainda não tem servidor HTTPS/webhook, configuração segura ou roteamento integrado. Nenhuma das duas plataformas envia notificações proativas; quiet hours e limites de notificações continuam sendo primitivas sem entrega externa.
+- WhatsApp aceita configuração IPC com segredos cifrados via `safeStorage`. O webhook vincula somente a `127.0.0.1`; receber eventos Meta pela internet exige proxy HTTPS configurado pelo usuário e encaminhado à porta local. Verifica o desafio Meta, a assinatura HMAC do corpo bruto, limita payload, aplica allowlist de remetentes e encaminha apenas comandos suportados pelo handler compartilhado. Capri não cria listener público nem túnel. Respostas usam a Cloud API oficial; notificações proativas e templates aprovados não estão integrados.
 
 ## Autoaperfeiçoamento e segurança operacional
 
@@ -46,13 +46,13 @@ Metadados de processo ──consentimento separado──> agregados locais de at
 Observação de tela ──permissão separada/exclusões locais──> captura temporária
 Painel remoto autenticado ──loopback/proxy Tailscale configurado pelo usuário──> status/controles limitados
 Comandos Discord autorizados ──token em safeStorage──> Gateway / Bot API oficial
-Primitivas WhatsApp ──sem servidor HTTPS/webhook integrado──> Cloud API
+Meta webhook ──proxy HTTPS do usuário──> loopback + allowlist/HMAC ──> Cloud API oficial
 ```
 
 ## Requisitos adicionados para futuras integrações
 
 Os requisitos adicionais de controle do Windows, interação com mensagens, níveis de autorização e distribuição foram
-incorporados ao backlog. Eles devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
+incorporados ao backlog. O procedimento de configuração WhatsApp está em `docs/WHATSAPP.md`. Eles devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
 entrada `windows.js`, `look.js` e `activity.js`; ações de aplicativos passam por `apps.js`/`system.js`; permissões e
 auditoria devem ser verificadas no processo principal antes de qualquer ação. Integrações de mensagens devem chamar
 um dispatcher comum limitado, sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,
@@ -60,8 +60,9 @@ accessibility, permissions, interaction e integrations) só devem virar módulos
 responsabilidade que não esteja coberta pelos módulos atuais.
 
 Ainda não há automação geral por UI Automation, leitura integrada de mensagens em apps, envio remoto de mensagens
-com confirmação, executor de tarefas remotas, webhook WhatsApp, atualização automática nem instalador validado em
-ambiente limpo. O `electron-builder` já declara o instalador NSIS e atalhos, mas a geração e a validação do artefato
+com confirmação, executor de tarefas remotas, atualização automática nem instalador validado em ambiente limpo.
+O webhook WhatsApp está integrado localmente, mas requer credenciais e proxy HTTPS pelo usuário e não foi validado
+com conta Meta real. O `electron-builder` já declara instalador NSIS e atalhos, mas a geração e validação do artefato
 solicitado (`Capri-Setup.exe`) continuam pendentes.
 
 ## Compatibilidade e verificação

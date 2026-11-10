@@ -22,6 +22,16 @@ const DEFAULTS = {
   messagingEnabled: false, // external messaging remains disconnected until explicit opt-in
   messaging: {
     discord: { encryptedToken: '', authorizedUsers: [], authorizedChannels: [] },
+    whatsapp: {
+      enabled: false,
+      encryptedAccessToken: '',
+      encryptedAppSecret: '',
+      encryptedVerifyToken: '',
+      phoneNumberId: '',
+      authorizedSenders: [],
+      graphVersion: 'v23.0',
+      port: 47824,
+    },
     commandHistory: [],
     notificationsEnabled: false,
     quietHours: { enabled: false, start: '22:00', end: '08:00' },
