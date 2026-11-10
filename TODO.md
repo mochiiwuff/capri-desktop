@@ -17,7 +17,7 @@
 ## Próximas etapas prioritárias
 
 - [x] Executar testes completos e verificações de sintaxe; revisar a mesclagem e registrar o commit de integração (`4ad853b`).
-- [ ] Autenticar o GitHub neste ambiente, enviar a branch para o fork e verificar o SHA remoto. O push sem credenciais falhou; não enviar para `main`.
+- [ ] Autenticar o GitHub neste ambiente, enviar a branch para o fork e verificar o SHA remoto. O push de `ba346af` sem credenciais falhou; não enviar para `main`.
 - [ ] Validar painel e controles em um Android autenticado na mesma tailnet; confirmar configuração e limites do Tailscale Serve.
 - [x] Adicionar base isolada e testada para Discord Bot API/Gateway, WhatsApp Business Cloud API, allowlists, comandos restritos, horário silencioso, deduplicação, limites e verificação de assinatura webhook.
 - [ ] Integrar os transportes Discord ao ciclo de vida IPC/tray; implementar configuração segura de token, usuário/canal autorizados, envio/recebimento e controles visíveis de conexão.
