@@ -43,7 +43,7 @@ Este backlog combina o estado verificado do repositório com os requisitos adici
 - [x] Adicionar lista de processos excluídos do aprendizado de atividade, preservando as exclusões de app/título já existentes para análise de tela.
 - [x] Adicionar lista global de processos excluídos tanto da análise de tela como do aprendizado de atividade.
 - [ ] Completar permissões granulares por aplicativo para cada modalidade de observação e interação no Windows; a lista global é uma negação comum, não uma matriz de autorização por ação.
-- [ ] Criar indicador persistente e visível quando houver observação/captura; oferecer interrupção imediata e pausa global.
+- [x] Mostrar no tooltip/menu do tray quando aprendizado/observação estão ativos e oferecer interrupção imediata e pausa global que cancela capturas e preserva as permissões individuais.
 - [ ] Avaliar APIs oficiais de acessibilidade/UI Automation para identificar controles visíveis; usar captura/OCR somente com consentimento explícito. Não implementar keylogging, leitura oculta, extração de sessões/tokens ou vigilância de clipboard.
 - [ ] Permitir resumir mensagens visíveis em apps que o usuário autorizou, separando conversas e mantendo o escopo do conteúdo limitado ao que foi permitido.
 - [ ] Preparar respostas sem enviá-las automaticamente; exigir confirmação antes de enviar/publicar, excluir, comprar/pagar, alterar configurações importantes ou executar ações sensíveis/irreversíveis.

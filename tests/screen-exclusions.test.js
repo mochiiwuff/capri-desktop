@@ -47,6 +47,8 @@ test('screen consent, activity indicator, and exclusion controls have localized 
     assert.ok(lines.look.activityExclusionSaved);
     assert.ok(TRAY[lang].lookExclusions);
     assert.ok(TRAY[lang].privacyExclusions);
+    assert.ok(TRAY[lang].privacyPause);
+    assert.match(TRAY[lang].privacyState(true, true, true, true), /pause|paused|pausad|suspend|приостанов/i);
     assert.ok(TRAY[lang].lookRevoke);
   }
 });

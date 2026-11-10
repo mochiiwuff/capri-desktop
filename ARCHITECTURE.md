@@ -26,6 +26,7 @@ Capri é o aplicativo Electron existente, com um processo principal que integra 
 - `activityLearning` começa desativado e exige ativação explícita na bandeja. `src/main/activity.js` mantém somente nome de processo, duração aproximada e contagens; não usa título, teclas, clipboard ou conteúdo de mensagens.
 - `activityExcludeApps` permite bloquear processos específicos no aprendizado de atividade, sem coletar ou armazenar títulos de janela. As regras são normalizadas localmente e aplicadas antes de registrar cada amostra.
 - `privacyExcludeApps` é uma lista global de processos bloqueados tanto na análise de tela quanto no aprendizado de atividade. Ela é aplicada antes da captura e antes de cada amostra; se a lista mudar enquanto uma captura estiver em andamento e a janela ativa estiver bloqueada, a captura é cancelada. As exclusões específicas por modalidade continuam disponíveis.
+- `privacyPaused` pausa propostas de aprendizado de conversa, amostras de atividade e observação automática/manual de tela sem alterar as opções de consentimento por modalidade. A pausa cancela capturas pendentes, descarta a imagem temporária e limpa o processo ativo em memória; ao retomar, as preferências salvas voltam a valer. O estado e os três controles aparecem no tooltip e no menu do tray, e o painel remoto autenticado pode pausar/retomar.
 - A observação de tela usa uma permissão distinta, controles de pausa/revogação e verificações locais de listas de aplicativos e termos de título excluídos. Capturas ficam temporariamente em memória; não são armazenadas como memórias permanentes.
 - `src/main/remote-control.js` serve o painel sob demanda em loopback, com token, validação de origem/host e controles restritos. O acesso pelo Android requer configuração separada do Tailscale Serve e verificação em dispositivo real; Capri não ativa nem configura a tailnet.
 - `src/main/messaging.js` implementa os adaptadores oficiais Discord Bot API/Gateway e WhatsApp Business Cloud API, autorização por usuário/canal, assinatura HMAC do webhook WhatsApp, quiet hours e limites/deduplicação. `src/main/discord-service.js` liga o Discord ao ciclo de vida principal com reconexão exponencial limitada e parada após credenciais rejeitadas. `src/main/whatsapp-service.js` e `src/main/whatsapp-webhook.js` fornecem um webhook local opt-in; o renderer recebe apenas operações IPC específicas e a configuração nunca entrega segredos ou allowlists ao renderer.
@@ -55,8 +56,8 @@ Meta webhook ──proxy HTTPS do usuário──> loopback + allowlist/HMAC ─�
 
 Os requisitos adicionais de controle do Windows, interação com mensagens, níveis de autorização e distribuição foram
 incorporados ao backlog. O procedimento de configuração WhatsApp está em `docs/WHATSAPP.md`. As exclusões globais de
-apps complementam as permissões por modalidade, mas não substituem uma matriz completa de autorização para cada
-ação do Windows. Os requisitos devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
+apps e a pausa global complementam as permissões por modalidade, mas não substituem uma matriz completa de autorização
+para cada ação do Windows. Os requisitos devem estender os módulos existentes, não substituí-los: percepção usa os pontos de
 entrada `windows.js`, `look.js` e `activity.js`; ações de aplicativos passam por `apps.js`/`system.js`; permissões e
 auditoria devem ser verificadas no processo principal antes de qualquer ação. Integrações de mensagens devem chamar
 um dispatcher comum limitado, sem acesso a comandos arbitrários. Novos namespaces lógicos (perception,

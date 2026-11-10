@@ -164,7 +164,7 @@ export class Learning {
   }
 
   configure(config = {}, now = Date.now()) {
-    this.enabled = config.learningEnabled === true;
+    this.enabled = config.learningEnabled === true && config.privacyPaused !== true;
     const source = Array.isArray(config.learningEntries) ? config.learningEntries : [];
     this.entries = source.filter((entry) => safeRecord(entry, now)).slice(-MAX_LEARNING_ENTRIES);
     if (this.brain?.custom) this.brain.custom.learningEntries = this.entries;

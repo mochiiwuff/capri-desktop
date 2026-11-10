@@ -25,6 +25,20 @@ test('learning is off by default and proposes nothing until explicitly enabled',
   assert.equal(learning.propose('I prefer concise answers')?.kind, 'preference');
 });
 
+test('global privacy pause stops learning without forgetting the opt-in setting', () => {
+  const { learning } = fixture();
+  learning.configure({ learningEnabled: true });
+  const candidate = learning.propose('I prefer concise answers');
+  assert.ok(candidate);
+
+  learning.configure({ learningEnabled: true, privacyPaused: true });
+  assert.equal(learning.propose('I prefer concise answers'), null);
+  assert.equal(learning.enabled, false);
+
+  learning.configure({ learningEnabled: true, privacyPaused: false });
+  assert.equal(learning.propose('I prefer concise answers')?.kind, 'preference');
+});
+
 test('recognizes explicit statements by category, without turning ordinary conversation into memory', () => {
   assert.equal(classifyConversation('I prefer concise answers')?.kind, 'preference');
   assert.equal(classifyConversation("I'm working on Capri")?.kind, 'project');

@@ -28,6 +28,7 @@ export class Look {
     this.active = active; // () => ms since the pointer last moved
     this.auto = false;    // her menu: Look at my screen now and then
     this.asked = false;   // you've been told what it means, and said yes
+    this.paused = false;
     this.looking = false;
     this.nextAt = 0;
     this.lastFg = null;
@@ -39,12 +40,13 @@ export class Look {
     return this.brain.t.look;
   }
 
-  configure({ watchScreen, lookAsked }) {
-    const on = Boolean(watchScreen);
+  configure({ watchScreen, lookAsked, privacyPaused }) {
+    this.paused = privacyPaused === true;
+    const on = Boolean(watchScreen) && !this.paused;
     if (on && !this.auto) this.nextAt = Date.now() + FIRST_AFTER;
     this.auto = on;
     this.asked = Boolean(lookAsked);
-    if (!this.asked) this.cancelCurrent();
+    if (!this.asked || this.paused) this.stopAndDismiss();
   }
 
   // What looking means (where the picture goes), before the first time. True if you said yes.
@@ -105,13 +107,14 @@ export class Look {
 
   // From her menu: one look, now.
   async once() {
+    if (this.paused) return;
     if (!this.asked && !(await this.ask())) return;
     this.now({ manual: true });
   }
 
   // On her own: now and then, when you're there, on another window than last time, and she's free.
   tick() {
-    if (!this.auto || !this.asked || this.looking || Date.now() < this.nextAt) return;
+    if (this.paused || !this.auto || !this.asked || this.looking || Date.now() < this.nextAt) return;
     if (this.active() > ACTIVE_MS || !this.free()) return;
     const fg = this.capri.windows.fg;
     if (fg === this.lastFg && Date.now() - this.lastAt < SAME_WINDOW_MS) return;

@@ -13,6 +13,7 @@ const FILES = new Map([
   ['/remote.css', ['remote.css', 'text/css; charset=utf-8']],
 ]);
 const ACTIONS = new Set([
+  'privacy.pause', 'privacy.resume',
   'learning.pause', 'learning.resume',
   'activity.pause', 'activity.resume',
   'screen.pause', 'screen.resume', 'screen.revoke',

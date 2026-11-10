@@ -105,7 +105,7 @@ function readMemory() {
 function learningSnapshot(cfg = config.load()) {
   return {
     ...learning.readState(cfg.learning),
-    enabled: cfg.learningEnabled === true,
+    enabled: cfg.learningEnabled === true && cfg.privacyPaused !== true,
     facts: learning.acceptedConversationFacts(cfg.learningEntries),
   };
 }
@@ -140,9 +140,10 @@ async function openRemoteControl() {
         return {
           status: {
             learningEnabled: state.enabled,
-            activityEnabled: cfg.activityLearning === true,
-            screenEnabled: cfg.watchScreen === true,
+            activityEnabled: cfg.activityLearning === true && cfg.privacyPaused !== true,
+            screenEnabled: cfg.watchScreen === true && cfg.privacyPaused !== true,
             screenAuthorized: cfg.lookAsked === true,
+            privacyPaused: cfg.privacyPaused === true,
             assistant: activeAssistant().name,
           },
           memory,
@@ -155,6 +156,10 @@ async function openRemoteControl() {
             updateConfig({ learningEnabled: action === 'learning.resume' });
             return { ok: true };
           }
+          case 'privacy.pause':
+          case 'privacy.resume':
+            updateConfig({ privacyPaused: action === 'privacy.pause' });
+            return { ok: true };
           case 'activity.pause':
             updateConfig({ activityLearning: false });
             return { ok: true };
@@ -610,6 +615,9 @@ function rendererConfig() {
 
 function updateConfig(patch) {
   let changes = patch;
+  if ('privacyPaused' in patch && typeof patch.privacyPaused !== 'boolean') {
+    throw new TypeError('Privacy pause must be a boolean');
+  }
   if ('activityExcludeApps' in patch) {
     if (!Array.isArray(patch.activityExcludeApps)) throw new TypeError('Activity app exclusions must be a list');
     changes = {
@@ -643,8 +651,18 @@ function updateConfig(patch) {
     for (const [id, controller] of screenLooks) {
       controller.abort();
       snaps.delete(id);
+      screenLooks.delete(id);
     }
   }
+  if (patch.privacyPaused === true) {
+    foregroundApp = null;
+    for (const [id, controller] of screenLooks) {
+      controller.abort();
+      snaps.delete(id);
+      screenLooks.delete(id);
+    }
+  }
+  if ('privacyPaused' in patch) windowWatch?.refresh();
   if ('privacyExcludeApps' in changes || 'lookExcludeApps' in changes || 'lookExcludeTerms' in changes) {
     const cfg = config.load();
     if (screenExclusions.isExcluded(
@@ -655,6 +673,7 @@ function updateConfig(patch) {
       for (const [id, controller] of screenLooks) {
         controller.abort();
         snaps.delete(id);
+        screenLooks.delete(id);
       }
     }
   }
@@ -679,6 +698,13 @@ function rebuildTray() {
   const watched = activeAssistant();
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
     [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
+  const privacyStatus = t.privacyState(
+    cfg.privacyPaused === true,
+    cfg.learningEnabled === true,
+    cfg.activityLearning === true,
+    cfg.watchScreen === true,
+  );
+  tray.setToolTip(`Capri · ${privacyStatus}`);
 
   const screens = displays();
   const current = targetDisplay().id;
@@ -697,6 +723,7 @@ function rebuildTray() {
   const menu = Menu.buildFromTemplate([
     { label: t.online(PORT), enabled: false },
     { label: t.sync(Math.min(100, Math.floor(xp / 10)), t.stages[stage]), enabled: false },
+    { label: privacyStatus, enabled: false },
     { type: 'separator' },
     { label: t.teleport, click: () => sendCommand('teleport') },
     { label: t.satellite, click: () => sendCommand('satellite') },
@@ -734,6 +761,7 @@ function rebuildTray() {
     { label: t.talk, click: () => sendCommand('chat') },
     { label: t.lookNow, click: () => sendCommand('look') },
     { label: t.learning, type: 'checkbox', checked: cfg.learningEnabled === true, click: (item) => updateConfig({ learningEnabled: item.checked }) },
+    { label: t.privacyPause, type: 'checkbox', checked: cfg.privacyPaused === true, click: (item) => updateConfig({ privacyPaused: item.checked }) },
     { label: t.learningReview, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningReview') },
     { label: t.learningForget, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningForget') },
     {
@@ -1058,7 +1086,7 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const image = snaps.get(id);
   snaps.delete(id);
   if (!image) return { ok: false, error: 'the picture is gone' };
-  if (signal.aborted || config.load().lookAsked !== true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+  if (signal.aborted || config.load().lookAsked !== true || config.load().privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
   const cfg = config.load();
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
@@ -1073,7 +1101,7 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const messages = [{ role: 'system', content: persona }, ...before, user];
   for (let attempt = 0; ; attempt++) {
     try {
-      if (signal.aborted || config.load().lookAsked !== true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+      if (signal.aborted || config.load().lookAsked !== true || config.load().privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
       const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.any([signal, AbortSignal.timeout(120000)]));
       return { ok: true, text, model };
     } catch (err) {
@@ -1302,6 +1330,7 @@ function registerIpc() {
   // she looks at your screen (look.js): the picture first, then what her AI says about it
   ipcMain.handle('look:snap', async (_e, id) => {
     const cfg = config.load();
+    if (cfg.privacyPaused === true) return { ok: false, code: 'paused' };
     if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
     if (screenExclusions.isExcluded(
       { app: foregroundApp, title: foregroundTitle },
@@ -1311,17 +1340,23 @@ function registerIpc() {
     if (typeof id !== 'string' || !/^[\w-]{1,80}$/.test(id)) return { ok: false, error: 'invalid capture request' };
     const controller = new AbortController();
     screenLooks.set(id, controller);
+    rebuildTray();
     try {
       const image = await snapScreen(controller.signal);
       if (controller.signal.aborted) {
         screenLooks.delete(id);
+        rebuildTray();
         return { ok: false, code: 'stopped' };
       }
       snaps.set(id, image);
-      setTimeout(() => snaps.delete(id), 120000);
+      setTimeout(() => {
+        snaps.delete(id);
+        if (screenLooks.delete(id)) rebuildTray();
+      }, 120000);
       return { ok: true, id };
     } catch (err) {
       screenLooks.delete(id);
+      rebuildTray();
       if (controller.signal.aborted) return { ok: false, code: 'stopped' };
       return { ok: false, error: err.message };
     }
@@ -1334,11 +1369,14 @@ function registerIpc() {
     } finally {
       screenLooks.delete(request.id);
       snaps.delete(request.id);
+      rebuildTray();
     }
   });
   ipcMain.on('look:stop', (_e, id) => {
     screenLooks.get(id)?.abort();
+    screenLooks.delete(id);
     snaps.delete(id);
+    rebuildTray();
   });
   // how hard the processor works, in %, since the last time she asked (pc.js)
   let cpuBefore = null;
@@ -1651,7 +1689,7 @@ function main() {
     });
     activityTimer = setInterval(() => {
       const cfg = config.load();
-      if (cfg.activityLearning !== true || !foregroundApp) return;
+      if (cfg.privacyPaused === true || cfg.activityLearning !== true || !foregroundApp) return;
       const state = learning.readState(cfg.learning);
       state.activity.enabled = true;
       const next = learning.ingestWindowActivity(

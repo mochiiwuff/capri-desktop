@@ -5,7 +5,7 @@ const translations = {
     connecting: 'Connecting to your desktop…', connected: 'Secure local session connected.',
     disconnected: 'Disconnected. Reopen the local link to reconnect.', auth: 'Authentication required. Open the link from Capri’s desktop menu.',
     failed: 'Request failed. Check that Capri is running, then retry.',
-    status: ['Learning', 'Activity learning', 'Screen observation', 'Screen authorization', 'Assistant'],
+    status: ['Global privacy pause', 'Learning', 'Activity learning', 'Screen observation', 'Screen authorization', 'Assistant'],
     on: 'ON', paused: 'PAUSED', authorized: 'AUTHORIZED', revoked: 'NOT AUTHORIZED', connectedState: 'CONNECTED',
     facts: 'Conversation memories', apps: 'App usage (approx.)', routines: 'Routines', none: 'No entries.',
     reportTitle: 'REPORT', generate: 'Generate', generatedAt: 'Generated',
@@ -18,12 +18,14 @@ const translations = {
     mobileButton: 'Copy Android link', mobileInvalid: 'Enter the HTTPS address for this device on your private Tailscale network.',
     mobileCopied: 'Private Android link copied. Only open it on a device in your tailnet.',
     buttons: {
+      'privacy.pause': 'Pause all learning and observation', 'privacy.resume': 'Resume authorized learning',
       'learning.pause': 'Pause learning', 'learning.resume': 'Resume learning',
       'activity.pause': 'Pause activity', 'activity.resume': 'Resume activity',
       'screen.pause': 'Pause screen checks', 'screen.resume': 'Resume screen checks',
       'screen.revoke': 'Revoke screen permission',
     },
     done: 'Control applied.', actions: {
+      'privacy.pause': 'All learning and screen observation paused.', 'privacy.resume': 'Authorized learning and observation resumed.',
       'learning.pause': 'Learning paused.', 'learning.resume': 'Learning resumed.',
       'activity.pause': 'Activity learning paused.', 'activity.resume': 'Activity learning resumed.',
       'screen.pause': 'Screen observation paused.', 'screen.resume': 'Screen observation resumed.',
@@ -34,7 +36,7 @@ const translations = {
     connecting: 'Conectando ao computador…', connected: 'Sessão local autenticada.',
     disconnected: 'Desconectado. Abra o link local da Capri para reconectar.', auth: 'Autenticação necessária. Abra o link pelo menu da Capri.',
     failed: 'Falha na solicitação. Confira se a Capri está aberta e tente novamente.',
-    status: ['Aprendizado', 'Aprendizado de atividade', 'Observação de tela', 'Autorização de tela', 'Assistente'],
+    status: ['Pausa global de privacidade', 'Aprendizado', 'Aprendizado de atividade', 'Observação de tela', 'Autorização de tela', 'Assistente'],
     on: 'ATIVO', paused: 'PAUSADO', authorized: 'AUTORIZADA', revoked: 'NÃO AUTORIZADA', connectedState: 'CONECTADA',
     facts: 'Memórias de conversa', apps: 'Uso de apps (aprox.)', routines: 'Rotinas', none: 'Sem registros.',
     reportTitle: 'RELATÓRIO', generate: 'Gerar', generatedAt: 'Gerado em',
@@ -47,12 +49,14 @@ const translations = {
     mobileButton: 'Copiar link Android', mobileInvalid: 'Informe o endereço HTTPS deste computador na sua rede privada Tailscale.',
     mobileCopied: 'Link privado copiado. Abra-o somente em um dispositivo da sua tailnet.',
     buttons: {
+      'privacy.pause': 'Pausar todo aprendizado e observação', 'privacy.resume': 'Retomar aprendizado autorizado',
       'learning.pause': 'Pausar aprendizado', 'learning.resume': 'Retomar aprendizado',
       'activity.pause': 'Pausar atividades', 'activity.resume': 'Retomar atividades',
       'screen.pause': 'Pausar tela', 'screen.resume': 'Retomar tela',
       'screen.revoke': 'Revogar permissão da tela',
     },
     done: 'Controle aplicado.', actions: {
+      'privacy.pause': 'Todo aprendizado e observação de tela pausados.', 'privacy.resume': 'Aprendizado e observação autorizados retomados.',
       'learning.pause': 'Aprendizado pausado.', 'learning.resume': 'Aprendizado retomado.',
       'activity.pause': 'Aprendizado de atividade pausado.', 'activity.resume': 'Aprendizado de atividade retomado.',
       'screen.pause': 'Observação de tela pausada.', 'screen.resume': 'Observação de tela retomada.',
@@ -117,6 +121,7 @@ async function refreshState() {
   const state = await request('/api/state');
   clear(status);
   const values = [
+    state.privacyPaused ? t.paused : t.on,
     state.learningEnabled ? t.on : t.paused,
     state.activityEnabled ? t.on : t.paused,
     state.screenEnabled ? t.on : t.paused,

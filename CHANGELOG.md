@@ -21,6 +21,7 @@
 - Adicionada lista local de exclusão por aplicativo para o aprendizado de atividade, editável pelo menu da Capri; os processos bloqueados são filtrados antes do registro e títulos de janela continuam fora desse fluxo.
 - Adicionada lista global opt-in de exclusão de aplicativos, aplicada à análise de tela e ao aprendizado de atividade, com cancelamento de capturas em andamento quando necessário.
 - Corrigidos o tratamento IPC da lista de exclusão de atividade e a localização dos textos do fluxo guiado, garantindo que as configurações sejam normalizadas e exibidas corretamente.
+- Adicionada pausa global de privacidade: bloqueia aprendizado de conversa, atividade e análise de tela, cancela capturas pendentes sem apagar consentimentos individuais e mostra o estado no tray; o painel remoto autenticado também oferece pausa/retomada.
 - Adicionados testes HTTP locais para desafio, assinatura, remetentes autorizados, JSON inválido, limite de corpo e parada do serviço; nenhuma credencial real foi usada.
 
 ## Trabalho anterior nesta branch

@@ -51,7 +51,10 @@ test('remote dashboard binds to loopback and serves static assets with restricti
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-security-policy'), /default-src 'self'/);
   assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.match(await response.text(), /LEARNED MEMORY/);
+  const page = await response.text();
+  assert.match(page, /LEARNED MEMORY/);
+  assert.match(page, /data-action="privacy\.pause"/);
+  assert.match(page, /data-action="privacy\.resume"/);
 });
 
 test('remote state and memory APIs require bearer authentication and reject hostile origins/hosts', async (t) => {
@@ -107,11 +110,23 @@ test('remote controls whitelist actions and surface unavailable actions', async 
   const headers = { authorization: 'Bearer ' + remote.token, 'content-type': 'application/json' };
   const base = `http://127.0.0.1:${port}`;
 
+  const globalPause = await fetch(`${base}/api/control`, {
+    method: 'POST', headers, body: JSON.stringify({ action: 'privacy.pause' }),
+  });
+  assert.equal(globalPause.status, 200);
+  assert.deepEqual(calls, ['privacy.pause']);
+
+  const globalResume = await fetch(`${base}/api/control`, {
+    method: 'POST', headers, body: JSON.stringify({ action: 'privacy.resume' }),
+  });
+  assert.equal(globalResume.status, 200);
+  assert.deepEqual(calls, ['privacy.pause', 'privacy.resume']);
+
   const accepted = await fetch(`${base}/api/control`, {
     method: 'POST', headers, body: JSON.stringify({ action: 'learning.pause' }),
   });
   assert.equal(accepted.status, 200);
-  assert.deepEqual(calls, ['learning.pause']);
+  assert.deepEqual(calls, ['privacy.pause', 'privacy.resume', 'learning.pause']);
 
   const invalid = await fetch(`${base}/api/control`, {
     method: 'POST', headers, body: JSON.stringify({ action: 'files.delete' }),
@@ -126,7 +141,10 @@ test('remote controls whitelist actions and surface unavailable actions', async 
   assert.equal(await rawGet(port, {}, '/api/notifications'), 401);
   const notifications = await fetch(`${base}/api/notifications`, { headers });
   assert.equal(notifications.status, 200);
-  assert.deepEqual((await notifications.json()).notifications.map(({ action }) => action), ['learning.pause']);
+  assert.deepEqual(
+    (await notifications.json()).notifications.map(({ action }) => action).sort(),
+    ['learning.pause', 'privacy.pause', 'privacy.resume'].sort(),
+  );
 });
 
 test('reports require authentication and return an aggregate without raw conversation facts', async (t) => {

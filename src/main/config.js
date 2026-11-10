@@ -44,6 +44,7 @@ const DEFAULTS = {
   myLines: [],       // lines of yours she says now and then, with hers
   memories: [],      // things you asked her to remember (her chat)
   learningEnabled: false, // local conversation learning is off until you opt in
+  privacyPaused: false, // pauses all learning and screen observation without forgetting individual choices
   learningEntries: [], // user-reviewed local memories from conversation-learning candidates
   activityLearning: false, // activity tracking requires explicit opt-in
   activityExcludeApps: [], // process names excluded from local activity learning
