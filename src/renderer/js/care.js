@@ -449,6 +449,7 @@ export class Care {
         setTimeout(() => this.host.setConfig({ visible: false }), 3500);
         const lines = [t.gameOn];
         if (r.closed?.length) lines.push(fmt(t.gameClosed, { list: this.list(r.closed) }));
+        if (r.blocked?.length) lines.push(fmt(t.gameCloseBlocked, { list: this.list(r.blocked) }));
         if (r.plan === false) lines.push(t.gameNoPlan);
         return { line: lines.join('\n'), face: 'laugh' };
       },

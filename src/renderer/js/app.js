@@ -7,6 +7,7 @@ import { Brain } from './brain.js';
 import { Guide } from './guide.js';
 import { Mission } from './mission.js';
 import { Chat } from './chat.js';
+import { Learning } from './learning.js';
 import { Setup } from './setup.js';
 import { Custom } from './custom.js';
 import { Bond, Jealousy } from './bond.js';
@@ -15,6 +16,7 @@ import { Look } from './look.js';
 import { Pc } from './pc.js';
 import { Care } from './care.js';
 import { Breaks } from './breaks.js';
+import { memoryView } from './memory-view.js';
 import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
 
@@ -37,7 +39,10 @@ const AWAY_MS = 15 * 60 * 1000; // the pointer still this long: you were away fr
 const SNOOZE_MS = 10 * 60 * 1000;
 
 // what you made her, from the config (custom.js)
-const mine = (cfg) => ({ userName: cfg.userName || '', persona: cfg.persona || '', myLines: cfg.myLines || [], memories: cfg.memories || [] });
+const mine = (cfg) => ({
+  userName: cfg.userName || '', persona: cfg.persona || '', myLines: cfg.myLines || [],
+  memories: cfg.memories || [], learningEntries: cfg.learningEntries || [],
+});
 
 async function boot() {
   const [config, image, intro, ...cutins] = await Promise.all([
@@ -244,6 +249,10 @@ async function boot() {
   const custom = new Custom({ guide, host, brain, capri, voice });
   guide.custom = custom;
   brain.custom = mine(config);
+  const learning = new Learning({ host, brain });
+  learning.configure(config);
+  chat.learning = learning;
+  custom.learning = learning;
 
   // How close she is to you (bond.js), her jealousy of your other AIs, the reminders she keeps.
   const bond = new Bond({ host, data: config.bond });
@@ -657,6 +666,7 @@ async function boot() {
     }
     brain.watching = cfg.claude !== false;
     brain.custom = mine(cfg);
+    learning.configure(cfg);
     brain.assistant = cfg.assistant;
     panel.labels = linesFor(cfg.lang, cfg.assistant);
     if (cfg.scale !== capri.scale) capri.setScale(cfg.scale);
@@ -679,11 +689,129 @@ async function boot() {
       case 'customize': // "Make her yours" in her menu
         custom.open();
         break;
+      case 'learningReview':
+        custom.reviewLearning();
+        break;
+      case 'learningForget':
+        custom.forgetLearning();
+        break;
       case 'setupChat': // "Set it up with her" in her menu's AI model
         setup.chat();
         break;
       case 'setupKey': // "API key or address" in her menu's AI model, or a service picked there that needs one
         setup.key();
+        break;
+      case 'setupMessaging':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const token = await guide.askText({
+            face: 'look', line: t.tokenLine, quote: t.tokenHow, secret: true,
+            placeholder: t.tokenPlaceholder, tag: 'DISCORD BOT', note: t.note,
+          });
+          if (!token?.text) return;
+          const users = await guide.askText({
+            face: 'look', line: t.usersLine, quote: t.usersHow,
+            placeholder: '123456789012345678', tag: 'AUTHORIZED USERS',
+          });
+          if (!users?.text) return;
+          const channels = await guide.askText({
+            face: 'look', line: t.channelsLine, quote: t.channelsHow,
+            placeholder: '123456789012345678', tag: 'AUTHORIZED CHANNELS',
+          });
+          if (!channels?.text) return;
+          const result = await host.configureDiscord({
+            token: token.text,
+            authorizedUsers: users.text,
+            authorizedChannels: channels.text,
+          });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.saved : result.error,
+            hold: 6500,
+          });
+        });
+        break;
+      case 'setupWhatsApp':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const accessToken = await guide.askText({
+            face: 'look', line: t.whatsappTokenLine, quote: t.whatsappTokenHow, secret: true,
+            placeholder: t.whatsappTokenPlaceholder, tag: 'WHATSAPP CLOUD API',
+          });
+          if (!accessToken?.text) return;
+          const appSecret = await guide.askText({
+            face: 'look', line: t.whatsappAppSecretLine, quote: t.whatsappAppSecretHow, secret: true,
+            placeholder: t.whatsappAppSecretPlaceholder, tag: 'META APP SECRET',
+          });
+          if (!appSecret?.text) return;
+          const verifyToken = await guide.askText({
+            face: 'look', line: t.whatsappVerifyLine, quote: t.whatsappVerifyHow, secret: true,
+            placeholder: t.whatsappVerifyPlaceholder, tag: 'WEBHOOK VERIFY TOKEN',
+          });
+          if (!verifyToken?.text) return;
+          const phoneNumberId = await guide.askText({
+            face: 'look', line: t.whatsappPhoneLine, quote: t.whatsappPhoneHow,
+            placeholder: t.whatsappPhonePlaceholder, tag: 'PHONE NUMBER ID',
+          });
+          if (!phoneNumberId?.text) return;
+          const senders = await guide.askText({
+            face: 'look', line: t.whatsappSendersLine, quote: t.whatsappSendersHow,
+            placeholder: t.whatsappSendersPlaceholder, tag: 'AUTHORIZED NUMBERS',
+          });
+          if (!senders?.text) return;
+          const port = await guide.askText({
+            face: 'look', line: t.whatsappPortLine, quote: t.whatsappPortHow,
+            placeholder: '47824', tag: 'LOCAL WEBHOOK PORT',
+          });
+          if (!port?.text) return;
+          const result = await host.configureWhatsApp({
+            accessToken: accessToken.text,
+            appSecret: appSecret.text,
+            verifyToken: verifyToken.text,
+            phoneNumberId: phoneNumberId.text,
+            authorizedSenders: senders.text.split(',').map((number) => number.trim()),
+            port: Number(port.text),
+          });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.whatsappProxy.replace('{port}', String(result.address?.split(':').at(-1) || '47824')) : result.error,
+            hold: 10000,
+          });
+        });
+        break;
+      case 'setupNotifications':
+        guide.scene(async () => {
+          const t = brain.t.setup.messaging;
+          const cfg = await host.getConfig();
+          const messaging = cfg.messaging || {};
+          const hours = await guide.askText({
+            face: 'look',
+            line: t.notificationHoursLine,
+            quote: t.notificationHoursHow,
+            placeholder: '22:00, 08:00',
+            value: messaging.quietHours?.enabled ? `${messaging.quietHours.start}, ${messaging.quietHours.end}` : '',
+            tag: 'QUIET HOURS',
+          });
+          if (!hours) return;
+          const maxPerHour = await guide.askText({
+            face: 'look',
+            line: t.notificationLimitLine,
+            quote: t.notificationLimitHow,
+            placeholder: '10',
+            value: String(messaging.maxPerHour || 10),
+            tag: 'NOTIFICATION LIMIT',
+          });
+          if (!maxPerHour) return;
+          const result = await host.configureNotifications({ quietHours: hours.text, maxPerHour: maxPerHour.text });
+          panel.say({
+            kind: result.ok ? 'info' : 'error',
+            face: result.ok ? 'smug' : 'wide',
+            line: result.ok ? t.notificationPreferencesSaved : t.notificationPreferencesInvalid,
+            hold: 6500,
+          });
+        });
         break;
       case 'setupFree': // --dev: Claude Code (or Codex) through Ollama
         setup.free();
@@ -697,6 +825,135 @@ async function boot() {
       case 'watchScreen': // "Look at my screen now and then" in her menu
         look.setAuto(cmd.on);
         break;
+      case 'revokeScreen':
+        await look.revoke();
+        panel.say({ kind: 'info', face: 'aside', line: brain.t.look.revokeLine, hold: 4500 });
+        break;
+      case 'lookExclusions': {
+        const t = brain.t.look;
+        const splitRules = (text) => [...new Set(text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        const cfg = await host.getConfig();
+        const apps = await guide.askText({
+          face: 'look',
+          line: t.exclusionApps,
+          quote: (cfg.lookExcludeApps || []).join(', '),
+          placeholder: t.exclusionApps,
+          value: (cfg.lookExcludeApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PRIVACY',
+          note: t.exclusionHint,
+        });
+        if (!apps) break;
+        const terms = await guide.askText({
+          face: 'look',
+          line: t.exclusionTerms,
+          quote: (cfg.lookExcludeTerms || []).join(', '),
+          placeholder: t.exclusionTerms,
+          value: (cfg.lookExcludeTerms || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PRIVACY',
+          note: t.exclusionHint,
+        });
+        if (!terms) break;
+        await host.setConfig({ lookExcludeApps: splitRules(apps.text), lookExcludeTerms: splitRules(terms.text) });
+        panel.say({ kind: 'info', face: 'smug', line: t.exclusionSaved, hold: 4000 });
+        break;
+      }
+      case 'lookAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.lookAllowedAppsLine,
+          quote: (cfg.lookAllowedApps || []).join(', '),
+          placeholder: t.lookAllowedAppsLine,
+          value: (cfg.lookAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'SCREEN PERMISSIONS',
+          note: t.lookAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ lookAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.lookAllowedAppsSaved, hold: 4000 });
+        break;
+      }
+      case 'closeAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.closeAllowedAppsLine,
+          quote: (cfg.closeAllowedApps || []).join(', '),
+          placeholder: t.closeAllowedAppsLine,
+          value: (cfg.closeAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'APP PERMISSIONS',
+          note: t.closeAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ closeAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.closeAllowedAppsSaved, hold: 4000 });
+        break;
+      }
+      case 'activityExclusions': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const exclusions = await guide.askText({
+          face: 'look',
+          line: t.activityExclusionLine,
+          quote: (cfg.activityExcludeApps || []).join(', '),
+          placeholder: t.activityExclusionLine,
+          value: (cfg.activityExcludeApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'ACTIVITY PRIVACY',
+          note: t.activityExclusionHint,
+        });
+        if (!exclusions) break;
+        const rules = [...new Set(exclusions.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ activityExcludeApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.activityExclusionSaved, hold: 4000 });
+        break;
+      }
+      case 'activityAllowedApps': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const result = await guide.askText({
+          face: 'look',
+          line: t.activityAllowedAppsLine,
+          quote: (cfg.activityAllowedApps || []).join(', '),
+          placeholder: t.activityAllowedAppsLine,
+          value: (cfg.activityAllowedApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'ACTIVITY PERMISSIONS',
+          note: t.activityAllowedAppsHint,
+        });
+        if (!result) break;
+        const rules = [...new Set(result.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ activityAllowedApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.activityAllowedAppsSaved, hold: 4000 });
+        break;
+      }
+      case 'privacyExclusions': {
+        const t = brain.t.look;
+        const cfg = await host.getConfig();
+        const exclusions = await guide.askText({
+          face: 'look',
+          line: t.privacyExclusionLine,
+          quote: (cfg.privacyExcludeApps || []).join(', '),
+          placeholder: t.privacyExclusionLine,
+          value: (cfg.privacyExcludeApps || []).join(', '),
+          send: brain.t.setup.save,
+          tag: 'PRIVACY EXCLUSIONS',
+          note: t.privacyExclusionHint,
+        });
+        if (!exclusions) break;
+        const rules = [...new Set(exclusions.text.split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+        await host.setConfig({ privacyExcludeApps: rules });
+        panel.say({ kind: 'info', face: 'smug', line: t.privacyExclusionSaved, hold: 4500 });
+        break;
+      }
       case 'goScreen': // a screen picked in her menu: she goes there
         goToScreen(cmd.id);
         break;
@@ -748,6 +1005,51 @@ async function boot() {
         capri.wake();
         if (brain.report()) capri.perform('curious', capri.towardCenter());
         break;
+      case 'memory': {
+        if (capri.stowed) {
+          host.setConfig({ visible: true });
+          await capri.unstow();
+        }
+        capri.wake();
+        const state = await host.learning();
+        const labels = brain.t.memory;
+        const view = memoryView(state, labels);
+        panel.say({
+          kind: 'info',
+          face: 'look',
+          ...view,
+          actions: [
+            { id: 'clear', label: labels.clear },
+            { id: 'close', label: labels.close },
+          ],
+          onAction: async (id) => {
+            if (id === 'close') {
+              panel.hide();
+              return;
+            }
+            if (id !== 'clear') return;
+            panel.say({
+              kind: 'info',
+              face: 'aside',
+              line: labels.confirmLine,
+              quote: labels.confirmQuote,
+              actions: [
+                { id: 'confirm-clear', label: labels.confirm, primary: true },
+                { id: 'cancel-clear', label: labels.cancel },
+              ],
+              onAction: async (choice) => {
+                if (choice === 'confirm-clear') {
+                  await host.clearLearning();
+                  panel.say({ kind: 'info', face: 'smug', line: labels.cleared, hold: 4000 });
+                } else {
+                  panel.hide();
+                }
+              },
+            });
+          },
+        });
+        break;
+      }
       case 'fakeClaude': { // --dev: the topmost window (the test window) is where a prompt was typed, and you're elsewhere
         const win = capri.windows.wins[0];
         if (win) {

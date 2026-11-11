@@ -164,6 +164,17 @@ itself: your messages go to `claude -p` in the folder you pick, continuing one c
 does. In that last one, permission mode `default` only lets it read (nobody is there to say yes); `acceptEdits` lets it
 edit files without asking. **Forget our conversations** clears what she remembers of your chats.
 
+**Learn from our chats** is a separate tray-menu option, off by default. When enabled, clear statements such as a
+preference, correction, interest, project, or communication-style request are offered back to you with their category
+and evidence label; nothing enters learned memory until you click **Add**. Messages matching the sensitive-content
+filters are not proposed; those filters are heuristics, not a complete detector. Accepted notes stay in Capri's local
+config, not a remote service; projects expire after 180 days and
+interests after a year. **Review learned notes** lets you correct or delete each one, and **Forget learned notes**
+clears only this learned store after confirmation. Unchecking **Learn from our chats** pauses new learning without
+deleting existing notes. This is separate from both the existing chat transcript and the memories you add yourself.
+For sensitive-looking turns, Capri keeps the live conversation usable but replaces that newest turn and reply with
+placeholders in the saved cross-restart chat history.
+
 **It's AI.** Her replies are written by the model, not by the show's writers: it's a fan version of her, and the chat
 panel says so every time.
 
@@ -306,7 +317,7 @@ own. You can choose another one in her menu.
 
 ### Quick start (Windows, no coding)
 
-1. Download **`Capri-Setup-x.y.z.exe`** from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
+1. Download **`Capri-Setup.exe`** from the [latest release](https://github.com/mochiiwuff/capri-desktop/releases/latest)
    and run it. It installs for your user only (no admin rights), adds a desktop shortcut and starts Capri.
    You don't need Node.js or anything else.
 2. The installer isn't signed (a code-signing certificate costs money), so Windows SmartScreen may say
@@ -449,11 +460,56 @@ project's name, Claude's last action, today's counts). On one of Ollama's cloud 
 Ollama sends it on to its servers, and her chat says "online AI" instead of "local AI". Her mission log stays in her own storage on your PC, like your
 reminders and where you two stand.
 
+Conversation learning itself runs locally and makes no separate model request. Chat messages still go to the model
+you selected, as described above; accepted learned notes are stored locally in `config.json`. The new learned-note
+store is separate from the older custom-memory list and chat history. Accepted notes are included in later chat
+prompts, so an online provider receives them as part of its normal chat request.
+
 The title of the window in front of you is only checked, on your PC, against a list of AI names (for her jealousy):
 it's never kept or sent anywhere.
 
 When she looks at your screen (only when you ask, or if you ticked *Look at my screen now and then*), a picture of the
 screen goes to her chat's AI: on your PC with Ollama (a local model), to the online service otherwise. It's never written to disk.
+
+## Discord and WhatsApp
+
+Discord supports authorized, command-only interaction through the official Bot API and Gateway. It is **off by
+default**. To configure it on Windows:
+
+1. Create a private Discord application and bot, invite it only to the server you control, and enable
+   **Message Content Intent** in the Discord Developer Portal.
+2. Ensure the bot can view and send messages in the intended private server channels. In Capri's tray menu, choose
+   **External messaging → Set up Discord**. Enter the bot token in the hidden prompt, then enter the comma-separated
+   numeric Discord user IDs and channel IDs permitted to issue commands.
+3. Send a message containing exactly `/capri status`, `/capri pause`, `/capri resume`, `/capri memory`,
+   `/capri projects`, `/capri report`, or `/capri update` in an authorized channel. These are command-style messages,
+   not registered Discord application slash commands.
+   `pause` disables conversation/activity learning and screen observation; `resume` enables conversation learning
+   only, leaving activity learning and screen observation off. `memory` reports counts, never note contents.
+   `update` does not run code changes remotely.
+4. Choose **Disconnect Discord** in the same tray submenu for immediate disconnection; setup enables it again.
+
+The token is encrypted with Windows `safeStorage` and kept in the app's local user data, never passed back to the
+renderer. Capri refuses setup if secure storage is unavailable. The Gateway must have the Message Content Intent;
+messages are ignored unless both the sender and channel are explicitly allowlisted. Replies are rate-limited and
+repeated commands are suppressed. The tray submenu also offers **Development notifications**, **Pause notifications**,
+and notification preferences. Notifications start disabled and send only fixed, generic development event text, never
+prompts, conversation content, file names, or logs. When enabled, Capri sends only to the last authorized Discord
+channel that interacted with the bot; quiet hours, an hourly limit, deduplication, and immediate pause apply.
+Discord reconnects automatically after transient network failures.
+
+WhatsApp Business Cloud API is available as an opt-in local webhook. Configure its encrypted credentials and
+authorized sender list from the **External messaging** tray submenu, then use an HTTPS reverse proxy that you
+control to forward Meta webhooks to Capri's loopback listener. Capri does not create a public endpoint or tunnel.
+Only allowlisted senders can issue supported commands. Development notifications are separately opt-in and go only
+to the most recent authorized sender, within WhatsApp's 24-hour customer-service window; messages contain fixed,
+generic event text. Quiet hours, hourly limits, deduplication, and immediate pause apply. Capri does not implement
+approved templates or business-initiated messaging outside that window. Do not paste messaging credentials into
+`config.json` or commit them.
+
+To check for a Capri release manually, choose **Check for updates** from the tray menu. Capri reads the latest
+public release version and reports whether one is available. If there is an update, opening its official GitHub
+releases page is a separate choice; Capri never downloads or installs an update automatically.
 
 ## Art direction
 
@@ -561,4 +617,3 @@ her, change her and share what you made, for free. Selling Capri, or anything ma
 paid access, paid orders), is not allowed. Versions up to 0.4.3 were under the MIT License.
 
 Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fontsource.
-

@@ -274,11 +274,16 @@ public static class CapriWindows {
   public static string Snapshot(long self) {
     var sb = new StringBuilder();
     IntPtr fg = GetForegroundWindow();
+    Program(fg);
+    var title = new StringBuilder(512);
+    GetWindowText(fg, title, 512);
     var fgClass = new StringBuilder(64);
     GetClassName(fg, fgClass, 64);
     // the taskbar clicked: it comes up over her (Windows has no levels among windows on top)
     bool taskbar = fgClass.ToString() == "Shell_TrayWnd" || fgClass.ToString() == "Shell_SecondaryTrayWnd";
-    sb.Append("{\"fg\":").Append(fg.ToInt64()).Append(",\"taskbar\":").Append(taskbar ? "true" : "false")
+    sb.Append("{\"fg\":").Append(fg.ToInt64()).Append(",\"app\":").Append(Json(proc))
+      .Append(",\"title64\":").Append(Json(Convert.ToBase64String(Encoding.UTF8.GetBytes(title.ToString()))))
+      .Append(",\"taskbar\":").Append(taskbar ? "true" : "false")
       .Append(",\"ai\":").Append(Ai(fg))
       .Append(",\"game\":").Append(game == "" ? "null" : Json(game))
       .Append(",\"usb\":").Append(Usb());

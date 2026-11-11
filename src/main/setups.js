@@ -12,6 +12,7 @@ const { screen } = require('electron');
 const apps = require('./apps');
 const config = require('./config');
 const launch = require('./launch');
+const screenExclusions = require('./screen-exclusions');
 
 // Windows' windows, in real pixels (Per-Monitor DPI aware, like the screens Electron gives in them).
 const WINDOWS = `Add-Type -TypeDefinition @"
@@ -230,16 +231,22 @@ async function gameMode(on) {
     const before = /([0-9a-f]{8}-[0-9a-f-]{27})/i.exec((await powercfg(['/getactivescheme'])) || '')?.[1] || null;
     const plan = (await powercfg(['/setactive', 'SCHEME_MIN'])) != null;
     const closed = [];
+    const blocked = [];
     const open = await windows();
-    for (const name of config.load().gameClose || []) {
+    const { closeAllowedApps, gameClose } = config.load();
+    for (const name of gameClose || []) {
       const app = await apps.find(name).catch(() => null);
       if (!app) continue;
+      if (!screenExclusions.isAppAllowed(app.process, closeAllowedApps)) {
+        blocked.push(app.name);
+        continue;
+      }
       const path = open.find((w) => app.ids.includes(w.pid))?.path || '';
       const res = await apps.close(app.process).catch(() => ({ running: true }));
       if (!res.running) closed.push({ name: app.name, path });
     }
     config.save({ gameMode: { plan: before, closed, since: Date.now() } });
-    return { ok: true, plan, closed: closed.map((c) => c.name) };
+    return { ok: true, plan, closed: closed.map((c) => c.name), blocked };
   }
   if (!state) return { ok: false, notOn: true };
   if (state.plan) await powercfg(['/setactive', state.plan]);

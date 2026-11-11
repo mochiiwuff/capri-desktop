@@ -2,7 +2,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { app } = require('electron');
 
 const DEFAULTS = {
   scale: 0.6,        // sprite scale, 0.6 ≈ 250px tall
@@ -19,12 +18,48 @@ const DEFAULTS = {
   chatModel: null,   // the model she talks with (null: the provider's first one)
   provider: 'ollama', // who answers her chat: a key of llm.js PROVIDERS
   apiKeys: {},       // { openai: 'sk-...' }, else the provider's env variable
+  messagingEnabled: false, // external messaging remains disconnected until explicit opt-in
+  messaging: {
+    discord: { encryptedToken: '', authorizedUsers: [], authorizedChannels: [] },
+    whatsapp: {
+      enabled: false,
+      encryptedAccessToken: '',
+      encryptedAppSecret: '',
+      encryptedVerifyToken: '',
+      phoneNumberId: '',
+      authorizedSenders: [],
+      graphVersion: 'v23.0',
+      port: 47824,
+    },
+    commandHistory: [],
+    notificationsEnabled: false,
+    notificationsPaused: false,
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    maxPerHour: 10,
+    duplicateWindowMs: 900000,
+    notificationHistory: [],
+  },
   customUrl: '',     // the 'custom' provider: any OpenAI-compatible base URL (http://host:port/v1)
   claudeCwd: null,   // the folder Claude Code works in (null: your home folder)
   userName: '',      // what she calls you
   persona: '',       // how you want her, in your words (her chat)
   myLines: [],       // lines of yours she says now and then, with hers
   memories: [],      // things you asked her to remember (her chat)
+  learningEnabled: false, // local conversation learning is off until you opt in
+  privacyPaused: false, // pauses all learning and screen observation without forgetting individual choices
+  learningEntries: [], // user-reviewed local memories from conversation-learning candidates
+  activityLearning: false, // activity tracking requires explicit opt-in
+  activityAllowedApps: [], // empty keeps the existing opt-in scope; otherwise only these apps are learned
+  activityExcludeApps: [], // process names excluded from local activity learning
+  privacyExcludeApps: [], // process names excluded from screen and activity learning
+  lookAllowedApps: [], // empty keeps the existing consent scope; otherwise only these apps may be analyzed
+  closeAllowedApps: [], // optional additional process allowlist for user-confirmed app closing
+  learning: {
+    enabled: false,
+    facts: [],
+    activity: { enabled: false, apps: {}, routines: [], updatedAt: null },
+    updatedAt: null,
+  }, // local behavioral memory from conversation and activity context
   claudeMode: 'default', // Claude Code's permission mode in her chat: 'default' only reads, 'acceptEdits' edits without asking
   claude: true,      // she watches Claude Code (off: she just keeps you company, no word of it)
   rest: 'corner',    // where she rests when nothing's going on: 'corner', or 'taskbar' (sitting on it)
@@ -34,12 +69,15 @@ const DEFAULTS = {
   render: 'auto',   // how her window is drawn: 'auto', 'gl' (OpenGL) or 'software' (no graphics card), for PCs that show it black
   follow: true,      // with several screens, she follows the pointer to the one you're on
   jealous: true,     // she gets jealous when she sees you on another AI (bond.js)
-  closePages: true,  // jealous, she closes their pages in your browser, and pages to download them
+  closePages: false, // closing other AI pages stays off until explicitly enabled in the tray
+  closePagesAuthorized: false, // legacy saved defaults are not treated as explicit authorization
   reminders: [],     // the reminders she keeps: [{ id, at, text, made }] (reminders.js)
   bond: null,        // how close she is to you: { xp, first, last, days, streak, caps } (bond.js)
   pcReact: true,     // she reacts to your PC: the processor at full tilt, the battery, the network, a USB stick, a game (pc.js)
   watchScreen: false, // she looks at your screen now and then and says something about it (look.js)
   lookAsked: false,  // she told you what looking means (where the picture goes) and you said yes
+  lookExcludeApps: [], // app process names that must never be analyzed
+  lookExcludeTerms: [], // window-title terms checked locally before a screen capture
   breaks: true,      // after two hours at your PC without a real break, she tells you to take one (breaks.js)
   setups: {},        // your setups, by name: the apps you had open and where (setups.js)
   gameClose: [],     // the apps game mode closes, as you named them
@@ -49,6 +87,7 @@ const DEFAULTS = {
 let cache = null;
 
 function file() {
+  const { app } = require('electron');
   return path.join(app.getPath('userData'), 'config.json');
 }
 
@@ -73,4 +112,8 @@ function save(patch) {
   return cache;
 }
 
-module.exports = { load, save, file, DEFAULTS };
+function closePagesEnabled(cfg = load()) {
+  return cfg.closePages === true && cfg.closePagesAuthorized === true;
+}
+
+module.exports = { load, save, file, DEFAULTS, closePagesEnabled };

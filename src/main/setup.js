@@ -146,5 +146,6 @@ function openKey(stored) {
 const openKeys = (apiKeys = {}) => Object.fromEntries(Object.entries(apiKeys).map(([id, v]) => [id, openKey(v)]));
 
 module.exports = {
-  MODELS, KEY_PAGES, ollamaState, installOllama, startOllama, pullModel, launchThroughOllama, sealKey, openKeys,
+  MODELS, KEY_PAGES, ollamaState, installOllama, startOllama, pullModel, launchThroughOllama,
+  sealKey, openKeys, canEncryptSecrets: () => safeStorage.isEncryptionAvailable(),
 };

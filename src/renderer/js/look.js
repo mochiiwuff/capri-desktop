@@ -28,6 +28,7 @@ export class Look {
     this.active = active; // () => ms since the pointer last moved
     this.auto = false;    // her menu: Look at my screen now and then
     this.asked = false;   // you've been told what it means, and said yes
+    this.paused = false;
     this.looking = false;
     this.nextAt = 0;
     this.lastFg = null;
@@ -39,11 +40,13 @@ export class Look {
     return this.brain.t.look;
   }
 
-  configure({ watchScreen, lookAsked }) {
-    const on = Boolean(watchScreen);
+  configure({ watchScreen, lookAsked, privacyPaused }) {
+    this.paused = privacyPaused === true;
+    const on = Boolean(watchScreen) && !this.paused;
     if (on && !this.auto) this.nextAt = Date.now() + FIRST_AFTER;
     this.auto = on;
     this.asked = Boolean(lookAsked);
+    if (!this.asked || this.paused) this.stopAndDismiss();
   }
 
   // What looking means (where the picture goes), before the first time. True if you said yes.
@@ -72,7 +75,8 @@ export class Look {
   // From her menu: turned on (she asks first, the first time) or off.
   async setAuto(on) {
     if (!on) {
-      this.host.setConfig({ watchScreen: false });
+      this.stopAndDismiss();
+      await this.host.setConfig({ watchScreen: false });
       return;
     }
     if (!this.asked && !(await this.ask({ auto: true }))) return;
@@ -80,15 +84,37 @@ export class Look {
     this.panel.say({ kind: 'info', face: 'smug', line: this.t.on, hold: 3500 });
   }
 
+  async revoke() {
+    this.cancelCurrent();
+    this.auto = false;
+    this.asked = false;
+    await this.host.setConfig({ watchScreen: false, lookAsked: false });
+  }
+
+  cancelCurrent() {
+    const request = this.activeRequest;
+    if (!request) return;
+    request.cancelled = true;
+    this.host.stopLook(request.id);
+  }
+
+  stopAndDismiss() {
+    if (!this.activeRequest) return;
+    this.cancelCurrent();
+    this.activeRequest = null;
+    this.panel.say({ kind: 'info', face: 'aside', line: this.t.stopped, hold: 3500 });
+  }
+
   // From her menu: one look, now.
   async once() {
+    if (this.paused) return;
     if (!this.asked && !(await this.ask())) return;
     this.now({ manual: true });
   }
 
   // On her own: now and then, when you're there, on another window than last time, and she's free.
   tick() {
-    if (!this.auto || !this.asked || this.looking || Date.now() < this.nextAt) return;
+    if (this.paused || !this.auto || !this.asked || this.looking || Date.now() < this.nextAt) return;
     if (this.active() > ACTIVE_MS || !this.free()) return;
     const fg = this.capri.windows.fg;
     if (fg === this.lastFg && Date.now() - this.lastAt < SAME_WINDOW_MS) return;
@@ -117,10 +143,25 @@ export class Look {
   }
 
   async now({ manual = false } = {}) {
-    if (this.looking) return;
+    if (this.looking || !this.asked) return;
     this.looking = true;
     const t = this.t;
+    const request = { id: crypto.randomUUID(), cancelled: false };
+    this.activeRequest = request;
+    const shown = this.panel.say({
+      kind: 'info',
+      badge: t.active,
+      face: 'look',
+      line: t.active,
+      quote: t.activeHow,
+      actions: [{ id: 'stop-look', label: t.cancel, primary: true }],
+      onAction: () => this.stopAndDismiss(),
+      onLeave: () => {
+        if (this.activeRequest === request) this.cancelCurrent();
+      },
+    });
     try {
+      if (!shown) return;
       if (manual) {
         if (this.capri.stowed) {
           this.host.setConfig({ visible: true });
@@ -128,16 +169,26 @@ export class Look {
         }
         this.capri.wake();
       }
-      const snap = await this.host.lookSnap();
+      const snap = await this.host.lookSnap(request.id);
+      if (request.cancelled) return;
       if (!snap.ok) {
-        if (manual) this.panel.say({ kind: 'info', face: 'aside', line: fmt(t.failed, { error: snap.error }), hold: 6000 });
+        this.activeRequest = null;
+        if (snap.code === 'excluded') this.panel.say({ kind: 'info', face: 'aside', line: t.excluded, hold: 6500 });
+        else if (snap.code === 'app-not-authorized') this.panel.say({ kind: 'info', face: 'aside', line: t.notAuthorized, hold: 6500 });
+        else if (manual && snap.code !== 'consent') this.panel.say({ kind: 'info', face: 'aside', line: fmt(t.failed, { error: snap.error || snap.code }), hold: 6000 });
         return;
       }
       this.lastFg = this.capri.windows.fg;
       this.lastAt = Date.now();
       this.effect();
       const res = await this.host.lookSay({ id: snap.id, persona: this.chat.lookPersona(), prompt: `${PROMPT}\n${this.chat.languageNote()}` });
+      if (request.cancelled) return;
       if (!res.ok) {
+        this.activeRequest = null;
+        if (res.code === 'stopped') {
+          this.panel.say({ kind: 'info', face: 'aside', line: t.stopped, hold: 3500 });
+          return;
+        }
         if (res.code === 'novision') {
           // her model can't see: said once, and she stops trying on her own
           this.panel.say({ kind: 'info', face: 'aside', line: fmt(t.noVision, { model: String(res.model || '…').replace(/:latest$/, '') }), hold: 9000 });
@@ -150,10 +201,14 @@ export class Look {
       const text = clean(res.text).replace(/^["“«]\s*|\s*["”»]$/g, ''); // no quotes around what she says
       if (!text) return;
       this.chat.seen = { text, at: Date.now() };
+      this.activeRequest = null;
       this.panel.say({ kind: 'info', badge: 'SCAN', face: mood(text), line: text, hold: Math.min(13000, Math.max(5000, 2500 + text.length * 55)) });
+    } catch (err) {
+      this.activeRequest = null;
+      if (!request.cancelled) this.panel.say({ kind: 'error', face: 'aside', line: fmt(t.failed, { error: err.message }), hold: 7000 });
     } finally {
+      if (this.activeRequest === request) this.activeRequest = null;
       this.looking = false;
     }
   }
 }
-

@@ -176,6 +176,32 @@ test('installer preserves other hooks, is idempotent, backs up, and uninstalls o
   }
 });
 
+test('automatic assistant selection keeps Antigravity when it is the active watcher', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-agy-'));
+  const oldCodex = process.env.CODEX_HOME;
+  const oldAgy = process.env.AGY_CONFIG_DIR;
+  process.env.CODEX_HOME = path.join(dir, 'no-codex');
+  process.env.AGY_CONFIG_DIR = dir;
+  try {
+    fs.mkdirSync(path.join(dir, 'config'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'hooks.json'), JSON.stringify({
+      'capri-agy': {
+        enabled: true,
+        SessionStart: [{ type: 'command', command: 'node capri-agy-hook.js SessionStart' }],
+      },
+    }));
+    const agy = require('../scripts/install-hooks-agy');
+    const { assistant } = require('../src/main/assistants');
+    assert.equal(agy.status().installed, true);
+    assert.equal(assistant('auto').id, 'agy');
+    assert.equal(assistant('agy').hooks, agy);
+  } finally {
+    if (oldCodex === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = oldCodex;
+    if (oldAgy === undefined) delete process.env.AGY_CONFIG_DIR; else process.env.AGY_CONFIG_DIR = oldAgy;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('Antigravity: its events reach her as its own sessions, and its hook never decides for it', async (t) => {
   const events = [];
   const server = createBridge({ port: 0, onEvent(evt) { events.push(evt); } });

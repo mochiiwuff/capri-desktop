@@ -3,6 +3,7 @@
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
+const { once } = require('node:events');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
@@ -20,6 +21,16 @@ const setup = require('./setup');
 const apps = require('./apps');
 const system = require('./system');
 const launch = require('./launch');
+const learning = require('./learning');
+const screenExclusions = require('./screen-exclusions');
+const { createRemoteControl } = require('./remote-control');
+const selfImprovement = require('./self-improvement');
+const { createDiscordService, parseDiscordIds } = require('./discord-service');
+const { createWhatsAppService, parseWhatsAppSenders } = require('./whatsapp-service');
+const { createMessagingCommandHandler } = require('./messaging-commands');
+const { createMessagingNotifications } = require('./messaging-notifications');
+const { parseNotificationPreferences } = require('./messaging');
+const { checkForUpdate } = require('./update-check');
 const files = require('./files');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
@@ -42,6 +53,10 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+let activityTimer = null;
+let remoteControl = null;
+let foregroundApp = null;
+let foregroundTitle = '';
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
@@ -50,8 +65,51 @@ let chatErrorCode = null; // 'nokey' or 'nourl': what her setup should ask for
 // Ollama's cloud, as last seen: your account ({ name } or { signin }) and the models free with it
 let cloud = { at: 0, account: null, free: [] };
 const chats = new Map(); // id -> AbortController of an answer being streamed
+const handleMessagingCommand = createMessagingCommandHandler({
+  getConfig: () => config.load(),
+  updateConfig,
+});
+const discordService = createDiscordService({
+  getSettings: () => {
+    const cfg = config.load();
+    return { enabled: cfg.messagingEnabled === true, discord: cfg.messaging?.discord };
+  },
+  decryptToken: (encryptedToken) => setup.openKeys({ token: encryptedToken }).token,
+  onCommand: handleMessagingCommand,
+  onStatus: (status) => {
+    rebuildTray();
+    if (status === 'error') console.error('[capri] Discord Gateway reported a connection error');
+  },
+});
+const whatsappService = createWhatsAppService({
+  getSettings: () => ({ whatsapp: config.load().messaging?.whatsapp }),
+  decryptSecret: (encryptedSecret) => setup.openKeys({ secret: encryptedSecret }).secret,
+  onCommand: handleMessagingCommand,
+  onStatus: (status) => {
+    rebuildTray();
+    if (status === 'error') console.error('[capri] WhatsApp webhook failed to start');
+  },
+});
+const messagingNotifications = createMessagingNotifications({
+  getConfig: () => config.load(),
+  updateConfig: (patch) => updateConfig(patch),
+  sendDiscord: (text) => discordService.sendNotification(text),
+  sendWhatsApp: (text) => whatsappService.sendNotification(text),
+  getMessage: (event) => {
+    const messages = {
+      UserPromptSubmit: 'notificationStarted',
+      Stop: 'notificationCompleted',
+      StopFailure: 'notificationFailed',
+      PostToolUseFailure: 'notificationFailed',
+      Notification: 'notificationApproval',
+    };
+    return TRAY[resolveLang(config.load().lang)][messages[event]];
+  },
+});
 
 const userSoundsDir = () => path.join(app.getPath('userData'), 'sounds');
+const selfImprovementHistoryFile = () => path.join(app.getPath('userData'), 'self-improvement-test-history.json');
+const selfImprovementStorageDir = () => path.join(app.getPath('userData'), 'self-improvement');
 
 // Her memory of your chats, across restarts: { history: [{ role, content }], claude: Claude Code's session }
 const memoryFile = () => path.join(app.getPath('userData'), 'memory.json');
@@ -61,6 +119,14 @@ function readMemory() {
   } catch {
     return {};
   }
+}
+
+function learningSnapshot(cfg = config.load()) {
+  return {
+    ...learning.readState(cfg.learning),
+    enabled: cfg.learningEnabled === true && cfg.privacyPaused !== true,
+    facts: learning.acceptedConversationFacts(cfg.learningEntries),
+  };
 }
 function saveMemory(patch) {
   try {
@@ -73,6 +139,274 @@ function forgetChats() {
   llm.resetClaude();
   saveMemory({ history: [], claude: null });
   sendCommand('forget');
+}
+
+async function openRemoteControl() {
+  if (!remoteControl) {
+    remoteControl = createRemoteControl({
+      staticDir: path.join(ROOT, 'src', 'renderer', 'remote'),
+      getState: () => {
+        const cfg = config.load();
+        const state = learningSnapshot(cfg);
+        const memory = {
+          facts: state.facts,
+          apps: Object.values(state.activity.apps)
+            .map(({ label, totalMs }) => ({ label, ...formatActivityDuration(totalMs) }))
+            .sort((a, b) => b.durationMinutes - a.durationMinutes)
+            .map(({ label, duration }) => ({ label, duration })),
+          routines: state.activity.routines.map(({ routine, count }) => ({ routine, count })),
+        };
+        return {
+          status: {
+            learningEnabled: state.enabled,
+            activityEnabled: cfg.activityLearning === true && cfg.privacyPaused !== true,
+            screenEnabled: cfg.watchScreen === true && cfg.privacyPaused !== true,
+            screenAuthorized: cfg.lookAsked === true,
+            privacyPaused: cfg.privacyPaused === true,
+            assistant: activeAssistant().name,
+          },
+          memory,
+        };
+      },
+      control: async (action) => {
+        switch (action) {
+          case 'learning.pause':
+          case 'learning.resume': {
+            updateConfig({ learningEnabled: action === 'learning.resume' });
+            return { ok: true };
+          }
+          case 'privacy.pause':
+          case 'privacy.resume':
+            updateConfig({ privacyPaused: action === 'privacy.pause' });
+            return { ok: true };
+          case 'activity.pause':
+            updateConfig({ activityLearning: false });
+            return { ok: true };
+          case 'activity.resume':
+            updateConfig({ activityLearning: true });
+            return { ok: true };
+          case 'screen.pause':
+            updateConfig({ watchScreen: false });
+            return { ok: true };
+          case 'screen.resume':
+            if (config.load().lookAsked !== true) return { ok: false, error: 'screen permission must first be granted at the desktop' };
+            updateConfig({ watchScreen: true });
+            return { ok: true };
+          case 'screen.revoke':
+            updateConfig({ watchScreen: false, lookAsked: false });
+            return { ok: true };
+          default:
+            return { ok: false, error: 'unsupported action' };
+        }
+      },
+    });
+    await once(remoteControl.server, 'listening');
+  }
+  await shell.openExternal(remoteControl.url);
+}
+
+async function showProjectReview() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const review = await selfImprovement.analyzeProject(ROOT);
+  const pending = review.backlog.filter((item) => !item.done);
+  const details = [
+    `${review.projectName} ${review.version}`,
+    `${t.projectTests}: ${review.testFiles.length}`,
+    `${t.backlogLabel}: ${pending.length}`,
+    ...(pending.length ? pending.slice(0, 8).map((item) => `• ${item.title}`) : [t.noBacklog]),
+    ...(review.missingDocs.length ? [`${t.missingDocs}: ${review.missingDocs.join(', ')}`] : []),
+    t.readOnlyReview,
+  ].join('\n');
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.projectReviewTitle,
+    message: t.projectReviewMessage,
+    detail: details,
+    buttons: [t.ok],
+  });
+}
+
+async function showSourceReview() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const result = await selfImprovement.analyzeSource(ROOT);
+  const findings = [
+    ...result.syntaxErrors.map((item) => `${item.file}\n${item.output.slice(0, 600)}`),
+    ...result.unresolvedImports.map((item) => `${item.file}:${item.line} · ${t.unresolvedImport}: ${item.specifier}\n${item.text}`),
+    ...result.importCycles.map((cycle) => `${t.importCycle}: ${cycle.files.join(' ↔ ')}\n${cycle.edges.map((edge) => `${edge.from}:${edge.line} → ${edge.to}`).join('\n')}`),
+    ...result.unreferencedModules.map((item) => `${t.unreferencedModule}: ${item.file}\n${item.reason}`),
+    ...result.maintenanceMarkers.map((item) => `${item.file}:${item.line} · ${item.marker} · ${item.text}`),
+  ];
+  const detail = [
+    `${t.sourceFiles}: ${result.filesScanned}`,
+    `${t.syntaxIssues}: ${result.syntaxErrors.length}`,
+    `${t.unresolvedImports}: ${result.unresolvedImports.length}`,
+    `${t.importCycles}: ${result.importCycles.length}`,
+    `${t.unreferencedModules}: ${result.unreferencedModules.length}`,
+    `${t.maintenanceMarkers}: ${result.maintenanceMarkers.length}`,
+    ...(result.suggestions.length ? [
+      t.evidenceSuggestions,
+      ...result.suggestions.map((suggestion) => (
+        `${t.sourceSuggestionActions[suggestion.actionKey]} (${suggestion.findingCount})\n`
+        + suggestion.evidence.map((item) => (
+          `${item.file}${item.line ? `:${item.line}` : ''} · ${item.detail}`
+        )).join('\n')
+      )),
+    ] : []),
+    ...(findings.length ? findings.slice(0, 20) : [t.noSourceFindings]),
+    ...(findings.length > 20 ? [`${t.moreFindings}: ${findings.length - 20}`] : []),
+    t.localAnalysisNote,
+  ].join('\n\n');
+  await dialog.showMessageBox(overlay, {
+    type: result.syntaxErrors.length ? 'warning' : 'info',
+    title: t.sourceReviewTitle,
+    message: t.sourceReviewMessage,
+    detail,
+    buttons: [t.ok],
+  });
+}
+
+async function runProjectChecks() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.runTestsTitle,
+    message: t.runTestsPrompt,
+    detail: `${t.testsOnlyNote}\n\n${t.testHistoryNote}`,
+    buttons: [t.runProjectTests, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const result = await selfImprovement.runProjectTests(ROOT);
+  let comparison = null;
+  let historyError = null;
+  try {
+    comparison = await selfImprovement.recordTestRun(selfImprovementHistoryFile(), result);
+  } catch (err) {
+    historyError = err;
+    console.error('[capri] could not save local test history:', err.message);
+  }
+  const summaryLine = t.testSummary(result.summary || {});
+  const previousLine = comparison?.previous
+    ? t.previousTestSummary(t.testSummary(comparison.previous.summary))
+    : t.firstTestRun;
+  const comparisonLine = comparison ? t.testComparison[comparison.comparison] : t.testHistoryUnavailable;
+  const detail = [
+    result.error,
+    summaryLine,
+    previousLine,
+    comparisonLine,
+    historyError ? `${t.testHistorySaveFailed}: ${historyError.message}` : '',
+    result.output || '',
+  ].filter(Boolean).join('\n\n');
+  await dialog.showMessageBox(overlay, {
+    type: result.ok ? 'info' : 'warning',
+    title: t.runTestsTitle,
+    message: result.timedOut ? t.testsTimedOut : result.ok ? t.testsPassed
+      : comparison?.comparison === 'regression' ? t.testsRegression : t.testsFailed,
+    detail: detail || t.noTestOutput,
+    buttons: [t.ok],
+  });
+}
+
+async function reviewLocalPatch() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const selection = await dialog.showOpenDialog(overlay, {
+    title: t.choosePatch,
+    properties: ['openFile'],
+    filters: [{ name: 'Capri patch proposal', extensions: ['json'] }],
+  });
+  if (selection.canceled || !selection.filePaths[0]) return;
+
+  const stat = await fs.promises.lstat(selection.filePaths[0]);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 128 * 1024) {
+    throw new Error(t.invalidPatchFile);
+  }
+  let patch;
+  try {
+    patch = JSON.parse(await fs.promises.readFile(selection.filePaths[0], 'utf8'));
+  } catch (err) {
+    throw new Error(`${t.invalidPatchFile}: ${err.message}`);
+  }
+
+  const preview = await selfImprovement.prepareReviewedChange(ROOT, patch);
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.reviewPatchTitle,
+    message: t.reviewPatchPrompt(preview.relativePath),
+    detail: `${t.patchConfirmNote}\nSHA-256: ${preview.currentSha256}\n\n${preview.diff}`,
+    buttons: [t.applyPatch, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const applied = await selfImprovement.applyReviewedChange(ROOT, selfImprovementStorageDir(), patch);
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.patchAppliedTitle,
+    message: t.patchAppliedMessage(applied.relativePath),
+    detail: `${t.changeId}: ${applied.id}`,
+    buttons: [t.ok],
+  });
+}
+
+async function undoLatestLocalPatch() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  const changes = await selfImprovement.listReversibleChanges(selfImprovementStorageDir());
+  const latest = changes[0];
+  if (!latest) {
+    await dialog.showMessageBox(overlay, {
+      type: 'info', title: t.undoPatchTitle, message: t.noReversibleChanges, buttons: [t.ok],
+    });
+    return;
+  }
+
+  const preview = await selfImprovement.prepareChangeRevert(ROOT, selfImprovementStorageDir(), latest.id);
+  const confirmation = await dialog.showMessageBox(overlay, {
+    type: 'warning',
+    title: t.undoPatchTitle,
+    message: t.undoPatchPrompt(preview.relativePath),
+    detail: `${t.undoPatchNote}\n${t.changeId}: ${latest.id}\n\n${preview.diff}`,
+    buttons: [t.undoPatch, t.cancel],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (confirmation.response !== 0) return;
+
+  const reverted = await selfImprovement.revertReviewedChange(ROOT, selfImprovementStorageDir(), latest.id);
+  await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.undoPatchTitle,
+    message: t.patchRevertedMessage(reverted.relativePath),
+    buttons: [t.ok],
+  });
+}
+
+async function showProjectToolError(err) {
+  const t = TRAY[resolveLang(config.load().lang)];
+  console.error('[capri] project self-review failed:', err.message);
+  await dialog.showMessageBox(overlay, {
+    type: 'error',
+    title: t.selfImprove,
+    message: err.message,
+    buttons: [t.ok],
+  });
+}
+
+function formatActivityDuration(totalMs) {
+  const minutes = Math.round(Number(totalMs || 0) / 60000);
+  const durationMinutes = Number.isFinite(minutes) ? minutes : 0;
+  return {
+    durationMinutes,
+    duration: durationMinutes >= 60
+      ? `${Math.floor(durationMinutes / 60)} h ${durationMinutes % 60} min`
+      : `${durationMinutes} min`,
+  };
 }
 
 // capri://app/...        -> files of this repo
@@ -281,20 +615,173 @@ function resolveLang(setting) {
 
 // What the overlay gets: `lang` is the resolved one, `langSetting` what the user picked.
 function rendererConfig() {
-  const { apiKeys, ...cfg } = config.load(); // the keys stay here: the overlay only learns which ones are set
-  return { ...cfg, keys: Object.keys(apiKeys || {}), assistant: activeAssistant().id, lang: resolveLang(cfg.lang), langSetting: cfg.lang, floorGap: overlayArea().gap };
+  const { apiKeys, messaging, messagingEnabled, ...cfg } = config.load(); // secrets and allowlists stay in the main process
+  const discord = messaging?.discord || {};
+  return {
+    ...cfg,
+    closePages: config.closePagesEnabled(cfg),
+    keys: Object.keys(apiKeys || {}),
+    messaging: {
+      enabled: messagingEnabled === true,
+      discordConfigured: typeof discord.encryptedToken === 'string' && discord.encryptedToken.startsWith('enc:'),
+      discordConnected: discordService.connected,
+    },
+    assistant: activeAssistant().id,
+    lang: resolveLang(cfg.lang),
+    langSetting: cfg.lang,
+    floorGap: overlayArea().gap,
+  };
 }
 
 function updateConfig(patch) {
-  config.save(patch);
+  let changes = patch;
+  if ('privacyPaused' in patch && typeof patch.privacyPaused !== 'boolean') {
+    throw new TypeError('Privacy pause must be a boolean');
+  }
+  if ('activityExcludeApps' in patch) {
+    if (!Array.isArray(patch.activityExcludeApps)) throw new TypeError('Activity app exclusions must be a list');
+    changes = {
+      ...changes,
+      activityExcludeApps: screenExclusions.normalizeRules(patch.activityExcludeApps),
+    };
+  }
+  if ('privacyExcludeApps' in patch) {
+    if (!Array.isArray(patch.privacyExcludeApps)) throw new TypeError('Privacy app exclusions must be a list');
+    changes = {
+      ...changes,
+      privacyExcludeApps: screenExclusions.normalizeRules(patch.privacyExcludeApps),
+    };
+  }
+  if ('activityAllowedApps' in patch) {
+    if (!Array.isArray(patch.activityAllowedApps)) throw new TypeError('Activity app permissions must be a list');
+    changes = {
+      ...changes,
+      activityAllowedApps: screenExclusions.normalizeRules(patch.activityAllowedApps),
+    };
+  }
+  if ('lookAllowedApps' in patch) {
+    if (!Array.isArray(patch.lookAllowedApps)) throw new TypeError('Screen app permissions must be a list');
+    changes = {
+      ...changes,
+      lookAllowedApps: screenExclusions.normalizeRules(patch.lookAllowedApps),
+    };
+  }
+  if ('closeAllowedApps' in patch) {
+    if (!Array.isArray(patch.closeAllowedApps)) throw new TypeError('App closing permissions must be a list');
+    changes = {
+      ...changes,
+      closeAllowedApps: screenExclusions.normalizeRules(patch.closeAllowedApps),
+    };
+  }
+  if ('lookExcludeApps' in patch || 'lookExcludeTerms' in patch) {
+    changes = {
+      ...changes,
+      ...(Array.isArray(patch.lookExcludeApps) && { lookExcludeApps: screenExclusions.normalizeRules(patch.lookExcludeApps) }),
+      ...(Array.isArray(patch.lookExcludeTerms) && { lookExcludeTerms: screenExclusions.normalizeRules(patch.lookExcludeTerms) }),
+    };
+  }
+  if (typeof patch.activityLearning === 'boolean' || typeof patch.learningEnabled === 'boolean') {
+    const state = learning.readState(config.load().learning);
+    if (typeof patch.activityLearning === 'boolean') state.activity.enabled = patch.activityLearning;
+    if (typeof patch.learningEnabled === 'boolean') state.enabled = patch.learningEnabled;
+    changes = { ...changes, learning: state };
+  }
+  config.save(changes);
+  if ((patch.lookAsked === false || patch.watchScreen === false)
+    && (Object.hasOwn(patch, 'lookAsked') || Object.hasOwn(patch, 'watchScreen'))) {
+    for (const [id, controller] of screenLooks) {
+      controller.abort();
+      snaps.delete(id);
+      screenLooks.delete(id);
+    }
+  }
+  if (patch.privacyPaused === true) {
+    foregroundApp = null;
+    for (const [id, controller] of screenLooks) {
+      controller.abort();
+      snaps.delete(id);
+      screenLooks.delete(id);
+    }
+  }
+  if ('privacyPaused' in patch) windowWatch?.refresh();
+  if ('privacyExcludeApps' in changes || 'lookExcludeApps' in changes || 'lookExcludeTerms' in changes
+    || 'lookAllowedApps' in changes) {
+    const cfg = config.load();
+    if (screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      cfg.lookExcludeTerms,
+    ) || !screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)) {
+      for (const [id, controller] of screenLooks) {
+        controller.abort();
+        snaps.delete(id);
+        screenLooks.delete(id);
+      }
+    }
+  }
   if ('rest' in patch) {
     fitOverlay(); // the taskbar in her window or not
+    windowWatch?.refresh();
+  }
+  if ('activityLearning' in patch) {
+    foregroundApp = null;
     windowWatch?.refresh();
   }
   const cfg = rendererConfig();
   overlay?.webContents.send('capri:config', cfg);
   rebuildTray();
   return cfg;
+}
+
+async function checkCapriUpdates() {
+  const t = TRAY[resolveLang(config.load().lang)];
+  let result;
+  try {
+    result = await checkForUpdate({ currentVersion: app.getVersion() });
+  } catch (error) {
+    console.error('[capri] update check failed:', error.message);
+    await dialog.showMessageBox(overlay, {
+      type: 'warning',
+      title: t.updateCheck,
+      message: t.updateCheckFailed,
+      buttons: [t.ok],
+      defaultId: 0,
+    });
+    return;
+  }
+  if (!result.updateAvailable) {
+    await dialog.showMessageBox(overlay, {
+      type: 'info',
+      title: t.updateCurrentTitle,
+      message: t.updateCurrent(result.currentVersion),
+      buttons: [t.ok],
+      defaultId: 0,
+    });
+    return;
+  }
+  const choice = await dialog.showMessageBox(overlay, {
+    type: 'info',
+    title: t.updateAvailableTitle,
+    message: t.updateAvailable(result.latestVersion),
+    detail: t.updateCurrent(result.currentVersion),
+    buttons: [t.openRelease, t.later],
+    defaultId: 1,
+    cancelId: 1,
+  });
+  if (choice.response === 0) {
+    try {
+      await shell.openExternal(result.releaseUrl);
+    } catch (error) {
+      console.error('[capri] could not open update releases page:', error.message);
+      await dialog.showMessageBox(overlay, {
+        type: 'warning',
+        title: t.updateAvailableTitle,
+        message: t.openReleaseFailed,
+        buttons: [t.ok],
+        defaultId: 0,
+      });
+    }
+  }
 }
 
 function rebuildTray() {
@@ -304,6 +791,13 @@ function rebuildTray() {
   const watched = activeAssistant();
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
     [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
+  const privacyStatus = t.privacyState(
+    cfg.privacyPaused === true,
+    cfg.learningEnabled === true,
+    cfg.activityLearning === true,
+    cfg.watchScreen === true,
+  );
+  tray.setToolTip(`Capri · ${privacyStatus}`);
 
   const screens = displays();
   const current = targetDisplay().id;
@@ -322,14 +816,62 @@ function rebuildTray() {
   const menu = Menu.buildFromTemplate([
     { label: t.online(PORT), enabled: false },
     { label: t.sync(Math.min(100, Math.floor(xp / 10)), t.stages[stage]), enabled: false },
+    { label: privacyStatus, enabled: false },
     { type: 'separator' },
     { label: t.teleport, click: () => sendCommand('teleport') },
     { label: t.satellite, click: () => sendCommand('satellite') },
     { label: t.demo, click: playDemo },
     { label: t.help, click: () => sendCommand('welcome') },
+    { label: t.remote, click: () => openRemoteControl().catch((err) => console.error('[capri] could not open remote dashboard:', err.message)) },
+    {
+      label: t.messaging,
+      submenu: [
+        { label: discordService.connected ? t.discordConnected : t.discordDisconnected, enabled: false },
+        { label: t.discordSetup, click: () => sendCommand('setupMessaging') },
+        { label: t.discordDisconnect, enabled: cfg.messagingEnabled === true, click: () => disconnectDiscord() },
+        { label: whatsappService.listening ? t.whatsappConnected : t.whatsappDisconnected, enabled: false },
+        { label: t.whatsappSetup, click: () => sendCommand('setupWhatsApp') },
+        {
+          label: t.whatsappDisconnect,
+          enabled: cfg.messaging?.whatsapp?.enabled === true,
+          click: () => disconnectWhatsApp().catch((err) => console.error('[capri] WhatsApp shutdown failed:', err.message)),
+        },
+        { type: 'separator' },
+        {
+          label: t.developmentNotifications,
+          type: 'checkbox',
+          checked: cfg.messaging?.notificationsEnabled === true,
+          click: (item) => saveMessagingSettings({ notificationsEnabled: item.checked }),
+        },
+        {
+          label: t.pauseNotifications,
+          type: 'checkbox',
+          checked: cfg.messaging?.notificationsPaused === true,
+          click: (item) => saveMessagingSettings({ notificationsPaused: item.checked }),
+        },
+        { label: t.notificationPreferences, click: () => sendCommand('setupNotifications') },
+      ],
+    },
+    {
+      label: t.selfImprove,
+      submenu: [
+        { label: t.reviewProject, click: () => showProjectReview().catch(showProjectToolError) },
+        { label: t.reviewSource, click: () => showSourceReview().catch(showProjectToolError) },
+        { label: t.runProjectTests, click: () => runProjectChecks().catch(showProjectToolError) },
+        { type: 'separator' },
+        { label: t.reviewPatch, click: () => reviewLocalPatch().catch(showProjectToolError) },
+        { label: t.undoPatch, click: () => undoLatestLocalPatch().catch(showProjectToolError) },
+      ],
+    },
+    { label: t.updateCheck, click: () => checkCapriUpdates().catch((err) => console.error('[capri] update dialog failed:', err.message)) },
     ...(cfg.claude ? [{ label: t.report, click: () => sendCommand('report') }] : []),
+    { label: t.memory, click: () => sendCommand('memory') },
     { label: t.talk, click: () => sendCommand('chat') },
     { label: t.lookNow, click: () => sendCommand('look') },
+    { label: t.learning, type: 'checkbox', checked: cfg.learningEnabled === true, click: (item) => updateConfig({ learningEnabled: item.checked }) },
+    { label: t.privacyPause, type: 'checkbox', checked: cfg.privacyPaused === true, click: (item) => updateConfig({ privacyPaused: item.checked }) },
+    { label: t.learningReview, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningReview') },
+    { label: t.learningForget, enabled: (cfg.learningEntries || []).length > 0, click: () => sendCommand('learningForget') },
     {
       label: t.reminders,
       submenu: reminders.length
@@ -359,6 +901,15 @@ function rebuildTray() {
             fs.mkdirSync(userSoundsDir(), { recursive: true });
             shell.openPath(userSoundsDir());
           },
+        },
+        { label: t.lookExclusions, click: () => sendCommand('lookExclusions') },
+        { label: t.lookAllowedApps, click: () => sendCommand('lookAllowedApps') },
+        { label: t.closeAllowedApps, click: () => sendCommand('closeAllowedApps') },
+        { label: t.privacyExclusions, click: () => sendCommand('privacyExclusions') },
+        {
+          label: t.lookRevoke,
+          enabled: cfg.lookAsked === true,
+          click: () => sendCommand('revokeScreen'),
         },
       ],
     },
@@ -417,8 +968,10 @@ function rebuildTray() {
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
     { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
     {
-      label: t.closePages, type: 'checkbox', checked: cfg.closePages !== false, enabled: cfg.jealous !== false,
-      click: (item) => updateConfig({ closePages: item.checked }),
+      label: t.closePages, type: 'checkbox',
+      checked: config.closePagesEnabled(cfg),
+      enabled: cfg.jealous !== false,
+      click: (item) => updateConfig({ closePages: item.checked, closePagesAuthorized: true }),
     },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
     { label: t.breaks, type: 'checkbox', checked: cfg.breaks !== false, click: (item) => updateConfig({ breaks: item.checked }) },
@@ -429,6 +982,19 @@ function rebuildTray() {
         sendCommand('watchScreen', { on: item.checked });
         rebuildTray(); // as it is until she's asked
       },
+    },
+    {
+      label: t.activityLearning,
+      submenu: [
+        {
+          label: t.activityLearning,
+          type: 'checkbox',
+          checked: cfg.activityLearning === true,
+          click: (item) => updateConfig({ activityLearning: item.checked }),
+        },
+        { label: t.activityAllowedApps, click: () => sendCommand('activityAllowedApps') },
+        { label: t.activityExclusions, click: () => sendCommand('activityExclusions') },
+      ],
     },
     {
       label: t.rest,
@@ -614,12 +1180,14 @@ async function chatWithFallback(cfg, messages, send, signal, streamed) {
 // She looks at your screen (look.js): a picture of the screen she's on, kept here in memory a moment
 // for her AI to look at, never written anywhere. 1280 px wide at most: enough to read, light to send.
 const snaps = new Map(); // id -> the picture, base64 JPEG
-async function snapScreen() {
+const screenLooks = new Map(); // request id -> abort controller
+async function snapScreen(signal) {
   const d = targetDisplay();
   const k = d.scaleFactor || 1;
   const fit = Math.min(1, 1280 / (d.bounds.width * k));
   const size = { width: Math.round(d.bounds.width * k * fit), height: Math.round(d.bounds.height * k * fit) };
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+  if (signal.aborted) throw new DOMException('Screen capture cancelled', 'AbortError');
   const src = sources.find((s) => s.display_id === String(d.id)) || sources[0];
   if (!src || src.thumbnail.isEmpty()) throw new Error('no picture of the screen');
   return src.thumbnail.toJPEG(72).toString('base64');
@@ -627,11 +1195,19 @@ async function snapScreen() {
 
 // What her AI says about that picture, as her (`persona`), asked `prompt`. With a code when it can't:
 // 'noai' (nothing to ask), 'novision' (that model can't look at pictures).
-async function sayAboutSnap({ id, persona, prompt, history = [] }) {
+async function sayAboutSnap({ id, persona, prompt, history = [] }, signal) {
   const image = snaps.get(id);
   snaps.delete(id);
   if (!image) return { ok: false, error: 'the picture is gone' };
   const cfg = config.load();
+  if (signal.aborted || cfg.lookAsked !== true || cfg.privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+  if (!screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)
+    || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+    || screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      cfg.lookExcludeTerms,
+    )) return { ok: false, error: 'screen analysis cancelled', code: 'excluded' };
   if (!chatModels?.length) await refreshModels();
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
@@ -645,7 +1221,16 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   const messages = [{ role: 'system', content: persona }, ...before, user];
   for (let attempt = 0; ; attempt++) {
     try {
-      const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.timeout(120000));
+      const current = config.load();
+      if (signal.aborted || current.lookAsked !== true || current.privacyPaused === true) return { ok: false, error: 'screen analysis cancelled', code: 'stopped' };
+      if (!screenExclusions.isAppAllowed(foregroundApp, current.lookAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+        || screenExclusions.isExcluded(
+          { app: foregroundApp, title: foregroundTitle },
+          [...(current.lookExcludeApps || []), ...(current.privacyExcludeApps || [])],
+          current.lookExcludeTerms,
+        )) return { ok: false, error: 'screen analysis cancelled', code: 'excluded' };
+      const text = await llm.chat(cfg.provider, llmConfig(cfg), { model, messages }, () => {}, AbortSignal.any([signal, AbortSignal.timeout(120000)]));
       return { ok: true, text, model };
     } catch (err) {
       if (err.code === 'busy' && attempt === 0) {
@@ -675,6 +1260,23 @@ async function pickClaudeFolder() {
   llm.resetClaude(); // a new folder, a new Claude Code conversation (hers goes on)
   saveMemory({ claude: null });
   updateConfig({ claudeCwd: filePaths[0] });
+}
+
+function saveMessagingSettings(patch) {
+  const messaging = config.load().messaging || {};
+  updateConfig({ messaging: { ...messaging, ...patch } });
+  rebuildTray();
+}
+
+function disconnectDiscord() {
+  discordService.stop();
+  updateConfig({ messagingEnabled: false });
+}
+
+function disconnectWhatsApp() {
+  const messaging = config.load().messaging || {};
+  updateConfig({ messaging: { ...messaging, whatsapp: { ...messaging.whatsapp, enabled: false } } });
+  return whatsappService.stop();
 }
 
 function createTray() {
@@ -715,7 +1317,114 @@ function registerIpc() {
   });
   ipcMain.handle('config:get', () => rendererConfig());
   ipcMain.handle('hooks:status', () => activeHooks().status());
-  ipcMain.handle('config:set', (_e, patch) => updateConfig(patch));
+  ipcMain.handle('config:set', (_e, patch) => {
+    const { messaging: _messaging, messagingEnabled: _messagingEnabled, ...safePatch } = patch || {};
+    return updateConfig(safePatch);
+  });
+  ipcMain.handle('messaging:status', () => ({
+    enabled: config.load().messagingEnabled === true,
+    discordConnected: discordService.connected,
+    discordConfigured: Boolean(config.load().messaging?.discord?.encryptedToken?.startsWith('enc:')),
+    whatsappListening: whatsappService.listening,
+    whatsappEnabled: config.load().messaging?.whatsapp?.enabled === true,
+  }));
+  ipcMain.handle('messaging:configureNotifications', (_e, request = {}) => {
+    const preferences = parseNotificationPreferences(request);
+    if (!preferences) return { ok: false, error: 'invalid-notification-preferences' };
+    saveMessagingSettings(preferences);
+    return { ok: true };
+  });
+  ipcMain.handle('messaging:configureDiscord', async (_e, request = {}) => {
+    const token = typeof request.token === 'string' ? request.token.trim() : '';
+    if (!token || token.length > 512) return { ok: false, error: 'Enter a valid Discord bot token' };
+    if (!setup.canEncryptSecrets()) return { ok: false, error: 'Secure credential storage is unavailable on this device' };
+    let authorizedUsers;
+    let authorizedChannels;
+    try {
+      authorizedUsers = parseDiscordIds(request.authorizedUsers, 'Authorized users');
+      authorizedChannels = parseDiscordIds(request.authorizedChannels, 'Authorized channels');
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+    discordService.stop();
+    const before = config.load().messaging || {};
+    updateConfig({
+      messagingEnabled: true,
+      messaging: {
+        ...before,
+        discord: {
+          encryptedToken: setup.sealKey(token),
+          authorizedUsers,
+          authorizedChannels,
+        },
+      },
+    });
+    try {
+      const result = await discordService.start();
+      if (!result.ok) throw new Error(result.error);
+      return { ok: true, connected: result.connected };
+    } catch (error) {
+      discordService.stop();
+      updateConfig({ messagingEnabled: false });
+      return { ok: false, error: error.message };
+    }
+  });
+  ipcMain.handle('messaging:disconnectDiscord', () => {
+    disconnectDiscord();
+    return { ok: true };
+  });
+  ipcMain.handle('messaging:configureWhatsApp', async (_e, request = {}) => {
+    const accessToken = typeof request.accessToken === 'string' ? request.accessToken.trim() : '';
+    const appSecret = typeof request.appSecret === 'string' ? request.appSecret.trim() : '';
+    const verifyToken = typeof request.verifyToken === 'string' ? request.verifyToken.trim() : '';
+    const phoneNumberId = typeof request.phoneNumberId === 'string' ? request.phoneNumberId.trim() : '';
+    let authorizedSenders;
+    try {
+      authorizedSenders = parseWhatsAppSenders(request.authorizedSenders);
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+    const port = Number(request.port ?? 47824);
+    if (!setup.canEncryptSecrets()) return { ok: false, error: 'Secure credential storage is unavailable on this device' };
+    if (!accessToken || accessToken.length > 4096 || !appSecret || appSecret.length > 512
+      || !verifyToken || verifyToken.length > 512 || !/^\d{8,24}$/.test(phoneNumberId)
+      || !Number.isInteger(port) || port < 1024 || port > 65535) {
+      return { ok: false, error: 'Provide valid WhatsApp API credentials, authorized phone numbers, and a local port' };
+    }
+    await whatsappService.stop();
+    const messaging = config.load().messaging || {};
+    const before = messaging.whatsapp || {};
+    updateConfig({
+      messaging: {
+        ...messaging,
+        whatsapp: {
+          ...before,
+          enabled: true,
+          encryptedAccessToken: setup.sealKey(accessToken),
+          encryptedAppSecret: setup.sealKey(appSecret),
+          encryptedVerifyToken: setup.sealKey(verifyToken),
+          phoneNumberId,
+          authorizedSenders,
+          graphVersion: 'v23.0',
+          port,
+        },
+      },
+    });
+    try {
+      const result = await whatsappService.start();
+      if (!result.ok) throw new Error(result.error);
+      return { ...result, publicWebhookRequired: true };
+    } catch (error) {
+      await whatsappService.stop().catch((stopError) => console.error('[capri] WhatsApp cleanup failed:', stopError.message));
+      const current = config.load().messaging || {};
+      updateConfig({ messaging: { ...current, whatsapp: { ...current.whatsapp, enabled: false } } });
+      return { ok: false, error: error.message };
+    }
+  });
+  ipcMain.handle('messaging:disconnectWhatsApp', async () => {
+    await disconnectWhatsApp();
+    return { ok: true };
+  });
   ipcMain.handle('demo:window', (_e, open) => demoWindow(open));
   // right-clicking her: the same menu as the tray icon (which Windows often hides behind the ^ by the clock)
   ipcMain.on('menu:open', () => trayMenu?.popup({ window: overlay }));
@@ -759,17 +1468,67 @@ function registerIpc() {
   });
   ipcMain.on('chat:stop', (_e, id) => chats.get(id)?.abort());
   // she looks at your screen (look.js): the picture first, then what her AI says about it
-  ipcMain.handle('look:snap', async () => {
+  ipcMain.handle('look:snap', async (_e, id) => {
+    const cfg = config.load();
+    if (cfg.privacyPaused === true) return { ok: false, code: 'paused' };
+    if (cfg.lookAsked !== true) return { ok: false, code: 'consent' };
+    if (!screenExclusions.isAppAllowed(foregroundApp, cfg.lookAllowedApps)) return { ok: false, code: 'app-not-authorized' };
+    if (screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+      || screenExclusions.isExcluded(
+      { app: foregroundApp, title: foregroundTitle },
+      [...(cfg.lookExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      cfg.lookExcludeTerms,
+    )) return { ok: false, code: 'excluded' };
+    if (typeof id !== 'string' || !/^[\w-]{1,80}$/.test(id)) return { ok: false, error: 'invalid capture request' };
+    const controller = new AbortController();
+    screenLooks.set(id, controller);
+    rebuildTray();
     try {
-      const id = randomUUID();
-      snaps.set(id, await snapScreen());
-      setTimeout(() => snaps.delete(id), 120000);
+      const image = await snapScreen(controller.signal);
+      if (controller.signal.aborted) {
+        screenLooks.delete(id);
+        rebuildTray();
+        return { ok: false, code: 'stopped' };
+      }
+      const current = config.load();
+      if (current.privacyPaused === true || current.lookAsked !== true) return { ok: false, code: 'stopped' };
+      if (!screenExclusions.isAppAllowed(foregroundApp, current.lookAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })
+        || screenExclusions.isExcluded(
+          { app: foregroundApp, title: foregroundTitle },
+          [...(current.lookExcludeApps || []), ...(current.privacyExcludeApps || [])],
+          current.lookExcludeTerms,
+        )) return { ok: false, code: 'excluded' };
+      snaps.set(id, image);
+      setTimeout(() => {
+        snaps.delete(id);
+        if (screenLooks.delete(id)) rebuildTray();
+      }, 120000);
       return { ok: true, id };
     } catch (err) {
+      screenLooks.delete(id);
+      rebuildTray();
+      if (controller.signal.aborted) return { ok: false, code: 'stopped' };
       return { ok: false, error: err.message };
     }
   });
-  ipcMain.handle('look:say', (_e, request) => sayAboutSnap(request || {}));
+  ipcMain.handle('look:say', async (_e, request) => {
+    const controller = screenLooks.get(request?.id);
+    if (!controller) return { ok: false, error: 'the capture request is gone' };
+    try {
+      return await sayAboutSnap(request || {}, controller.signal);
+    } finally {
+      screenLooks.delete(request.id);
+      snaps.delete(request.id);
+      rebuildTray();
+    }
+  });
+  ipcMain.on('look:stop', (_e, id) => {
+    screenLooks.get(id)?.abort();
+    screenLooks.delete(id);
+    snaps.delete(id);
+    rebuildTray();
+  });
   // how hard the processor works, in %, since the last time she asked (pc.js)
   let cpuBefore = null;
   ipcMain.handle('pc:cpu', () => {
@@ -793,6 +1552,17 @@ function registerIpc() {
   });
   ipcMain.handle('chat:memory', () => readMemory().history || []);
   ipcMain.on('chat:remember', (_e, history) => Array.isArray(history) && saveMemory({ history }));
+  ipcMain.handle('learning:read', () => learningSnapshot());
+  ipcMain.handle('activity:read', () => {
+    const state = learning.readState(config.load().learning).activity;
+    return { ...state, enabled: config.load().activityLearning === true };
+  });
+  ipcMain.handle('learning:clear', () => {
+    const cfg = config.load();
+    const next = learning.clearLearnedState(cfg.learning);
+    updateConfig({ learning: next, learningEntries: [] });
+    return next;
+  });
   ipcMain.on('chat:ollama', () => shell.openExternal(OLLAMA_SITE));
   // setting her up with buttons (setup.js): Ollama and a model, or a key, or an address
   const progress = (payload) => overlay?.webContents.send('setup:progress', payload);
@@ -845,7 +1615,12 @@ function registerIpc() {
   const appInfo = (app) => app && { name: app.process, label: app.label };
   ipcMain.handle('apps:list', async () => (await apps.list().catch(() => [])).map(appInfo));
   ipcMain.handle('apps:find', async (_e, wanted) => appInfo(await apps.find(wanted).catch(() => null)));
-  ipcMain.handle('apps:close', (_e, { name, force }) => apps.close(name, { force }).catch((err) => ({ error: err.message })));
+  ipcMain.handle('apps:close', (_e, { name, force }) => {
+    if (!screenExclusions.isAppAllowed(name, config.load().closeAllowedApps)) {
+      return { running: true, error: 'This app is not on the allowed-to-close list.' };
+    }
+    return apps.close(name, { force }).catch((err) => ({ error: err.message }));
+  });
   // opening things you ask her to (launch.js): an app or a game, your music, a website
   ipcMain.handle('apps:findLaunch', async (_e, text) => {
     const item = await launch.find(String(text || '')).catch(() => null);
@@ -1048,7 +1823,8 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
-    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    const watched = config.load().assistant;
+    if (!Object.prototype.hasOwnProperty.call(ASSISTANTS, watched)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();
@@ -1058,19 +1834,59 @@ function main() {
       onUpdate: (data) => {
         // a click on the taskbar brings it up over her: sitting on it, her legs would vanish behind it
         if (data.taskbar && !lastWindows?.taskbar && config.load().rest === 'taskbar') raiseOverlay();
-        lastWindows = data;
-        overlay?.webContents.send('windows:update', data);
+        foregroundApp = typeof data.app === 'string' ? data.app : null;
+        foregroundTitle = typeof data.title === 'string' ? data.title : '';
+        const windowData = { ...data };
+        delete windowData.app;
+        delete windowData.title;
+        lastWindows = windowData;
+        overlay?.webContents.send('windows:update', windowData);
       },
     });
+    activityTimer = setInterval(() => {
+      const cfg = config.load();
+      if (cfg.privacyPaused === true || cfg.activityLearning !== true || !foregroundApp
+        || !screenExclusions.isAppAllowed(foregroundApp, cfg.activityAllowedApps)
+        || screenExclusions.isSensitiveWindow({ app: foregroundApp, title: foregroundTitle })) return;
+      const state = learning.readState(cfg.learning);
+      state.activity.enabled = true;
+      const next = learning.ingestWindowActivity(
+        { app: foregroundApp },
+        state,
+        15000,
+        [...(cfg.activityExcludeApps || []), ...(cfg.privacyExcludeApps || [])],
+      );
+      config.save({ learning: next });
+    }, 15000);
     createBridge({
       port: PORT,
       // her own Claude Code chat's hooks would cover its answer with theirs
-      onEvent: (evt) => !llm.isChatSession(evt.session_id) && overlay?.webContents.send('claude:event', evt),
+      onEvent: (evt) => {
+        if (llm.isChatSession(evt.session_id)) return;
+        if (!evt.demo) {
+          const source = /^(codex|agy):/.exec(String(evt.session_id || ''))?.[1] || 'claude';
+          if (source === activeAssistant().id) {
+            messagingNotifications.notify(evt.hook_event_name, evt.session_id)
+              .catch((err) => console.error('[capri] development notification failed:', err.message));
+          }
+        }
+        overlay?.webContents.send('claude:event', evt);
+      },
       onDebug: DEV ? debugHandler : null,
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
     llm.restoreClaude(readMemory().claude);
     refreshModels(); // for her menu's model list
+    if (config.load().messagingEnabled === true) {
+      discordService.start().catch((err) => console.error('[capri] Discord connection failed:', err.message));
+    }
+    if (config.load().messaging?.whatsapp?.enabled === true) {
+      whatsappService.start()
+        .then((result) => {
+          if (!result.ok) console.error('[capri] WhatsApp webhook was not started:', result.error);
+        })
+        .catch((err) => console.error('[capri] WhatsApp webhook failed:', err.message));
+    }
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     // a screen plugged in, unplugged, or rearranged: her window fitted again, and she learns of it
     const screensChanged = () => {
@@ -1089,7 +1905,11 @@ function main() {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    clearInterval(activityTimer);
+    discordService.stop();
+    whatsappService.stop().catch((err) => console.error('[capri] WhatsApp webhook shutdown failed:', err.message));
     windowWatch?.stop();
+    remoteControl?.close().catch((err) => console.error('[capri] could not close remote dashboard:', err.message));
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

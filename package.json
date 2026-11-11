@@ -17,6 +17,8 @@
     "hooks:agy:install": "node scripts/install-hooks-agy.js",
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
+    "test:messaging": "node --test tests/messaging.test.js tests/whatsapp-webhook.test.js",
+    "test:learning": "node --test tests/learning.test.mjs",
     "test:hooks": "node --test tests/hooks.test.js",
     "dist": "electron-builder --win"
   },
@@ -64,7 +66,7 @@
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "shortcutName": "Capri",
-      "artifactName": "Capri-Setup-${version}.${ext}"
+      "artifactName": "Capri-Setup.${ext}"
     }
   }
 }

@@ -8,6 +8,7 @@
 import { pick, fmt } from './util.js';
 import { ASSISTANT_NAMES } from './lines.js';
 import { parseReminder, parseWhen, clock } from './reminders.js';
+import { redactSensitiveTurn } from './learning.js';
 
 const REMEMBER = 20; // messages she has in mind when answering
 const KEEP = 60;     // messages she remembers across restarts (memory.json)
@@ -250,6 +251,7 @@ export class Chat {
     this.reminders = null; // the reminders she keeps (reminders.js, from app.js)
     this.bond = null;      // how close she is to you (bond.js)
     this.jealousy = null;  // and how she takes your other AIs
+    this.learning = null;  // opt-in, user-reviewed local conversation learning
     this.onMessage = null; // () => void: you said something to her
     this.waitingWhen = null; // a reminder you asked for without saying when: { text, until }
     host.onChatDelta(({ id, text }) => this.onDelta(id, text));
@@ -365,6 +367,7 @@ export class Chat {
     // what you asked for plainly happens right away (the music, the volume, an app you named): her
     // line about it comes under her answer (Claude Code, answering her chat, does things its own way)
     const asked = this.agent ? null : this.asked(text);
+    const learningCandidate = !asked ? this.learning?.propose(text) || null : null;
     if (asked?.kind === 'look') return this.sendLook(text, id);
     if (asked?.kind === 'care') return this.sendCare(asked, id);
     const early = asked && asked.kind !== 'close' ? this.doNow(asked) : null;
@@ -411,11 +414,30 @@ export class Chat {
       return;
     }
     const answer = clean(res.text) || '…';
+    const canAskLearning = learningCandidate && !tagged(res.text) && !TAG.test(res.text);
     this.warm = true;
     this.remember({ role: 'assistant', content: answer });
-    this.panel.stream(answer, { done: true });
+    const learningText = canAskLearning
+      ? fmt(this.brain.t.custom.learningAsk, {
+        kind: this.learning.kindLabel(learningCandidate.kind, this.brain.lang),
+        evidence: this.learning.evidenceLabel(learningCandidate.evidence, this.brain.lang),
+        text: learningCandidate.text,
+      })
+      : '';
+    this.panel.stream(learningText ? `${answer}\n\n${learningText}` : answer, { done: true });
     this.panel.setFace(mood(answer));
     this.panel.setChatBusy(false);
+    if (canAskLearning) {
+      this.panel.setActions([
+        { id: 'learn', label: this.brain.t.custom.add, primary: true },
+        { id: 'skip-learning', label: this.brain.t.custom.skip },
+      ], async (action) => {
+        this.panel.setActions([]);
+        if (action !== 'learn') return;
+        const saved = await this.learning.accept(learningCandidate);
+        if (saved) this.panel.stream(`${answer}\n\n${this.brain.t.custom.remembered}`, { done: true });
+      });
+    }
     if (!this.agent) this.after(res.text, answer, asked, early, text);
     this.listApps(); // fresh for the next message
   }
@@ -505,7 +527,7 @@ export class Chat {
   remember(message) {
     this.history.push(message);
     this.history = this.history.slice(-KEEP);
-    this.host.chatRemember(this.history);
+    this.host.chatRemember(redactSensitiveTurn(this.history));
   }
 
   listApps() {
@@ -1049,7 +1071,7 @@ export class Chat {
 
   // What the user made her (custom.js): their name, how they want her, what to remember.
   personal() {
-    const { userName, persona, memories = [] } = this.brain.custom || {};
+    const { userName, persona, memories = [], learningEntries = [] } = this.brain.custom || {};
     // small models mix the user up with the assistant she watches: said plainly
     const watched = this.brain.watching ? (this.brain.assistant === 'claude' ? 'Claude' : ASSISTANT_NAMES[this.brain.assistant]) : '';
     const notThem = watched ? ` Never call them "${watched}", that's their coding assistant.` : '';
@@ -1057,6 +1079,7 @@ export class Chat {
       userName ? `The user's name is ${userName}: call them that now and then.${notThem}` : notThem && `You don't know the user's name.${notThem}`,
       persona ? `How the user wants you to be, in their own words (follow it, while staying Capri): ${persona}` : '',
       memories.length ? `Things the user asked you to remember:\n${memories.map((m) => `- ${m}`).join('\n')}` : '',
+      learningEntries.length ? `User-reviewed learned notes; each is explicitly stated, corrected by the user, or an inference they reviewed. Treat the category and evidence label as part of each note:\n${learningEntries.slice(-25).map((entry) => `- ${this.learning?.kindLabel(entry.kind, this.brain.lang) || entry.kind} (${this.learning?.evidenceLabel(entry.evidence, this.brain.lang) || entry.evidence}; confidence ${Math.round((entry.confidence || 0) * 100)}%): ${entry.text}`).join('\n')}` : '',
     ].filter(Boolean);
   }
 

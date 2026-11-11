@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Capri // Remote</title>
+  <link rel="stylesheet" href="/remote.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div class="sigil" aria-hidden="true">C</div>
+      <div>
+        <p class="eyebrow">PROJECT CAPRICORN // LOCAL LINK</p>
+        <h1>Capri <span>REMOTE</span></h1>
+      </div>
+      <button id="refresh" class="icon-button" type="button" aria-label="Refresh state">↻</button>
+    </header>
+
+    <p id="notice" class="notice" role="status">Connecting to your desktop…</p>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>STATUS</h2>
+        <span id="link-state" class="state">OFFLINE</span>
+      </div>
+      <dl id="status" class="status-grid"></dl>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>PERMISSIONS</h2>
+      </div>
+      <p class="hint">Changes are sent to Capri on this computer. Screen permission can only be granted at the desktop.</p>
+      <div class="controls">
+        <button type="button" class="danger" data-action="privacy.pause">Pause all learning and observation</button>
+        <button type="button" data-action="privacy.resume">Resume authorized learning</button>
+        <button type="button" data-action="learning.pause">Pause learning</button>
+        <button type="button" data-action="learning.resume">Resume learning</button>
+        <button type="button" data-action="activity.pause">Pause activity</button>
+        <button type="button" data-action="activity.resume">Resume activity</button>
+        <button type="button" data-action="screen.pause">Pause screen checks</button>
+        <button type="button" data-action="screen.resume">Resume screen checks</button>
+        <button type="button" class="danger" data-action="screen.revoke">Revoke screen permission</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2 id="report-title">REPORT</h2>
+        <button id="report-refresh" class="text-button" type="button">Generate</button>
+      </div>
+      <div id="report" class="report-grid">
+        <p class="hint">Generate a current summary of Capri’s status and learned activity.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2 id="notifications-title">NOTIFICATIONS</h2>
+        <button id="notifications-refresh" class="text-button" type="button">Refresh</button>
+      </div>
+      <div id="notifications" class="notification-list">
+        <p class="hint">Recent remote control actions appear here while this Capri session is running.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>LEARNED MEMORY</h2>
+        <button id="memory-refresh" class="text-button" type="button">Refresh</button>
+      </div>
+      <div id="memory" class="memory-list">
+        <p class="hint">Memory is only shown after the secure local link is authenticated.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2 id="mobile-title">ANDROID ACCESS</h2>
+      </div>
+      <p id="mobile-hint" class="hint">On Windows, run tailscale serve --bg http://127.0.0.1:&lt;port&gt; using the port in this dashboard’s address, then get the HTTPS address with tailscale serve status. Open it only from Android in the same private tailnet. Keep the generated link secret.</p>
+      <label id="mobile-label" class="field-label" for="tailnet-origin">Tailscale HTTPS address</label>
+      <div class="mobile-link">
+        <input id="tailnet-origin" type="url" inputmode="url" autocomplete="off" placeholder="https://desktop.example.ts.net">
+        <button id="copy-mobile-link" type="button">Copy Android link</button>
+      </div>
+    </section>
+
+    <footer>
+      <span>LOOPBACK LISTENER · TAILSCALE HTTPS PROXY ONLY</span>
+      <span>THE ACCESS LINK CONTAINS A PRIVATE TOKEN — DO NOT SHARE IT</span>
+    </footer>
+  </main>
+  <script src="/remote.js" defer></script>
+</body>
+</html>
